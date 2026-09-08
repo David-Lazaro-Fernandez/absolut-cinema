@@ -4,24 +4,24 @@ gatherUsageStats = false
 [server]
 headless = true
 
-# Guía de marca Cinemex: ver DESIGN.md. Las fuentes se cargan desde Google Fonts en app.py.
+# Paleta y tipografía: ver DESIGN.md. La fuente Archivo se carga desde Google Fonts en app.py.
 [theme]
 base = "light"
-primaryColor = "#FF1744"
-backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F5F5F5"
-textColor = "#333333"
-linkColor = "#C41C3B"
-borderColor = "#E6E6E6"
-dataframeBorderColor = "#E6E6E6"
-font = "Inter, sans-serif"
-headingFont = "Montserrat, sans-serif"
-headingFontWeights = [800, 700, 700, 600, 600, 600]
+primaryColor = "#E31837"
+backgroundColor = "#F6F6F4"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#191A1E"
+linkColor = "#E31837"
+borderColor = "#E4E5E9"
+dataframeBorderColor = "#E4E5E9"
+font = "Archivo, system-ui, sans-serif"
+headingFont = "Archivo, system-ui, sans-serif"
+headingFontWeights = [850, 800, 750, 700, 600, 600]
 baseRadius = "6px"
-buttonRadius = "6px"
+buttonRadius = "999px"
 showWidgetBorder = true
-chartCategoricalColors = ["#FF1744", "#333333", "#B8B7B1", "#C41C3B", "#FF8FA3", "#A3A29E"]
-chartSequentialColors = ["#FFC2CE", "#FF8FA3", "#FF6B86", "#FF1744", "#C41C3B", "#9E1530", "#7A1026", "#5A0C1C", "#3D0813", "#26050C"]
+chartCategoricalColors = ["#E31837", "#191A1E", "#C9CBD0", "#9E0F26", "#F08497", "#5C6068"]
+chartSequentialColors = ["#F7CDD5", "#F08497", "#EE5A74", "#E31837", "#C4142F", "#9E0F26", "#7A0C1E", "#5A0915", "#3D060E", "#260408"]
 
 [theme.sidebar]
-backgroundColor = "#F5F5F5"
+backgroundColor = "#FFFFFF"

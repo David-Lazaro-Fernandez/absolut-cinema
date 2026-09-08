@@ -1,119 +1,129 @@
-# Guía de Diseño Cinemex
+# Guía de Diseño
 
-Referencia visual para todo lo que se presente al cliente (Cinemex): dashboard Streamlit, gráficas Altair, reportes y capturas. Cinemex es la marca protagonista; Cinépolis es el competidor y se muestra en un tono neutro o secundario, nunca en rojo.
+Referencia visual para todo lo que se presente al cliente (Cinemex): dashboard Streamlit, gráficas Altair, reportes y capturas. Cinemex es la marca protagonista y va en rojo; Cinépolis es el competidor y va en tinta (casi negro), nunca en rojo. La estructura de la página es la jerarquía en tres capas del mockup del 2026-09-08.
 
 ## Paleta de colores
 
-### Primarios
+Adoptada el 2026-09-08 con el mockup "Propuesta de jerarquía en 3 capas". Sustituye al rojo `#FF1744` y al
+gris `#333333` de la primera versión.
 
-| Token | Hex | RGB | Uso |
-|---|---|---|---|
-| `--cmx-red` | `#FF1744` | 255, 23, 68 | CTA, headers, elementos destacados, serie "Cinemex" en gráficas |
-| `--cmx-white` | `#FFFFFF` | 255, 255, 255 | Fondo principal, texto sobre rojo |
-| `--cmx-black` | `#000000` | 0, 0, 0 | Texto secundario, divisores |
-
-Variante alterna del rojo aceptada por la marca: `#FF0040`. Usar una sola en todo el proyecto; la canónica aquí es `#FF1744`.
-
-### Secundarios
+### Tokens
 
 | Token | Hex | Uso |
 |---|---|---|
-| `--cmx-red-dark` | `#C41C3B` | Hover y estados activos de botones rojos |
-| `--cmx-gray-light` | `#F5F5F5` | Fondos alternativos, filas alternas, tarjetas de contexto |
-| `--cmx-gray-dark` | `#333333` | Texto principal sobre fondos claros |
+| `--red` | `#E31837` | Cinemex: serie en gráficas, acento del encabezado, borde izquierdo de los hallazgos, chips "Decisión" |
+| `--red-soft` | `#FDEDF0` | Fondo de chips y hover de botones y navegación |
+| `--red-dark` | `#9E0F26` | Primer tono de la rampa ordinal (Premium / VIP) |
+| `--ink` | `#191A1E` | Texto fuerte, Cinépolis en gráficas, rótulos "CAPA", bloque "Qué se desbloquea" |
+| `--gris` | `#5C6068` | Texto secundario, ejes y leyendas |
+| `--linea` | `#E4E5E9` | Bordes de tarjetas y divisores de tabla |
+| `--papel` | `#FFFFFF` | Tarjetas y secciones |
+| `--fondo` | `#F6F6F4` | Fondo de página y bloque de conclusión |
 
 ### Reglas de uso
 
-- **Rojo solo para Cinemex y para acción.** Un rojo en pantalla debe significar "Cinemex" o "haz clic aquí". No usarlo para alertas ni para valores negativos; para eso conviene un neutro oscuro o texto.
-- **Cinépolis en neutro.** En comparativas, Cinépolis va en gris (`#333333` en barras, `#B8B7B1` para líneas de referencia) para que el rojo de Cinemex domine sin competir.
-- **Contraste alto.** Texto blanco sobre `#FF1744` y texto `#333333` sobre blanco o `#F5F5F5`. Evitar gris sobre gris.
-- **Rampas ordinales** (cubetas ordenadas, mapas de calor) se construyen a partir del rojo: `#C41C3B`, `#FF1744`, `#FF6B86`, `#FFC2CE`. Para divergentes, el lado Cinemex es rojo y el lado Cinépolis es gris oscuro, con `#F0EFEC` como centro.
+- **Rojo solo para Cinemex y para acción.** Un rojo en pantalla significa "Cinemex" o "decisión / haz clic". No se usa
+  para alertas ni para valores negativos.
+- **Cinépolis en tinta.** En comparativas, Cinépolis va en `#191A1E` (barras, puntos) y sus cifras en negro; las de
+  Cinemex pueden ir en rojo. El rojo domina sin competir.
+- **Contraste alto.** Texto blanco sobre rojo o tinta; texto `#191A1E` sobre blanco o `#F6F6F4`. Gris `#5C6068` solo
+  para texto secundario de 13 px o más.
+- **Rampa ordinal** (cubetas ordenadas de formato) a partir del rojo: `#9E0F26`, `#E31837`, `#F08497`, `#F7CDD5`.
+- **Divergente** (mapa de calor de Δ pp): lado Cinemex en rojo (`#F6B7C2` → `#E31837`), lado Cinépolis en tinta
+  (`#8C8E95` → `#191A1E`), centro `#EFEFEF`. Texto blanco cuando la celda es oscura o saturada.
 
 ## Tipografía
 
-### Familias
+Una sola familia: **Archivo** (variable, Google Fonts), con el eje de anchura para los títulos. Sans-serif del sistema
+como respaldo.
 
-| Rol | Familia sugerida | Alternativas |
-|---|---|---|
-| Headings | Montserrat Bold | Bebas Neue, Poppins Bold |
-| Cuerpo | Inter | Poppins, Roboto |
-| Énfasis | Montserrat Extra Bold | Poppins Extra Bold |
+| Elemento | Peso | Anchura (`font-stretch`) | Tamaño |
+|---|---|---|---|
+| H1 (encabezado) | 850 | 75 % | 30–46 px, `line-height` 1.02 |
+| H2 (título de capa) | 800 | 80 % | 26 px |
+| Pregunta de sección | 800 | 82 % | 22 px |
+| Titular de hallazgo | 750 | 100 % | 19 px |
+| Conclusión | 700 | 100 % | 15.5 px |
+| Cuerpo | 400–500 | 100 % | 15 px, `line-height` 1.55 |
+| Notas, soporte, tablas | 400–600 | 100 % | 12.5–13.5 px, números tabulares |
 
-Todo sans-serif. Si la plataforma no permite cargar fuentes (Streamlit sin CSS custom), se acepta la sans-serif del sistema respetando los pesos de abajo.
+## Jerarquía en tres capas
 
-### Pesos
+La página se lee de arriba abajo con costo de atención decreciente:
 
-| Elemento | Peso |
-|---|---|
-| H1 | 700–900 |
-| H2 | 700–800 |
-| Cuerpo | 400–500 |
-| Botones | 600–700 |
-
-### Escala sugerida
-
-| Elemento | Tamaño |
-|---|---|
-| H1 | 32–40 px |
-| H2 | 24–28 px |
-| H3 | 18–20 px |
-| Cuerpo | 14–16 px |
-| Caption / notas | 12–13 px |
+1. **Capa 1, "Lo que importa hoy".** Hasta tres hallazgos redactados como decisión (titular, una línea de contexto,
+   chip "Decisión: …") con cuatro a seis números de soporte a la derecha. Vienen de `analytics.findings`; si ninguna
+   diferencia cruza su umbral, la capa lo dice y no inventa.
+2. **Capa 2, "Evidencia por pregunta".** Una sección blanca por pregunta de negocio: la pregunta, la conclusión en un
+   bloque con borde izquierdo de tinta, el gráfico como prueba y la guía "Cómo leerla" colapsada.
+3. **Capa 3, "Detalle y apéndice".** Todo colapsado con una línea de resumen en gris al lado del título. Cierra con el
+   bloque oscuro "Qué se desbloquea con tus datos", que convierte cada panel pendiente en un argumento (qué decisión
+   habilita, cuándo estará listo).
 
 ## Componentes
 
-### Botones
+### Encabezado
 
-- **Primario.** Fondo `#FF1744`, texto blanco, peso 600–700, radio 6 px. Hover `#C41C3B`; active un tono más oscuro (`#9E1530`).
-- **Secundario.** Borde 2 px `#FF1744`, fondo transparente, texto `#FF1744`. Hover: fondo `#FF1744` al 8 % de opacidad.
-- **Deshabilitado.** Fondo `#F5F5F5`, texto `#B8B7B1`, sin sombra.
+Título con la palabra "Cinemex" en rojo, borde inferior de 3 px en tinta, fila de metadatos (periodo, cines,
+funciones, última captura) y navegación en píldora con borde de tinta a las tres capas.
 
-### Tarjetas
+### Rótulos de capa
 
-- Fondo blanco con sombra leve (`0 2px 8px rgba(0,0,0,0.08)`).
-- Borde superior rojo de 3–4 px.
-- Padding interno generoso: 20–24 px.
-- Radio 6–8 px.
+Etiqueta "CAPA N" en caja (roja para la Capa 1, tinta para las demás), H2 a su derecha y una línea de descripción en
+gris de hasta 640 px.
 
-### Métricas / KPIs
+### Tarjeta de hallazgo
 
-- Valor en H2 con peso 800, color `#333333`.
-- Etiqueta en caption, `#333333` al 70 %.
-- Si la métrica es de Cinemex, el valor puede ir en `#FF1744`; la de Cinépolis siempre en `#333333`.
+Fondo blanco, borde `#E4E5E9`, borde izquierdo de 5 px rojo, radio 6 px, padding 20 × 24 px. Rejilla de dos columnas:
+texto y columna de soporte (240 px, separada por una línea) con pares etiqueta / valor en negrita; valores de Cinemex en
+rojo. En pantallas angostas la columna pasa abajo.
 
-### Promociones y destacados
+### Sección de evidencia
 
-- Fondo `#FF1744` con texto blanco grande (H1 o H2, peso 800–900).
-- Contraste alto; nada de texto gris sobre rojo.
-- Iconografía y elementos visuales (palomitas, bebidas) en blanco plano.
+Fondo blanco, borde `#E4E5E9`, radio 6 px, padding 22 × 26 px. Orden fijo: pregunta, conclusión (fondo `#F6F6F4`, borde
+izquierdo 3 px tinta, negrita, con la nota en cursiva gris), leyenda, gráfico, controles, "Cómo leerla".
+
+### Apéndice
+
+`st.expander` estilizado: fondo blanco, borde, radio 6 px, chevrón rojo. La etiqueta lleva el título y, en gris, una
+línea de resumen con las cifras clave para que no haga falta abrirlo.
+
+### Botones y controles
+
+Secundarios en píldora (radio 999 px), borde 1.5 px tinta, texto tinta, hover `#FDEDF0`. No hay botones rojos
+rellenos en el dashboard: el rojo se reserva para Cinemex y los chips de decisión.
 
 ### Tablas
 
-- Encabezado con fondo `#F5F5F5`, texto `#333333` peso 600.
-- Filas alternas blanco / `#F5F5F5`.
-- Divisores en `#000000` al 10 %.
+Compactas, sin fondo en el encabezado: cabecera en gris con borde inferior 1.5 px, filas separadas por 1 px
+`#E4E5E9`, números tabulares alineados a la derecha, la columna de Cinemex en rojo y la de Cinépolis en negrita.
 
 ### Gráficas (Altair)
 
-- Serie Cinemex: `#FF1744`. Serie Cinépolis: `#333333`.
-- Líneas de referencia y ejes: `#B8B7B1`.
-- Fondo del gráfico blanco; sin grid vertical, grid horizontal muy tenue.
-- Etiquetas de datos dentro de barras en blanco, peso bold; fuera de barras en `#333333`.
-- Esquinas de barras: 2–3 px.
+- Serie Cinemex `#E31837`, serie Cinépolis `#191A1E`; la barra del dumbbell en `#C9CBD0`.
+- Fuente Archivo, ejes y leyendas en gris `#5C6068`, rejilla `#ECEDEF`, sin marco ni ticks.
+- Mapa de calor: celdas con radio 4 px separadas por 4 px de blanco, sin leyenda de color (el número va en la celda).
+- Barras apiladas al 100 %: rampa ordinal roja, etiqueta de la cadena coloreada (Cinemex rojo, Cinépolis tinta).
 
 ## Estilo visual
 
-- **Energía.** Audaz, moderno, dinámico. Títulos grandes y contundentes.
-- **Contraste.** Alto, siempre rojo + blanco como pareja principal.
-- **Espaciado.** Generoso; las secciones respiran. Separación mínima entre bloques: 32 px.
-- **Bordes.** Redondeados suaves, 4–8 px. Nunca completamente cuadrados ni tipo píldora.
-- **Sombras.** Leves y difusas; nada de sombras duras.
+- **Editorial, no de panel de control.** Titulares condensados y contundentes, mucho blanco, una sola familia.
+- **Contraste.** Rojo + tinta + blanco como trío principal; el gris solo acompaña.
+- **Espaciado.** Las capas respiran (44 px entre rótulos); las tarjetas 14–18 px entre sí.
+- **Bordes.** Radio 4–8 px en tarjetas; píldora solo en navegación y botones.
+- **Sin sombras.** La jerarquía la dan el borde, el color y el tamaño del texto.
 
 ## Aplicación en este repo
 
-- **Tema Streamlit.** El bloque `[theme]` de `.streamlit/config.toml` fija colores, radios de 6 px, familias tipográficas (Inter para cuerpo, Montserrat para títulos), pesos de encabezados y las paletas categórica y secuencial de las gráficas.
-- **Constantes de color.** Viven en `analytics/labels.py`: `RED`, `RED_DARK`, `GRAY_DARK`, `GRAY_LIGHT`, `NEUTRAL`, `CHAIN_COLOR` (Cinemex rojo, Cinépolis gris oscuro), `RED_RAMP` (ordinal) y `DIVERGING` (gris ↔ rojo). Ningún hex se escribe directo en `app.py`.
-- **CSS complementario.** `app.py` inyecta solo lo que el tema no cubre: carga de fuentes desde Google Fonts, borde superior rojo y sombra en las tarjetas (contenedores creados con `card()`, cuya key empieza por `card-`), pesos de H1–H3 y hover de botones.
-- **Gráficas.** Cinemex siempre en `CHAIN_COLOR["cinemex"]` y Cinépolis en `CHAIN_COLOR["cinepolis"]`; separadores de barras y celdas en blanco; texto de datos en blanco sobre tonos oscuros y en `GRAY_DARK` sobre tonos claros.
+- **Tema Streamlit.** El bloque `[theme]` de `.streamlit/config.toml` fija colores, radios, la familia Archivo y los
+  pesos de encabezado. Fondo de página `#F6F6F4`, fondo secundario blanco (tarjetas, barra lateral).
+- **Constantes de color.** Viven en `analytics/labels.py`: `RED`, `RED_DARK`, `RED_SOFT`, `INK`, `GRAY`, `GRAY_DARK`,
+  `GRAY_LIGHT`, `LINE`, `PAPER`, `NEUTRAL`, `GRID`, `CHAIN_COLOR`, `RED_RAMP`, `DIVERGING`. Ningún hex se escribe
+  directo en `app.py` salvo tonos internos del bloque oscuro de desbloqueo.
+- **CSS complementario.** `app.py` inyecta la fuente variable Archivo desde Google Fonts, el ancho de lectura
+  (1120 px) y los componentes del mockup: `.enc`, `.capa-tag`, `.hallazgo`, `.pregunta`, `.conclusion`, `table.mk`,
+  `.desbloqueo`; y estiliza los expanders según su contenedor (`st-key-apendice-*`, `st-key-leerla-*`) y las
+  secciones (`st-key-sec-*`).
+- **Textos.** Los hallazgos y las conclusiones salen de `analytics/findings.py`; las etiquetas de `analytics/labels.py`.
 
 Para un color nuevo, agregarlo a `analytics/labels.py` y documentarlo aquí antes de usarlo.

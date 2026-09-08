@@ -25,6 +25,10 @@ el producto de inteligencia competitiva (Cinemex vs Cinépolis). Fecha: 2026-09-
   (`scraper/sample.py`, ver "Asientos y precios"). Aforo capturado: Cinépolis 621 salas / 91,330
   butacas; Cinemex 792 salas / 99,889 butacas. Ese mismo día Cinemex cambió el formato de sesión de
   su API (ver "Cambio de payload 2026-09-08").
+- Cuarta fase (2026-09-08, tarde): el dashboard pasa a la **jerarquía en tres capas** del mockup de David
+  (hallazgos como decisión → evidencia por pregunta → apéndice colapsado + "Qué se desbloquea con tus datos"),
+  con paleta nueva (rojo `#E31837`, tinta `#191A1E`, fuente Archivo) y `analytics/findings.py`, que redacta los
+  hallazgos a partir de umbrales sobre datos reales (ver "Dashboard ejecutivo").
 
 ## Cómo se encontró
 
@@ -364,8 +368,10 @@ Qué expone cada API para pasar de funciones a **butacas** (aforo, ocupación) y
   conexión de solo lectura y una **ventana de fechas** `(d0, d1)` y devuelven listas de dicts; sin
   dependencias. `queries.py` (`kpis`, `showtimes_by_slot`, `heatmap_day_slot`, `movies_by_chain`,
   `mix`, `concentration`, `coverage`, `recent_events`, `events_by_kind`, `snapshot_health`,
-  `cinema_week`), `headlines.py` (frases ejecutivas por tema) y `labels.py` (todo texto de cara al
-  usuario: franjas, cubetas de formato, tipos de cambio, colores). Toda la lógica de negocio va
+  `cinema_week`), `findings.py` (Capa 1: hasta tres hallazgos redactados como decisión con sus números de
+  soporte, y las conclusiones que abren cada sección de la Capa 2; cada hallazgo entra solo si cruza su umbral
+  en pp), `headlines.py` (frases ejecutivas por tema, versión previa; la app ya no lo usa pero sigue exportado)
+  y `labels.py` (todo texto de cara al usuario: franjas, cubetas de formato, tipos de cambio, colores). Toda la lógica de negocio va
   aquí para que un API (FastAPI) pueda exponer lo mismo después sin reescribir.
 - `app.py`: dashboard Streamlit para directivos, en la raíz del repo para que Streamlit recargue
   también `analytics/` al editarlo. Dependencias en `requirements-dashboard.txt` (venv `.venv/`,
@@ -449,53 +455,78 @@ FROM event WHERE kind <> 'availability' ORDER BY id DESC LIMIT 50;
   Zona horaria del servidor en `America/Mexico_City`. SQLite ya está en WAL; el dashboard abre la
   base en modo lectura.
 
-## Dashboard ejecutivo (estructura 2026-09-08)
+## Dashboard ejecutivo (estructura en tres capas, 2026-09-08)
 
-Sigue el brief "Dashboard ejecutivo de inteligencia de programación": cada panel abre con la
-pregunta de negocio, todo se compara en **share de la programación de cada cadena** (Cinemex tiene
-87 cines y Cinépolis 74 en CDMX), las diferencias entre porcentajes van en **puntos porcentuales**,
-y la unidad de análisis es la **semana de cine** (jueves a miércoles). Paleta fija: Cinemex azul
-`#2a78d6`, Cinépolis naranja `#eb6834` (validada para daltonismo). Para el día en curso solo se
-cuentan funciones que no han empezado, porque Cinépolis borra cada función al iniciar y Cinemex la
-conserva unas horas.
+Sigue el mockup "Cartelera CDMX — Propuesta de jerarquía en 3 capas" (HTML de David, 2026-09-08), que a su vez
+hereda del brief "Dashboard ejecutivo de inteligencia de programación": todo se compara en **share de la
+programación de cada cadena** (Cinemex tiene 87 cines y Cinépolis 74 en CDMX), las diferencias entre
+porcentajes van en **puntos porcentuales**, la unidad de análisis es la **semana de cine** (jueves a
+miércoles) y para el día en curso solo se cuentan funciones que no han empezado. Paleta y tipografía en
+`DESIGN.md`: Cinemex rojo `#E31837`, Cinépolis tinta `#191A1E`, fuente Archivo.
 
-Decisión clave frente al brief: **datos reales, nunca sintéticos**. Los paneles cuyos datos no
-existen se muestran marcados ("Requiere integración con datos del cliente", "Requiere captura
-adicional", "Disponible a partir del …") y sin cifras.
+Decisión clave: **datos reales, nunca sintéticos**. Lo que no existe no se muestra con cifras; los paneles
+pendientes viven como argumento en el bloque "Qué se desbloquea con tus datos".
 
-Vocabulario (barra lateral, "Cómo leer las cifras" + glosario desplegable): **función** = una
-proyección en una sala a una hora; **aforo** = butacas vendibles de una sala, medido una vez en el
-plano; **butacas ofertadas** = suma del aforo de la sala por cada función de cada cine en los días
-del periodo, es decir el máximo de boletos que la cadena podría vender (no son butacas físicas: un
-cine con 10 salas de 150 y 5 funciones por sala oferta 7,500 al día); **butacas ocupadas** =
-boletos vendidos (plano en Cinépolis, semáforo calibrado en Cinemex); **ocupación** = ocupadas /
-ofertadas; **share**, **pp**, **semana de cine**, **horario prime**. La tarjeta de butacas
-ofertadas indica días y cines del periodo y las butacas físicas de cada cadena para evitar la
-confusión. Estado por panel:
+### Capa 1 · Lo que importa hoy (`analytics/findings.py`)
 
-| Panel | Estado | Qué falta |
+Hasta tres tarjetas (titular como decisión, una línea de contexto, chip "Decisión: …", cuatro a seis números
+de soporte). Se evalúan en este orden y entran solo si cruzan su umbral:
+
+| Hallazgo | Umbral | Qué compara |
 | --- | --- | --- |
-| 0. KPI strip (funciones por cine y día, share prime o tarde-noche, % subtituladas, títulos, **butacas ofertadas de ambas cadenas**) | real | sparklines requieren 4 semanas (2026-10-05) |
-| 1. Decisiones (abrir / mantener / recortar) | integración | share de butacas vendidas por título (taquilla del cliente o muestreo de asientos) |
-| 2. Asignación: dumbbell de share por película con Δ pp y exclusivas | real | el scatter share pantalla vs share butacas requiere lo mismo que Decisiones |
-| 2b. Butacas y ocupación: salas y butacas por complejo, % funciones vs % butacas por título, ocupación muestreada a T−60 cruzada con el semáforo (Cinépolis), semáforo de Cinemex calibrado y butacas ocupadas estimadas | real (`analytics/seats.py`) | calibración del semáforo de Cinemex (manual, tarde-noche); dato exacto de Cinemex por integración |
-| 3. Heatmap día × franja (Δ pp de parrilla, con matiné 10–12) | real | ocupación por franja dentro de la celda |
-| 4. Preventa | integración | preventa del cliente por batch, curvas por perfil de título |
-| 5. Decaimiento por título (base 100 semana de estreno) | historia | dos semanas de cine completas (≈2026-09-24) |
-| 6. Mix formato (Premium/VIP, Gran formato, 3D-4D, Tradicional) e idioma, **precio general por formato y tipo de día** (mediana de `price_sample`) | real | ingreso potencial por butaca requiere el aforo de Cinemex |
-| 7. Geografía por alcaldía por 100 mil habitantes | captura | alcaldía por cine, población INEGI, zonas de choque (emparejamiento de cines) |
-| 8. Concentración (HHI, peso del Top 3, títulos por complejo) | real | — |
-| 9. Cambios en la cartelera publicada | real | — |
+| Título por butacas | ≥ 1.5 pp entre Δ funciones y Δ butacas | el título compartido donde la apuesta por sala cuenta otra historia que la apuesta por funciones (cuatro redacciones: invertida, amplificada, diluida, en cada dirección) |
+| Concentración | ≥ 3 pp en el peso del Top 3 | quién concentra la parrilla y cuántos títulos exclusivos cubre el otro |
+| Franjas | ≥ 1 pp en la franja con mayor Δ | dónde nos ganan o ganamos, con el pico de cada cadena y, si el periodo tiene dos días, el Δ por día |
+| Formato | ≥ 5 pp en Premium/VIP, Gran formato o 3D-4D | la diferencia estructural de sala, más quién subtitula más |
+| Exclusivas | ≥ 3 títulos de Cinépolis con ≥ 20 funciones | qué exhiben que no tenemos |
+
+Si ninguna diferencia cruza su umbral, la capa lo dice. Con el periodo "resto de la semana" del 2026-09-08
+salieron: Coyote (apuesta amplificada en butacas, +7.8 pp), concentración (47 % vs 40 % del Top 3) y la noche
+(Cinépolis pone 2.6 pp más después de las 9 PM).
+
+### Capa 2 · Evidencia por pregunta
+
+Tres secciones blancas; cada una abre con la conclusión (`analytics.conclusions`) y cierra con "Cómo leerla"
+colapsado:
+
+1. **¿A qué películas les damos más pantalla?** Dumbbell de share por película con Δ pp; muestra las 8 de mayor
+   diferencia entre las 15 más programadas y un interruptor para ver las 15.
+2. **¿Estamos en el horario donde vive la taquilla?** Mapa de calor día × franja con Δ pp (rojo: Cinemex pone
+   más; tinta: Cinépolis), sin leyenda de color porque el número va en la celda.
+3. **¿Con qué formatos e idiomas competimos?** Barras al 100 % de formato (Premium/VIP, Gran formato, 3D o 4D,
+   Tradicional) e idioma.
+
+### Capa 3 · Detalle y apéndice
+
+Expanders con una línea de resumen en gris al lado del título, para que no haga falta abrirlos:
+
+| Apéndice | Resumen visible | Contenido |
+| --- | --- | --- |
+| Indicadores del periodo | funciones por cine y día, butacas ofertadas | el antiguo KPI strip como tabla Cinemex / Cinépolis / Δ, más HHI, Top 3 y títulos por complejo |
+| ¿Qué cambió en la cartelera ya publicada? | nuevas y canceladas por cadena en 24 h | tabla por tipo de cambio, glosario de tipos y registro por función con filtro |
+| Precio del boleto por formato y tipo de día | rango de sobreprecio de Cinépolis y dos pares clave | tabla mediana Cinemex / Cinépolis / Δ % y detalle de muestras |
+| Salas y butacas por complejo | salas, butacas y sala típica de cada cadena | tabla por cadena, selector de cadena, funciones vs butacas por película y tabla por complejo |
+| Ocupación muestreada a 60 min | muestras, % vendido, estado de la calibración | calibración por color (Cinépolis), semáforo de Cinemex y últimas muestras |
+
+Cierra el bloque oscuro **"Qué se desbloquea con tus datos"**: taquilla por título → abrir/mantener/recortar;
+preventa batch → curva vs comparables; taquilla por función → ingreso real vs potencial; pasada manual →
+ocupación estimada de Cinemex (desaparece al calibrar el semáforo); automático 24 sep → decaimiento;
+automático 5 oct → tendencia de 4 semanas; captura → geografía por alcaldía.
+
+### Implementación
+
+`app.py` pinta HTML propio (`st.markdown(unsafe_allow_html=True)`) para encabezado, rótulos de capa, tarjetas
+de hallazgo, conclusiones, tablas compactas y el bloque de desbloqueo; los gráficos son Altair con el estilo
+común de `chart()`; secciones y apéndices son contenedores con `key` (`sec-*`, `apendice-*`, `leerla-*`) que
+el CSS estiliza. Cuidados aprendidos: no forzar `font-family` sobre `[class*="st-"]` (rompe los iconos
+Material de los expanders); escapar `$` en etiquetas de expander (Streamlit lo lee como LaTeX); las
+gráficas llevan `background=PAPER` porque el fondo de página es gris; la barra lateral conserva periodo,
+zona y glosario. Al cambiar `analytics/labels.py` o `.streamlit/config.toml` hay que reiniciar Streamlit.
 
 Cubetas de formato (en SQL, `analytics/queries.py`): Premium/VIP = `premium_tier` premium, platinum,
 vip o experiencia Confort / SP; Gran formato = IMAX, XE, ScreenX, XEScreenX, Dolby Atmos, Jumbo,
 LED; 3D o 4D = formato 3D o 4DX / v4d; el resto Tradicional. Idioma: subtitulada vs español
 (doblada u original). Horario prime: viernes a domingo desde las 6:00 P.M.
-
-Ampliaciones de alcance que el brief introdujo: (a) aforo por sala y muestreo de ocupación a T−60,
-**hechos** para Cinépolis y listos para Cinemex (ver "Asientos y precios"); (b) precios por función,
-**hecho**; (c) alcaldía y población para geografía, pendiente. Selector de zona y semanas históricas
-se habilitan solos con el emparejamiento de cines y el paso del tiempo.
 
 ## Siguiente fase
 

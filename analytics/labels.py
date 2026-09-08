@@ -6,16 +6,22 @@ THEM = "cinepolis"
 
 CHAIN_LABEL = {"cinemex": "Cinemex", "cinepolis": "Cinépolis"}
 
-# Paleta de marca (ver DESIGN.md). El rojo significa Cinemex o acción; Cinépolis va en gris para no
-# competir con él. Cinemex siempre primero en las escalas, nunca se ciclan.
-RED = "#FF1744"            # rojo Cinemex
-RED_DARK = "#C41C3B"       # hover / activo
-GRAY_DARK = "#333333"      # texto sobre claro; serie Cinépolis
-GRAY_LIGHT = "#F5F5F5"     # fondos alternativos
-CHAIN_COLOR = {"cinemex": RED, "cinepolis": GRAY_DARK}
-NEUTRAL = "#B8B7B1"        # líneas de referencia y ejes
-RED_RAMP = [RED_DARK, RED, "#FF6B86", "#FFC2CE"]                 # ordinal de un solo tono para cubetas ordenadas
-DIVERGING = [GRAY_DARK, "#A3A29E", "#F0EFEC", "#FF8FA3", RED]     # Cinépolis (gris) ↔ centro ↔ Cinemex (rojo)
+# Paleta (ver DESIGN.md). El rojo significa Cinemex o acción; Cinépolis va en tinta (casi negro) para
+# no competir con él. Cinemex siempre primero en las escalas, nunca se ciclan.
+RED = "#E31837"            # rojo Cinemex
+RED_DARK = "#9E0F26"       # hover / activo; primer tono de la rampa
+RED_SOFT = "#FDEDF0"       # fondo suave para chips y hover
+INK = "#191A1E"            # texto fuerte; serie Cinépolis
+GRAY_DARK = "#3A3C42"      # texto de etiquetas en gráficas
+GRAY = "#5C6068"           # texto secundario
+GRAY_LIGHT = "#F6F6F4"     # fondo de página
+LINE = "#E4E5E9"           # bordes y divisores
+PAPER = "#FFFFFF"          # tarjetas
+CHAIN_COLOR = {"cinemex": RED, "cinepolis": INK}
+NEUTRAL = "#C9CBD0"        # líneas de referencia (la barra del dumbbell)
+GRID = "#ECEDEF"           # rejilla de gráficas
+RED_RAMP = [RED_DARK, RED, "#F08497", "#F7CDD5"]                 # ordinal de un solo tono para cubetas ordenadas
+DIVERGING = [INK, "#8C8E95", "#EFEFEF", "#F6B7C2", RED]          # Cinépolis (tinta) ↔ centro ↔ Cinemex (rojo)
 
 # Franjas horarias: (clave, hora inicio, hora fin exclusiva, etiqueta). La matiné 10–12 va aparte
 # porque existe en fin de semana y es donde una cadena puede ganar barato.
@@ -120,3 +126,16 @@ def range_es(d0, d1):
     if d0 == d1:
         return date_es(d0)
     return f"del {date_es(d0, with_year=False)} al {date_es(d1)}"
+
+
+def range_short(d0, d1):
+    """'2026-09-08','2026-09-09' -> 'mar 8 – mié 9 sep 2026'"""
+    from datetime import date
+    a, b = date.fromisoformat(d0), date.fromisoformat(d1)
+    dias = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"]
+    meses = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
+    if a == b:
+        return f"{dias[a.weekday()]} {a.day} {meses[a.month - 1]} {a.year}"
+    if a.month == b.month:
+        return f"{dias[a.weekday()]} {a.day} – {dias[b.weekday()]} {b.day} {meses[b.month - 1]} {b.year}"
+    return f"{dias[a.weekday()]} {a.day} {meses[a.month - 1]} – {dias[b.weekday()]} {b.day} {meses[b.month - 1]} {b.year}"

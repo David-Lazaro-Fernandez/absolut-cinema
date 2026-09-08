@@ -6,6 +6,7 @@ futuro API (FastAPI) llamen exactamente lo mismo. Los textos para usuarios viven
 """
 from . import labels
 from .db import connect
+from .findings import conclusions, findings
 from .headlines import headlines
 from .seats import (
     capacity_by_cinema,
@@ -37,7 +38,7 @@ from .queries import (
 __all__ = [
     "capacity_by_cinema", "capacity_summary", "estimated_occupancy", "occupancy_recent", "occupancy_summary",
     "offered_by_title", "offered_seats", "prices", "semaphore_calibration",
-    "cinema_week", "concentration", "connect", "coverage", "events_by_kind", "headlines",
+    "cinema_week", "concentration", "conclusions", "connect", "coverage", "events_by_kind", "findings", "headlines",
     "heatmap_day_slot", "kpis", "kpis_today", "labels", "mix", "movies_by_chain", "recent_events",
     "showtimes_by_slot", "snapshot_health", "today",
 ]
