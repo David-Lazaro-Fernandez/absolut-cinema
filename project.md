@@ -6,7 +6,7 @@ el producto de inteligencia competitiva (Cinemex vs Cinépolis). Fecha: 2026-09-
 
 ## Resumen
 
-- El sitio es un **Next.js exportado estáticamente**. El HTML inicial solo trae
+- El sitio de Cinépolis es un **Next.js exportado estáticamente**. El HTML inicial solo trae
   un loader; todo el contenido se pide desde el cliente.
 - Los datos vienen de una **API GraphQL pública** en `https://api-g.cinepolis.com`,
   consumida con Apollo. Cada dominio (ubicaciones, cartelera, compra, etc.)
@@ -232,7 +232,8 @@ versions: [{id, label, type, sessions: [...]}]}]}]}`.
   "Premium Español", "Platino Subtitulada", "Dolby Atmos Subtitulada". Valores de `type` vistos:
   `traditional, premium, platinum, lang_es, lang_sub, imax, dolby_atmos, confort, jumbo, v3d, v4d`.
   Regla: `lang_sub` = subtitulada; el resto es español (doblada u original en español).
-- La **función** (`sessions[]`): `id` (estable), `datetime` con offset (`2026-09-07T18:00:00-06:00`),
+- La **función** (`sessions[]`): `id` (único a nivel nacional; al reprogramar, Cinemex a veces
+  reemite la sesión con id nuevo y la misma hora, lo que aparece como `removed` + `added`), `datetime` con offset (`2026-09-07T18:00:00-06:00`),
   `cinema_id`, `movie_id` (de la versión), `parent_movie_id`, `screen_number`, `auditorium_name`,
   `availability` (`high` / `mid` / `low`), `premium`, `extreme`, `seatallocation`, `alerts`.
 - `dates` lista 30 días pero solo la semana de cine en curso (jueves→miércoles) trae funciones
@@ -264,9 +265,10 @@ recargarlo con `launchctl bootout` + `launchctl bootstrap`.
 - `scraper/config.py`: claves (sobreescribibles con `CINEPOLIS_API_KEY`, `CINEMEX_CONSUMER_KEY`,
   `CINEMEX_BASE_URL`), plaza piloto, lotes, horizonte de días.
 - `scraper/cinepolis.py`: por lotes de 30 cines pide `movies(now-playing)` y luego `billboard` por
-  película. CDMX: 74 cines, ~165 llamadas, 1–2 min.
+  película. CDMX: 74 cines, ~165 llamadas, 1–2 min. Cada fila lleva el cine en el `show_id`
+  (ver "Identidad de la función").
 - `scraper/cinemex.py`: por área pide `initial=1` (trae la lista de fechas) y luego cada fecha hasta
-  14 días adelante. CDMX: 6 áreas, ~90 llamadas, ~3.5 min. Recorta sinopsis, pósters y mapas de
+  14 días adelante. CDMX: 6 áreas, ~90 llamadas, 1–3.5 min. Recorta sinopsis, pósters y mapas de
   asientos antes de guardar el crudo.
 - `scraper/normalize.py`: esquema común por función (`chain, show_id, cinema_id, movie_id,
   title_norm, date, datetime_local, screen, language ∈ spanish|subtitled|original|other,
@@ -323,7 +325,7 @@ FROM event WHERE kind <> 'availability' ORDER BY id DESC LIMIT 50;
   quitarlo de la query en vez de adivinar alternativas.
 - Mantener un ritmo razonable de peticiones. Toda la lista de cines se obtuvo
   con 155 llamadas secuenciales sin ningún error. Un snapshot completo de CDMX de ambas cadenas
-  son ~255 llamadas y ~5 min; cada 15 min no ha provocado bloqueos ni 429 hasta ahora.
+  son ~255 llamadas y 2–5 min; cada 15 min no ha provocado bloqueos ni 429 hasta ahora.
 - Cinemex: si responde `400` de nginx en todo, cambió el `X-API-Consumer-Key`; si responde 404 en
   todo, cambió la versión de ruta (`rest/v2.37.2/`). Ambos se releen del `main.*.chunk.js`.
 - `availability` de Cinépolis viene vacío en la mayoría de funciones y en algunas trae un color
