@@ -26,6 +26,7 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import analytics  # noqa: E402
+from scraper import config  # noqa: E402
 from analytics.labels import (  # noqa: E402
     AVAILABILITY_LABEL, CHAIN_COLOR, CHAIN_LABEL, COLUMN_LABEL, DAY_TYPE_LABEL, DIVERGING, FORMAT_BUCKETS, FORMAT_LABEL,
     GRAY, GRAY_DARK, GRAY_LIGHT, GRID, INK, KIND_HELP, KIND_LABEL, LANGUAGE_BUCKETS, LANGUAGE_LABEL, LINE, NEUTRAL, PAPER,
@@ -268,9 +269,19 @@ def leyenda(items, square=False):
 # --- barra lateral: periodo y alcance -------------------------------------------------------------------
 today_s = analytics.today()
 today_d = date.fromisoformat(today_s)
+if not config.DB_PATH.exists():
+    # Recién desplegado: el scraper aún no ha creado la base. Aviso claro en lugar del traceback.
+    now = datetime.now(TZ)
+    nxt = (now.replace(second=0, microsecond=0) + timedelta(minutes=15 - now.minute % 15))
+    md('<div class="enc"><h1>Cartelera CDMX: <span>Cinemex</span> frente a Cinépolis</h1></div>')
+    st.info(f"Aún no hay datos: la base {config.DB_PATH} no existe. El scraper corre cada 15 minutos; el siguiente snapshot "
+            f"empieza a las {time_12(nxt.strftime('%H:%M'))} y tarda de 2 a 5 minutos. Para no esperar: "
+            "`python3 -m scraper.run` (o `systemctl start absolut-cinema-scraper.service` en el servidor), o copia "
+            "`data/` desde la máquina donde ya corre. Esta página se refresca sola.")
+    st.stop()
 cov = load("coverage")
 if cov.empty:
-    st.error("Todavía no hay datos capturados.")
+    st.info("La base existe pero todavía no tiene funciones capturadas. Revisa `data/logs/run.log`.")
     st.stop()
 this_w0, this_w1 = analytics.cinema_week(today_s)
 next_w0, next_w1 = analytics.cinema_week((date.fromisoformat(this_w1) + timedelta(days=1)).isoformat())

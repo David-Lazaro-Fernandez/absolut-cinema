@@ -29,6 +29,14 @@ for unit in absolut-cinema-scraper.service absolut-cinema-scraper.timer \
   ln -sf "$APP/deploy/$unit" "/etc/systemd/system/$unit"
 done
 systemctl daemon-reload
+
+# Primer snapshot antes de arrancar el dashboard: la base data/snapshots.db la crea el scraper y el
+# dashboard solo la lee. Si ya copiaste data/ desde otra máquina, este paso se salta solo. Tarda 2–5 min.
+if [ ! -f data/snapshots.db ]; then
+  echo ">> No hay base; corriendo el primer snapshot (2–5 min)…"
+  sudo -u absolut /usr/bin/python3 -m scraper.run || echo ">> El primer snapshot falló; el timer lo reintenta en 15 min."
+fi
+
 systemctl enable --now absolut-cinema-scraper.timer absolut-cinema-dashboard.service absolut-cinema-backup.timer
 
 if [ ! -f /etc/caddy/Caddyfile ] || ! grep -q 8501 /etc/caddy/Caddyfile; then

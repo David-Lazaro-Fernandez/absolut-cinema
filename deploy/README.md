@@ -11,8 +11,11 @@ git clone <repo> /opt/absolut-cinema
 bash /opt/absolut-cinema/deploy/install.sh
 ```
 
-`install.sh` fija la zona horaria en `America/Mexico_City`, crea el usuario, el venv del dashboard,
-enlaza los units de systemd y los habilita:
+`install.sh` instala todas las dependencias (paquetes del sistema: `python3`, `python3-venv`, `sqlite3`,
+`awscli`, `caddy`; y el venv del dashboard con `requirements-dashboard.txt`; el scraper solo usa la librería
+estándar de `/usr/bin/python3`), fija la zona horaria en `America/Mexico_City`, crea el usuario, corre un
+**primer snapshot si no existe `data/snapshots.db`** (el dashboard solo lee esa base, así que sin ella
+mostraría un aviso de "aún no hay datos"), enlaza los units de systemd y los habilita:
 
 | Unit | Qué hace |
 | --- | --- |
