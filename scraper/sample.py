@@ -3,11 +3,13 @@
 Uso:
   python3 -m scraper.sample --capacity [--chain cinemex]   # aforo por sala; una pasada, repetir al mes
   python3 -m scraper.sample --occupancy                    # Cinépolis: planos a 45–75 min de empezar (cada 15 min)
+  python3 -m scraper.sample --post-start                   # Cinépolis: planos 10–30 min después de empezar (cada 15 min);
+                                                           # es la asistencia final y el target del modelo de consumo
   python3 -m scraper.sample --occupancy --chain cinemex --per-level 100 --lead 60 --tolerance 45
                                                            # Cinemex: calibración del semáforo, N por nivel, una vez
   python3 -m scraper.sample --prices [--limit N]           # boletos de una función por cine, formato y tipo de día
                                                            # (weekday lun/jue, promo mar/mié, weekend vie–dom)
-  opciones: --lead 60 --tolerance 15 --refresh --dry-run --limit N
+  opciones: --lead 60 --tolerance 15 --after 20 --refresh --dry-run --limit N
 
 Cinépolis: `query Seats` y `query Tickets` en /v1/ticket/graphql, solo lectura, sin sesión de usuario.
 Cinemex: precios desde GET sessions/{id}. Su plano solo existe dentro del checkout (POST buy/selectTickets
@@ -250,13 +252,53 @@ def occupancy_pass(conn, chain="cinepolis", lead=60, tolerance=15, dry_run=False
     log(f"occupancy {chain}: {len(rows)} funciones entre {lo:%H:%M} y {hi:%H:%M}{levels}{' (dry-run)' if dry_run else ''}")
     if not rows or dry_run:
         return True
+    return _take_layouts(conn, chain, rows, stats, "occupancy")
+
+
+def post_start_pass(conn, chain="cinepolis", after=20, tolerance=10, dry_run=False, limit=None):
+    """Plano de cada función que empezó hace [after−tol, after+tol] minutos y aún no tiene muestra post-inicio.
+
+    Es la asistencia final (la venta sigue creciendo después del arranque: prueba del 2026-09-08, de 2 a 6
+    veces lo vendido a T−60) y por eso el target del modelo de consumo. Cinépolis retira la función de la
+    cartelera al empezar, así que ya no está en `current_showtime`: los candidatos salen de la unión de
+    `current_showtime` (Cinemex la conserva ~2.5 h) y de las funciones ya muestreadas a T−60. El plano de
+    Cinépolis sigue disponible al menos 150 min después del inicio. `minutes_to_start` queda negativo."""
+    stats = {"calls": 0}
+    now = now_local()
+    lo, hi = now - timedelta(minutes=after + tolerance), now - timedelta(minutes=after - tolerance)
+    w = (lo.strftime("%Y-%m-%dT%H:%M:%S"), hi.strftime("%Y-%m-%dT%H:%M:%S"))
+    rows = conn.execute("""
+        SELECT chain, show_id, cinema_id, screen, movie_id, movie_title, datetime_local, availability
+        FROM current_showtime WHERE chain = ? AND datetime_local BETWEEN ? AND ?
+        UNION
+        SELECT chain, show_id, cinema_id, screen, movie_id, movie_title, datetime_local, availability
+        FROM occupancy_sample WHERE chain = ? AND datetime_local BETWEEN ? AND ? AND minutes_to_start >= 0
+        ORDER BY datetime_local""", (chain, *w, chain, *w)).fetchall()
+    done = {r[0] for r in conn.execute(
+        "SELECT show_id FROM occupancy_sample WHERE chain = ? AND minutes_to_start < 0 AND datetime_local BETWEEN ? AND ?",
+        (chain, *w))}
+    seen, picked = set(), []
+    for r in rows:
+        if r["show_id"] in done or r["show_id"] in seen:
+            continue
+        seen.add(r["show_id"]); picked.append(r)
+    if limit:
+        picked = picked[:limit]
+    log(f"post-start {chain}: {len(picked)} funciones iniciadas entre {lo:%H:%M} y {hi:%H:%M}{' (dry-run)' if dry_run else ''}")
+    if not picked or dry_run:
+        return True
+    return _take_layouts(conn, chain, picked, stats, "post-start")
+
+
+def _take_layouts(conn, chain, rows, stats, label):
+    """Pide el plano de cada función y guarda una fila en occupancy_sample (y el aforo de la sala si falta)."""
     vids = vista_ids(stats) if chain == "cinepolis" else {}
     ok = fail = 0
     for r in rows:
         try:
             lay = layout_for(chain, r, vids, stats)
         except ApiError as e:
-            fail += 1; log(f"occupancy FAIL {chain} {r['show_id']}: {e}"[:300])
+            fail += 1; log(f"{label} FAIL {chain} {r['show_id']}: {e}"[:300])
             time.sleep(config.SAMPLE_BACKOFF); continue
         time.sleep(config.SAMPLE_PAUSE)
         if not lay:
@@ -275,7 +317,7 @@ def occupancy_pass(conn, chain="cinepolis", lead=60, tolerance=15, dry_run=False
                      (chain, r["cinema_id"], r["screen"], lay["seats"], lay["broken"], json.dumps(lay["areas"], ensure_ascii=False),
                       r["show_id"].rsplit(":", 1)[-1], utc_now()))
         conn.commit(); ok += 1
-    log(f"occupancy {chain} ok={ok} fail={fail} calls={stats['calls']}")
+    log(f"{label} {chain} ok={ok} fail={fail} calls={stats['calls']}")
     return fail == 0
 
 
@@ -331,26 +373,30 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--capacity", action="store_true")
     ap.add_argument("--occupancy", action="store_true")
+    ap.add_argument("--post-start", action="store_true", help="planos de funciones ya iniciadas (asistencia final)")
     ap.add_argument("--prices", action="store_true")
     ap.add_argument("--chain", choices=["cinepolis", "cinemex"], default="cinepolis",
                     help="cadena para --capacity / --occupancy (los precios siempre son de ambas)")
     ap.add_argument("--per-level", type=int, help="occupancy: calibración, máximo N funciones por nivel del semáforo")
     ap.add_argument("--lead", type=int, default=60, help="minutos antes de la función (ocupación)")
-    ap.add_argument("--tolerance", type=int, default=15)
+    ap.add_argument("--tolerance", type=int, default=None, help="ocupación: ±min (15 con --lead, 10 con --after)")
+    ap.add_argument("--after", type=int, default=20, help="post-start: minutos después del inicio")
     ap.add_argument("--refresh", action="store_true", help="capacity: volver a medir salas ya conocidas")
     ap.add_argument("--limit", type=int)
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args(argv)
-    if not (a.capacity or a.occupancy or a.prices):
-        ap.error("indica --capacity, --occupancy y/o --prices")
+    if not (a.capacity or a.occupancy or a.post_start or a.prices):
+        ap.error("indica --capacity, --occupancy, --post-start y/o --prices")
     conn = store.connect()
     ok = True
     t0 = time.time()
     if a.capacity:
         ok &= capacity_pass(conn, chain=a.chain, refresh=a.refresh, dry_run=a.dry_run, limit=a.limit)
     if a.occupancy:
-        ok &= occupancy_pass(conn, chain=a.chain, lead=a.lead, tolerance=a.tolerance, dry_run=a.dry_run,
+        ok &= occupancy_pass(conn, chain=a.chain, lead=a.lead, tolerance=a.tolerance or 15, dry_run=a.dry_run,
                              limit=a.limit, per_level=a.per_level)
+    if a.post_start:
+        ok &= post_start_pass(conn, chain=a.chain, after=a.after, tolerance=a.tolerance or 10, dry_run=a.dry_run, limit=a.limit)
     if a.prices:
         ok &= price_pass(conn, limit=a.limit, dry_run=a.dry_run)
     conn.close()

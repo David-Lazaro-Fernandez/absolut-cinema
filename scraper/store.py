@@ -75,7 +75,7 @@ ROW_COLUMNS = [c for c in COLUMNS if c not in ("chain", "show_id")]
 
 def connect():
     config.DATA_DIR.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(config.DB_PATH)
+    conn = sqlite3.connect(config.DB_PATH, timeout=60)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.executescript(SCHEMA)

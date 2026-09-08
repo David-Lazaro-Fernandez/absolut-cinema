@@ -1,0 +1,17 @@
+[Unit]
+Description=absolut-cinema: calibración del semáforo de Cinemex (abre órdenes de checkout; tope 60 por corrida)
+After=network-online.target
+Wants=network-online.target
+# Escribe en data/snapshots.db (SQLite en WAL, un escritor a la vez): si coincide con el scraper, sqlite3
+# espera el `timeout` de store.connect(); por eso los timers van a :07 y no a :00.
+
+[Service]
+Type=oneshot
+User=absolut
+WorkingDirectory=/opt/absolut-cinema
+EnvironmentFile=-/etc/absolut-cinema.env
+ExecStart=/usr/bin/python3 -m scraper.sample --occupancy --chain cinemex --per-level 100 --lead 60 --tolerance 45 --limit 60
+TimeoutStartSec=20min
+Nice=10
+StandardOutput=append:/opt/absolut-cinema/data/logs/systemd.out
+StandardError=append:/opt/absolut-cinema/data/logs/systemd.out

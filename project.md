@@ -330,6 +330,17 @@ Qué expone cada API para pasar de funciones a **butacas** (aforo, ocupación) y
    función para calibrar el semáforo. Lo lanza `scraper/schedule.sh` (y el unit de systemd) justo
    después de cada snapshot, es decir cada 15 min. Para una curva de preventa se puede correr
    además con `--lead 1440` y `--lead 15`.
+   **Pase post-inicio (2026-09-08, tarde):** `--post-start` (`--after 20 --tolerance 10`) toma las funciones que
+   empezaron hace 10–30 min y guarda el plano con `minutes_to_start` negativo. Es la **asistencia final** y
+   el target del modelo de consumo por zona: la prueba del 2026-09-08 sobre 27 funciones mostró que la venta
+   sigue creciendo tras el arranque (Zona Cero, Universidad: 3 vendidos a T−60, 18 a +150 min; Coyote, Las
+   Antenas: 7 → 18; El Heladero, Ermita: 0 → 8), así que T−60 mide preventa, no consumo. Cinépolis retira la
+   función de la cartelera al empezar y deja de estar en `current_showtime`, por eso los candidatos salen de
+   la unión de `current_showtime` (Cinemex las conserva ~2.5 h) y de las funciones ya muestreadas a T−60; así
+   cada función queda con el par preventa/asistencia. El plano de Cinépolis responde al menos 150 min después
+   del inicio; un Spider-Man de 145 min ya no respondía a +146 ("esta función ya no está disponible") mientras
+   Coyote (103 min) sí a +151, la regla de corte no está fijada. Corre tras cada snapshot (`schedule.sh`,
+   service de systemd). Con `--chain cinemex` usa el checkout, así que no está programado.
 3. **`price_sample`** (precios): `--prices` elige una función futura (7 días) por (cadena, cine,
    cubeta de formato, tipo de día) sin muestra en los últimos 7 días y guarda los boletos con
    `general_cents` (adulto regular), `min`, `max` y `fee`. Tipo de día: `weekend` vie–dom, `promo`
@@ -411,8 +422,9 @@ recargarlo con `launchctl bootout` + `launchctl bootstrap`.
   comprimido en `data/raw/{chain}/{fecha}/{HHMMSS}Z.json.gz`.
 - `scraper/http.py`: reintenta 429, 408 (Cinépolis: "downstream duration timeout" del gateway, visto
   el 2026-09-08) y 5xx con espera progresiva.
-- `scraper/schedule.sh`: corre `scraper.run` y después `scraper.sample --occupancy`; el unit de
-  systemd hace lo mismo con dos `ExecStart`.
+- `scraper/schedule.sh`: corre `scraper.run`, `scraper.sample --occupancy` y `scraper.sample --post-start`;
+  el unit de systemd hace lo mismo con tres `ExecStart`. `scraper/daily.sh` (launchd 06:00) corre
+  `scraper.health` y `scraper.sample --prices`. Ver "Programación de tareas".
 - `scraper/diff.py`: compara por `show_id`: `added`, `removed` (solo si faltaban >30 min para
   empezar; si no, expiró), `moved` (hora o sala, misma fecha), `changed` (idioma/formato/película),
   `availability`. Un mismo id que reaparece en otra fecha cuenta como `added`, porque Vista
@@ -442,6 +454,29 @@ FROM current_showtime WHERE date = date('now', 'localtime') GROUP BY chain;
 SELECT detected_at, chain, kind, movie_title, cinema_id, datetime_local
 FROM event WHERE kind <> 'availability' ORDER BY id DESC LIMIT 50;
 ```
+
+## Programación de tareas (2026-09-08)
+
+Todo trabajo programado tiene un target en el `Makefile` con el mismo comando que lanzan launchd (Mac) y
+los timers de systemd (servidor, `deploy/`), así cualquiera se corre a mano igual (`make help`). Se descartó
+Grunt: es un task runner de Node para builds de JavaScript y el proyecto es Python sin front end compilado.
+
+| Trabajo | Cadencia | Mac (launchd) | Servidor (systemd) |
+| --- | --- | --- | --- |
+| Snapshot + planos T−60 + planos post-inicio (`make tick`) | cada 15 min | `com.absolut-cinema.scraper` → `schedule.sh` | `absolut-cinema-scraper.timer` |
+| Salud + precios (`make daily`) | diario 06:00 | `com.absolut-cinema.daily` → `daily.sh` | `health.timer` 08:07 y `prices.timer` 06:07 |
+| Aforo Cinépolis `--refresh` | mensual | a mano | `capacity.timer` día 1 04:07 |
+| Calibración semáforo Cinemex | diario 19:07 | a mano (`!`) | `calibrate-cinemex.timer`, enlazado pero apagado (abre órdenes de checkout; tope 60 por corrida) |
+| Respaldo | diario 05:07 | no aplica | `backup.timer` |
+| Pipeline `geo/` (arquetipos de zona) | trimestral | a mano | no aplica |
+
+`scraper/health.py` (`make health`) revisa por cadena la edad y el resultado de la última captura, snapshots
+obtenidos vs esperados (96 al día), capturas fallidas, huecos > 30 min, muestras de ocupación T−60 y
+post-inicio y precios de 7 días; imprime el detalle, escribe una línea en `data/logs/health.log` y sale con 1
+si hay problemas (así el timer queda como fallido en `systemctl list-timers`). Primera corrida 2026-09-08:
+28 de 96 snapshots en 24 h, con huecos de 508 min (noche), 214 min (mañana) y 40 min, todos por la Mac
+dormida; confirma la urgencia de desplegar. Los timers que escriben van a :07 y `store.connect` tiene
+`timeout=60` para convivir con un snapshot en curso (SQLite en WAL, un escritor a la vez).
 
 ## Front end y hosting (decisión 2026-09-07)
 
@@ -548,6 +583,14 @@ LED; 3D o 4D = formato 3D o 4DX / v4d; el resto Tradicional. Idioma: subtitulada
    semanas (≈2026-10-05); con 8–12 semanas de `event`, patrones de hora de publicación.
 7. Integración con el cliente: aforo oficial, taquilla por función y preventa → paneles de
    Decisiones, scatter pantalla vs butacas y Preventa.
+8. **Modelo de tipificación de zonas y consumo por complejo** (esquema de David, 2026-09-08, fuera del
+   repo): arquetipo de zona por complejo (isócronas a pie 15 min / auto 20 min, AGEB del Censo 2020,
+   CONAPO, DENUE, afluencia Metro; k-means con scikit-learn, geosnap para una v2 por AGEB) y después un
+   modelo de ocupación (LightGBM) cuyo target es el plano **post-inicio** (no T−60). Código en un paquete
+   `geo/` con `requirements-geo.txt` propio, corre en la Mac, resultados en `data/geo.db`; `analytics/`
+   sigue sin dependencias. Verificado: INEGIpy da geometrías y DENUE pero no la tabla censal por AGEB (va
+   por CSV), y su Ruteo es punto a punto en auto, sin isócronas (usar OpenRouteService). Modelo supervisado
+   no antes de finales de octubre de 2026 y solo Cinépolis mientras Cinemex dependa del semáforo.
 
 ## Consideraciones
 

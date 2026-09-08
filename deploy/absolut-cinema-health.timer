@@ -1,0 +1,11 @@
+[Unit]
+Description=absolut-cinema: salud de la captura, diario a las 08:07
+
+[Timer]
+# Hora de America/Mexico_City (zona del servidor, ver install.sh). Minutos :07 para no coincidir con un snapshot.
+OnCalendar=*-*-* 08:07:00
+Persistent=true
+RandomizedDelaySec=2min
+
+[Install]
+WantedBy=timers.target

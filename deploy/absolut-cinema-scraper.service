@@ -10,8 +10,9 @@ WorkingDirectory=/opt/absolut-cinema
 EnvironmentFile=-/etc/absolut-cinema.env
 ExecStart=/usr/bin/python3 -m scraper.run
 ExecStart=/usr/bin/python3 -m scraper.sample --occupancy
-# Un snapshot tarda 2–5 min; si algo se cuelga, no queremos que se encime con el siguiente.
-TimeoutStartSec=12min
+ExecStart=/usr/bin/python3 -m scraper.sample --post-start
+# Snapshot 2–7 min + dos pases de planos (~1.7 s cada uno); si algo se cuelga, no debe encimarse con el siguiente.
+TimeoutStartSec=14min
 Nice=5
 StandardOutput=append:/opt/absolut-cinema/data/logs/systemd.out
 StandardError=append:/opt/absolut-cinema/data/logs/systemd.out

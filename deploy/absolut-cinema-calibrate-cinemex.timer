@@ -1,0 +1,11 @@
+[Unit]
+Description=absolut-cinema: calibración Cinemex, diario a las 19:07 (opt-in: no la habilita install.sh)
+
+[Timer]
+# Hora de America/Mexico_City (zona del servidor, ver install.sh). Minutos :07 para no coincidir con un snapshot.
+OnCalendar=*-*-* 19:07:00
+Persistent=false
+RandomizedDelaySec=2min
+
+[Install]
+WantedBy=timers.target

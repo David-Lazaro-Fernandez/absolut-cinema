@@ -1,0 +1,11 @@
+[Unit]
+Description=absolut-cinema: precios, diario a las 06:07
+
+[Timer]
+# Hora de America/Mexico_City (zona del servidor, ver install.sh). Minutos :07 para no coincidir con un snapshot.
+OnCalendar=*-*-* 06:07:00
+Persistent=true
+RandomizedDelaySec=2min
+
+[Install]
+WantedBy=timers.target
