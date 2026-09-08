@@ -1,0 +1,122 @@
+"""Textos para directivos. Cualquier cosa que se muestre a un usuario sale de aquí, no de los
+nombres internos (chain, kind, franjas, buckets)."""
+
+US = "cinemex"            # la cadena del cliente: en las frases hablamos en primera persona
+THEM = "cinepolis"
+
+CHAIN_LABEL = {"cinemex": "Cinemex", "cinepolis": "Cinépolis"}
+
+# Paleta de marca (ver DESIGN.md). El rojo significa Cinemex o acción; Cinépolis va en gris para no
+# competir con él. Cinemex siempre primero en las escalas, nunca se ciclan.
+RED = "#FF1744"            # rojo Cinemex
+RED_DARK = "#C41C3B"       # hover / activo
+GRAY_DARK = "#333333"      # texto sobre claro; serie Cinépolis
+GRAY_LIGHT = "#F5F5F5"     # fondos alternativos
+CHAIN_COLOR = {"cinemex": RED, "cinepolis": GRAY_DARK}
+NEUTRAL = "#B8B7B1"        # líneas de referencia y ejes
+RED_RAMP = [RED_DARK, RED, "#FF6B86", "#FFC2CE"]                 # ordinal de un solo tono para cubetas ordenadas
+DIVERGING = [GRAY_DARK, "#A3A29E", "#F0EFEC", "#FF8FA3", RED]     # Cinépolis (gris) ↔ centro ↔ Cinemex (rojo)
+
+# Franjas horarias: (clave, hora inicio, hora fin exclusiva, etiqueta). La matiné 10–12 va aparte
+# porque existe en fin de semana y es donde una cadena puede ganar barato.
+SLOTS = [
+    ("antes_10", 0, 10, "Antes de 10:00 A.M."),
+    ("de_10_a_12", 10, 12, "10:00 A.M. a 12:00 P.M."),
+    ("de_12_a_15", 12, 15, "12:00 P.M. a 3:00 P.M."),
+    ("de_15_a_18", 15, 18, "3:00 P.M. a 6:00 P.M."),
+    ("de_18_a_21", 18, 21, "6:00 P.M. a 9:00 P.M."),
+    ("despues_21", 21, 24, "Después de 9:00 P.M."),
+]
+SLOT_LABEL = {k: label for k, _, _, label in SLOTS}
+SLOT_SHORT = {"antes_10": "Antes de 10 A.M.", "de_10_a_12": "10 A.M. – 12 P.M.", "de_12_a_15": "12 – 3 P.M.",
+              "de_15_a_18": "3 – 6 P.M.", "de_18_a_21": "6 – 9 P.M.", "despues_21": "Después de 9 P.M."}
+PRIME_START_HOUR = 18            # horario prime: vie–dom de 6:00 P.M. en adelante
+PRIME_LABEL = "viernes a domingo, de 6:00 P.M. en adelante"
+
+WEEKDAY_LABEL = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+
+# Mix de formato: la sala manda sobre la tecnología, y la tecnología sobre el 3D.
+FORMAT_BUCKETS = ["premium", "large", "3d4d", "traditional"]
+FORMAT_LABEL = {"premium": "Premium / VIP", "large": "Gran formato", "3d4d": "3D o 4D", "traditional": "Tradicional"}
+LANGUAGE_LABEL = {"spanish": "Español", "subtitled": "Subtitulada", "original": "Español", "other": "Otro"}
+LANGUAGE_BUCKETS = ["spanish", "subtitled"]
+
+KIND_LABEL = {
+    "added": "Función nueva",
+    "removed": "Función cancelada",
+    "moved": "Cambio de horario o sala",
+    "changed": "Cambio de idioma o formato",
+    "availability": "Cambio de ocupación",
+}
+KIND_PLURAL = {
+    "added": "funciones nuevas",
+    "removed": "funciones canceladas",
+    "moved": "cambios de horario o sala",
+    "changed": "cambios de idioma o formato",
+    "availability": "cambios de ocupación",
+}
+KIND_HELP = {
+    "added": "Apareció una función que no estaba en la cartelera publicada.",
+    "removed": "Una función publicada desapareció cuando faltaban más de 30 minutos para empezar.",
+    "moved": "La misma función cambió de hora o de sala.",
+    "changed": "La misma función cambió de idioma (doblada/subtitulada), formato o experiencia.",
+    "availability": "Cambió el nivel de ocupación reportado por la cadena.",
+}
+
+COLUMN_LABEL = {
+    "chain": "Cadena", "cinemas": "Cines", "shows": "Funciones", "movies": "Películas",
+    "pct_subtitled": "% subtituladas", "shows_per_cinema": "Funciones por cine",
+    "pct_prime": "% en horario prime", "pct_evening": "% de 6:00 P.M. en adelante",
+    "total": "Total", "title": "Película", "title_norm": "Película",
+    "title_cinemex": "Título en Cinemex", "title_cinepolis": "Título en Cinépolis",
+    "shows_cinemex": "Funciones Cinemex", "shows_cinepolis": "Funciones Cinépolis",
+    "cinemas_cinemex": "Cines Cinemex", "cinemas_cinepolis": "Cines Cinépolis",
+    "per_cinema_cinemex": "Por cine Cinemex", "per_cinema_cinepolis": "Por cine Cinépolis",
+    "share_cinemex": "% programación Cinemex", "share_cinepolis": "% programación Cinépolis",
+    "gap_pp": "Diferencia (puntos)", "shows_total": "Funciones totales",
+    "detected_at": "Detectado", "kind": "Tipo de cambio", "movie_title": "Película",
+    "cinema_id": "Cine", "cinema_name": "Cine", "date": "Fecha", "datetime_local": "Función",
+    "show_id": "Id", "n": "Cambios",
+    "hhi": "Índice de concentración (HHI)", "top3_pct": "Peso del Top 3", "titles_per_cinema": "Títulos por complejo",
+    "titles": "Títulos distintos",
+    "screens": "Salas", "seats": "Butacas", "avg_seats": "Butacas por sala", "min_seats": "Sala más chica",
+    "max_seats": "Sala más grande", "seats_offered": "Butacas ofertadas", "pct_known": "% funciones con aforo",
+    "share_shows": "% de funciones", "share_seats": "% de butacas", "avg_seats_per_show": "Butacas por función",
+    "samples": "Muestras", "avg_sold_pct": "% vendido (promedio)", "min_sold_pct": "Mínimo", "max_sold_pct": "Máximo",
+    "sold": "Vendidos", "sold_pct": "% vendido", "minutes_to_start": "Minutos antes", "sampled_at": "Muestreado",
+    "availability": "Semáforo", "format_bucket": "Formato", "day_type": "Tipo de día", "median_price": "Precio general (mediana)",
+    "min_price": "Mínimo", "max_price": "Máximo", "screen": "Sala",
+}
+DAY_TYPE_LABEL = {"weekday": "Lunes y jueves", "promo": "Martes y miércoles", "weekend": "Viernes a domingo"}
+AVAILABILITY_LABEL = {"#FFBE06": "Amarillo", "#FF804A": "Naranja", "#A2ACBA": "Gris", "(sin color)": "Sin color",
+                      "high": "Alta disponibilidad", "mid": "Media", "low": "Baja"}
+
+
+def hour_12(hour, minute=0):
+    """17 -> '5:00 P.M.'; 0 -> '12:00 A.M.'"""
+    suffix = "A.M." if hour < 12 else "P.M."
+    h = hour % 12 or 12
+    return f"{h}:{minute:02d} {suffix}"
+
+
+def time_12(hhmm):
+    """'17:30' -> '5:30 P.M.'"""
+    h, m = int(hhmm[:2]), int(hhmm[3:5])
+    return hour_12(h, m)
+
+
+def date_es(iso, with_year=True):
+    """'2026-09-07' -> 'lunes 7 de septiembre de 2026'"""
+    from datetime import date
+    d = date.fromisoformat(iso)
+    dias = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
+    meses = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
+             "septiembre", "octubre", "noviembre", "diciembre"]
+    s = f"{dias[d.weekday()]} {d.day} de {meses[d.month - 1]}"
+    return f"{s} de {d.year}" if with_year else s
+
+
+def range_es(d0, d1):
+    if d0 == d1:
+        return date_es(d0)
+    return f"del {date_es(d0, with_year=False)} al {date_es(d1)}"

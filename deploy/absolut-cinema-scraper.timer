@@ -1,0 +1,12 @@
+[Unit]
+Description=absolut-cinema: correr el scraper cada 15 minutos
+
+[Timer]
+OnCalendar=*:0/15
+# Arranca 1 min después del boot aunque se haya perdido una ejecución.
+OnBootSec=1min
+Persistent=true
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

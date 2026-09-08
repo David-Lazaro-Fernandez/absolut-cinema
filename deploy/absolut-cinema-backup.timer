@@ -1,0 +1,10 @@
+[Unit]
+Description=absolut-cinema: respaldo diario a las 05:07 hora de CDMX
+
+[Timer]
+# El servidor corre en America/Mexico_City (ver install.sh). 05:07 evita chocar con un snapshot.
+OnCalendar=*-*-* 05:07:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

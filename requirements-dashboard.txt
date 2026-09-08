@@ -1,0 +1,4 @@
+# Solo para el dashboard. El scraper y analytics/ no necesitan nada fuera de la librería estándar.
+streamlit>=1.38
+pandas>=2.2
+watchdog>=4

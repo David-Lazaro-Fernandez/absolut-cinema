@@ -1,0 +1,27 @@
+[browser]
+gatherUsageStats = false
+
+[server]
+headless = true
+
+# Guía de marca Cinemex: ver DESIGN.md. Las fuentes se cargan desde Google Fonts en app.py.
+[theme]
+base = "light"
+primaryColor = "#FF1744"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F5F5F5"
+textColor = "#333333"
+linkColor = "#C41C3B"
+borderColor = "#E6E6E6"
+dataframeBorderColor = "#E6E6E6"
+font = "Inter, sans-serif"
+headingFont = "Montserrat, sans-serif"
+headingFontWeights = [800, 700, 700, 600, 600, 600]
+baseRadius = "6px"
+buttonRadius = "6px"
+showWidgetBorder = true
+chartCategoricalColors = ["#FF1744", "#333333", "#B8B7B1", "#C41C3B", "#FF8FA3", "#A3A29E"]
+chartSequentialColors = ["#FFC2CE", "#FF8FA3", "#FF6B86", "#FF1744", "#C41C3B", "#9E1530", "#7A1026", "#5A0C1C", "#3D0813", "#26050C"]
+
+[theme.sidebar]
+backgroundColor = "#F5F5F5"

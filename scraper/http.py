@@ -50,7 +50,9 @@ def request_json(url, *, method="GET", headers=None, body=None, retries=None):
             if e.code == 429:
                 last_error = RateLimited(f"HTTP 429 en {url}", 429)
                 time.sleep(10 * (attempt + 1))
-            elif 500 <= e.code < 600:
+            elif e.code == 408 or 500 <= e.code < 600:
+                # 408 "downstream duration timeout": el gateway de Cinépolis agotó el tiempo de su backend
+                # (visto el 2026-09-08 en billboards). Se reintenta igual que un 5xx.
                 last_error = ApiError(f"HTTP {e.code} en {url}: {snippet}", e.code)
             else:
                 raise ApiError(f"HTTP {e.code} en {url}: {snippet}", e.code)

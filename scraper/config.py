@@ -41,3 +41,8 @@ CINEMEX_DAYS_AHEAD = 14           # días hacia adelante a pedir por área (cubr
 # Una función que desaparece del snapshot solo cuenta como "eliminada" si aún faltaban
 # más de estos minutos para que empezara; si no, simplemente expiró.
 REMOVED_GRACE_MINUTES = 30
+
+# Muestreo de asientos (scraper/sample.py). La API de Vista detrás de Cinépolis responde errores
+# transitorios (116, 101305) si se le pide plano tras plano sin pausa.
+SAMPLE_PAUSE = 0.6        # segundos entre planos
+SAMPLE_BACKOFF = 5        # segundos tras un error

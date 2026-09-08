@@ -37,7 +37,14 @@ def diff(chain, previous, current, snapshot_id, prev_snapshot_id, taken_at):
             # Mismo id en otra fecha: Vista recicla ids de sesión. Es una función nueva, no un cambio.
             ev("added", show_id, None, row)
             continue
-        if any((prev.get(f) or None) != (row.get(f) or None) for f in MOVE_FIELDS):
+        # Una sala que pasa de desconocida a conocida (o al revés) es ausencia de dato, no una mudanza:
+        # el 2026-09-08 Cinemex renombró el campo de sala y sin esta regla salieron 16,237 "moved" falsos.
+        moved = any(
+            (prev.get(f) or None) != (row.get(f) or None)
+            and not (f == "screen" and (not prev.get(f) or not row.get(f)))
+            for f in MOVE_FIELDS
+        )
+        if moved:
             ev("moved", show_id, prev, row)
         elif any((prev.get(f) or None) != (row.get(f) or None) for f in CHANGE_FIELDS):
             ev("changed", show_id, prev, row)

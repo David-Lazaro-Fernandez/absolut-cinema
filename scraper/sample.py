@@ -1,0 +1,362 @@
+"""Muestreo de asientos y precios (ver project.md > "Asientos y precios").
+
+Uso:
+  python3 -m scraper.sample --capacity [--chain cinemex]   # aforo por sala; una pasada, repetir al mes
+  python3 -m scraper.sample --occupancy                    # Cinépolis: planos a 45–75 min de empezar (cada 15 min)
+  python3 -m scraper.sample --occupancy --chain cinemex --per-level 100 --lead 60 --tolerance 45
+                                                           # Cinemex: calibración del semáforo, N por nivel, una vez
+  python3 -m scraper.sample --prices [--limit N]           # boletos de una función por cine, formato y tipo de día
+                                                           # (weekday lun/jue, promo mar/mié, weekend vie–dom)
+  opciones: --lead 60 --tolerance 15 --refresh --dry-run --limit N
+
+Cinépolis: `query Seats` y `query Tickets` en /v1/ticket/graphql, solo lectura, sin sesión de usuario.
+Cinemex: precios desde GET sessions/{id}. Su plano solo existe dentro del checkout (POST buy/selectTickets
+abre una orden que caduca sola); se usa una vez por sala (aforo) y una vez para calibrar el semáforo
+high/mid/low contra % vendido. La ocupación continua de Cinemex sale del semáforo calibrado, no del plano.
+"""
+import argparse
+import json
+import sys
+import time
+from collections import Counter
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
+
+from . import cinemex, cinepolis, config, store
+from .http import ApiError, request_json
+from .normalize import format_bucket
+
+TZ = ZoneInfo(config.PILOT_TIMEZONE)
+TICKET_URL = "https://api-g.cinepolis.com/v1/ticket/graphql"
+
+SEATS_QUERY = """query Seats($countryId: String!, $sessionId: String!, $cinemaVistaId: String!) {
+  seats(countryId: $countryId, sessionId: $sessionId, cinemaVistaId: $cinemaVistaId) {
+    seatLayoutData { areas { description areaCategoryCode rowCount columnCount
+      rows { physicalName seats { id status originalStatus seatStyle } } } } } }"""
+TICKETS_QUERY = """query Tickets($countryId: String!, $sessionId: String!, $cinemaVistaId: String!) {
+  tickets(countryId: $countryId, cinemaVistaId: $cinemaVistaId, sessionId: $sessionId) {
+    areaCategoryCode tickets { id description ticketDescription priceInCents bookingFee type } } }"""
+
+# Estados vistos en planos reales de Cinépolis (2026-09-08). "Broken" no se vende; Special y Companion sí.
+NOT_SELLABLE = {"Broken"}
+SOLD = {"Sold"}
+TRANSIENT = ("(116)", "(101305)")   # Vista: "no es posible continuar por el momento"; suele pasar al reintentar
+
+
+def log(msg):
+    config.LOG_DIR.mkdir(parents=True, exist_ok=True)
+    line = f"{datetime.now(timezone.utc).isoformat(timespec='seconds')} {msg}"
+    print(line, flush=True)
+    with open(config.LOG_DIR / "sample.log", "a", encoding="utf-8") as fh:
+        fh.write(line + "\n")
+
+
+def now_local():
+    return datetime.now(TZ).replace(tzinfo=None)
+
+
+def utc_now():
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+# --- Cinépolis --------------------------------------------------------------------------------------
+def vista_ids(stats=None):
+    """{slug: vistaId} de los cines de la plaza (1 llamada a locations)."""
+    return {c["id"]: str(c["vistaId"]) for c in cinepolis.list_cinemas(stats=stats)}
+
+
+def seat_layout(session_id, vista_id, stats=None, attempts=3):
+    """Plano de una función de Cinépolis: {seats, sold, broken, areas} o None si la API no lo tiene."""
+    for i in range(attempts):
+        try:
+            data = cinepolis.gql(TICKET_URL, SEATS_QUERY,
+                                 {"countryId": config.CINEPOLIS_COUNTRY, "sessionId": str(session_id), "cinemaVistaId": vista_id}, stats)
+            break
+        except ApiError as e:
+            if i + 1 < attempts and any(code in str(e) for code in TRANSIENT):
+                time.sleep(config.SAMPLE_BACKOFF * (i + 1))
+                continue
+            raise
+    layout = ((data.get("seats") or {}).get("seatLayoutData") or {})
+    areas = layout.get("areas") or []
+    if not areas:
+        return None
+    total = sold = broken = 0
+    by_area = []
+    for a in areas:
+        st = Counter(s.get("status") for row in a.get("rows") or [] for s in row.get("seats") or [])
+        n = sum(st.values())
+        b = sum(v for k, v in st.items() if k in NOT_SELLABLE)
+        s_ = sum(v for k, v in st.items() if k in SOLD)
+        total += n; broken += b; sold += s_
+        by_area.append({"area": a.get("description"), "code": a.get("areaCategoryCode"), "seats": n, "broken": b,
+                        "sold": s_, "status": dict(st)})
+    return {"seats": total - broken, "sold": sold, "broken": broken, "areas": by_area}
+
+
+def cinepolis_tickets(session_id, vista_id, stats=None):
+    data = cinepolis.gql(TICKET_URL, TICKETS_QUERY,
+                         {"countryId": config.CINEPOLIS_COUNTRY, "sessionId": str(session_id), "cinemaVistaId": vista_id}, stats)
+    out = []
+    for area in data.get("tickets") or []:
+        for t in area.get("tickets") or []:
+            out.append({"name": t.get("description") or t.get("ticketDescription"), "cents": t.get("priceInCents"),
+                        "fee": t.get("bookingFee"), "type": t.get("type"), "area": area.get("areaCategoryCode")})
+    return out
+
+
+# --- Cinemex ------------------------------------------------------------------------------------------
+def cinemex_tickets(session_id, stats=None):
+    d = cinemex.get(f"sessions/{session_id}", stats=stats)
+    return [{"name": t.get("name"), "cents": t.get("price"), "fee": t.get("fee"), "type": t.get("cat"),
+             "regular": bool((t.get("extra") or {}).get("regular"))} for t in d.get("tickets") or []]
+
+
+# Estados del plano de Cinemex (buy/selectTickets): "E" hueco del plano, "0" disponible, "1" vendido.
+def cinemex_layout(session_id, stats=None):
+    """Plano de una función de Cinemex. Pasa por el paso de selección de boletos del checkout, que
+    abre una orden en Vista con caducidad (`timeout_time` s); no hay endpoint para cerrarla, caduca
+    sola. Decisión de producto 2026-09-08: aceptable en desarrollo (aforo una vez por sala y
+    calibración del semáforo), no para muestreo continuo."""
+    sess = cinemex.get(f"sessions/{session_id}", stats=stats)
+    tickets = sess.get("tickets") or []
+    if not tickets:
+        return None
+    t = tickets[0]
+    body = {"session_id": str(session_id),
+            "tickets": [{"type": t["id"], "price": t.get("price"), "qty": 1, "extra": t.get("extra")}]}
+    r = request_json(config.CINEMEX_BASE_URL + "buy/selectTickets", method="POST", headers=cinemex.HEADERS, body=body)
+    if stats is not None:
+        stats["calls"] = stats.get("calls", 0) + 1
+    layout = r.get("layout") or []
+    if not layout:
+        return None
+    total = sold = 0
+    by_area = []
+    for sec in layout:
+        st = Counter(x.get("status") for x in sec.get("seats") or [])
+        n = st.get("0", 0) + st.get("1", 0)
+        total += n; sold += st.get("1", 0)
+        by_area.append({"area": sec.get("name"), "seats": n, "sold": st.get("1", 0), "status": dict(st)})
+    return {"seats": total, "sold": sold, "broken": 0, "areas": by_area,
+            "transaction_id": r.get("transaction_id"), "timeout_time": r.get("timeout_time")}
+
+
+def layout_for(chain, row, vids, stats):
+    """Plano según la cadena. Cinépolis: sesión + vistaId; Cinemex: id de sesión nacional."""
+    if chain == "cinepolis":
+        vid = vids.get(row["cinema_id"])
+        if not vid:
+            raise ApiError(f"sin vistaId para {row['cinema_id']}")
+        return seat_layout(row["show_id"].rsplit(":", 1)[1], vid, stats)
+    return cinemex_layout(row["show_id"], stats)
+
+
+# --- precios --------------------------------------------------------------------------------------------
+def day_type_of(iso_date):
+    """weekend (vie–dom) | promo (mar y mié: días de precio reducido en ambas cadenas) | weekday (lun y jue)."""
+    wd = datetime.fromisoformat(iso_date).weekday()
+    return "weekend" if wd >= 4 else "promo" if wd in (1, 2) else "weekday"
+
+
+def summarize_prices(tickets):
+    """(general, min, max, fee) en centavos. 'General' = boleto adulto regular sin promoción."""
+    priced = [t for t in tickets if isinstance(t.get("cents"), int) and t["cents"] > 0]
+    if not priced:
+        return None, None, None, None
+    general = None
+    for t in priced:
+        name = (t.get("name") or "").lower()
+        if t.get("regular") or "general" in name or "adulto" in name or "estreno" in name:
+            general = t["cents"]; break
+    general = general or max(t["cents"] for t in priced)
+    return general, min(t["cents"] for t in priced), max(t["cents"] for t in priced), priced[0].get("fee") or 0
+
+
+# --- pasadas -------------------------------------------------------------------------------------------
+CAPACITY_CANDIDATES = 3   # funciones distintas a probar por sala si la primera ya no existe (404 / 101)
+
+
+def capacity_pass(conn, chain="cinepolis", refresh=False, dry_run=False, limit=None):
+    """Un plano por (cine, sala). Prueba hasta CAPACITY_CANDIDATES funciones futuras de la sala, de la
+    más próxima en adelante, porque el snapshot puede listar funciones que la cadena ya retiró."""
+    stats = {"calls": 0}
+    vids = vista_ids(stats) if chain == "cinepolis" else {}
+    now = now_local().strftime("%Y-%m-%dT%H:%M:%S")
+    rows = conn.execute("""
+        SELECT cinema_id, screen, show_id, datetime_local FROM current_showtime
+        WHERE chain = ? AND datetime_local >= ? ORDER BY cinema_id, screen, datetime_local""", (chain, now)).fetchall()
+    by_screen = {}
+    for r in rows:
+        by_screen.setdefault((r["cinema_id"], r["screen"]), []).append(r)
+    have = {(r["cinema_id"], r["screen"]) for r in conn.execute("SELECT cinema_id, screen FROM auditorium WHERE chain = ?", (chain,))}
+    todo = [k for k in by_screen if refresh or k not in have]
+    if limit:
+        todo = todo[:limit]
+    log(f"capacity {chain}: {len(by_screen)} salas con funciones, {len(todo)} por muestrear{' (dry-run)' if dry_run else ''}")
+    ok = fail = 0
+    for key in todo:
+        if dry_run:
+            continue
+        lay, last_err, used = None, None, None
+        for r in by_screen[key][:CAPACITY_CANDIDATES]:
+            try:
+                lay = layout_for(chain, r, vids, stats)
+            except ApiError as e:
+                last_err = e
+                time.sleep(config.SAMPLE_BACKOFF)
+                continue
+            time.sleep(config.SAMPLE_PAUSE)
+            if lay:
+                used = r; break
+        if not lay:
+            fail += 1
+            log(f"capacity FAIL {chain} {key[0]} sala {key[1]}: {last_err or 'sin plano'}"[:300])
+            continue
+        session_id = used["show_id"].rsplit(":", 1)[-1]
+        conn.execute("""INSERT OR REPLACE INTO auditorium (chain, cinema_id, screen, seats, broken, areas_json, session_id, sampled_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                     (chain, key[0], key[1], lay["seats"], lay["broken"], json.dumps(lay["areas"], ensure_ascii=False), session_id, utc_now()))
+        conn.commit(); ok += 1
+    log(f"capacity {chain} ok={ok} fail={fail} calls={stats['calls']}")
+    return fail == 0
+
+
+def occupancy_pass(conn, chain="cinepolis", lead=60, tolerance=15, dry_run=False, limit=None, per_level=None):
+    """Plano de cada función que empieza en [lead−tol, lead+tol] minutos y aún no se muestreó en esa ventana.
+    Con `per_level` toma como mucho N funciones por nivel de `availability` (calibración del semáforo)."""
+    stats = {"calls": 0}
+    now = now_local()
+    lo, hi = now + timedelta(minutes=lead - tolerance), now + timedelta(minutes=lead + tolerance)
+    rows = conn.execute("""
+        SELECT s.* FROM current_showtime s
+        WHERE s.chain = ? AND s.datetime_local BETWEEN ? AND ?
+          AND NOT EXISTS (SELECT 1 FROM occupancy_sample o WHERE o.chain = s.chain AND o.show_id = s.show_id
+                          AND o.minutes_to_start BETWEEN ? AND ?)
+        ORDER BY s.datetime_local""", (chain, lo.strftime("%Y-%m-%dT%H:%M:%S"), hi.strftime("%Y-%m-%dT%H:%M:%S"),
+                                        lead - tolerance - 5, lead + tolerance + 5)).fetchall()
+    if per_level:
+        have = Counter(r[0] for r in conn.execute(
+            "SELECT COALESCE(availability, '') FROM occupancy_sample WHERE chain = ?", (chain,)))
+        picked, count = [], Counter()
+        for r in rows:
+            lvl = r["availability"] or ""
+            if have[lvl] + count[lvl] < per_level:
+                picked.append(r); count[lvl] += 1
+        rows = picked
+    if limit:
+        rows = rows[:limit]
+    levels = f" por nivel {dict(Counter(r['availability'] or '' for r in rows))}" if per_level else ""
+    log(f"occupancy {chain}: {len(rows)} funciones entre {lo:%H:%M} y {hi:%H:%M}{levels}{' (dry-run)' if dry_run else ''}")
+    if not rows or dry_run:
+        return True
+    vids = vista_ids(stats) if chain == "cinepolis" else {}
+    ok = fail = 0
+    for r in rows:
+        try:
+            lay = layout_for(chain, r, vids, stats)
+        except ApiError as e:
+            fail += 1; log(f"occupancy FAIL {chain} {r['show_id']}: {e}"[:300])
+            time.sleep(config.SAMPLE_BACKOFF); continue
+        time.sleep(config.SAMPLE_PAUSE)
+        if not lay:
+            fail += 1; continue
+        starts = datetime.fromisoformat(r["datetime_local"])
+        mins = int(round((starts - now_local()).total_seconds() / 60))
+        pct = round(100.0 * lay["sold"] / lay["seats"], 1) if lay["seats"] else None
+        conn.execute("""INSERT INTO occupancy_sample (chain, show_id, cinema_id, screen, movie_id, movie_title, datetime_local,
+                            sampled_at, minutes_to_start, seats, sold, broken, sold_pct, availability)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                     (chain, r["show_id"], r["cinema_id"], r["screen"], r["movie_id"], r["movie_title"], r["datetime_local"],
+                      utc_now(), mins, lay["seats"], lay["sold"], lay["broken"], pct, r["availability"]))
+        # de paso, el aforo de la sala si aún no lo tenemos
+        conn.execute("""INSERT OR IGNORE INTO auditorium (chain, cinema_id, screen, seats, broken, areas_json, session_id, sampled_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                     (chain, r["cinema_id"], r["screen"], lay["seats"], lay["broken"], json.dumps(lay["areas"], ensure_ascii=False),
+                      r["show_id"].rsplit(":", 1)[-1], utc_now()))
+        conn.commit(); ok += 1
+    log(f"occupancy {chain} ok={ok} fail={fail} calls={stats['calls']}")
+    return fail == 0
+
+
+def price_pass(conn, days=7, limit=None, dry_run=False):
+    """Una función por (cadena, cine, cubeta de formato, tipo de día) sin muestra en los últimos `days` días."""
+    stats = {"calls": 0}
+    now = now_local()
+    rows = conn.execute("""SELECT * FROM current_showtime WHERE datetime_local >= ? AND date <= ? ORDER BY datetime_local""",
+                        (now.strftime("%Y-%m-%dT%H:%M:%S"), (now + timedelta(days=days)).strftime("%Y-%m-%d"))).fetchall()
+    recent = {(r["chain"], r["cinema_id"], r["format_bucket"], r["day_type"]) for r in conn.execute(
+        "SELECT chain, cinema_id, format_bucket, day_type FROM price_sample WHERE sampled_at >= ?",
+        ((datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="seconds"),))}
+    todo = {}
+    for r in rows:
+        d = dict(r)
+        title = (d.get("movie_title") or "").lower()
+        if title.startswith("evento") or "matinee" in title or "matiné" in title:
+            continue   # los eventos tienen precios propios; no representan al cine
+        key = (d["chain"], d["cinema_id"], format_bucket(d), day_type_of(d["date"]))
+        if key in recent or key in todo:
+            continue
+        todo[key] = d
+    items = list(todo.items())
+    if limit:
+        items = items[:limit]
+    log(f"prices: {len(todo)} combinaciones pendientes, {len(items)} en esta pasada{' (dry-run)' if dry_run else ''}")
+    if dry_run:
+        return True
+    vids = vista_ids(stats) if any(k[0] == "cinepolis" for k, _ in items) else {}
+    ok = fail = 0
+    for (chain, cinema_id, bucket, day_type), r in items:
+        try:
+            if chain == "cinepolis":
+                tickets = cinepolis_tickets(r["show_id"].rsplit(":", 1)[1], vids[cinema_id], stats)
+            else:
+                tickets = cinemex_tickets(r["show_id"], stats)
+        except (ApiError, KeyError) as e:
+            fail += 1; log(f"prices FAIL {chain} {r['show_id']}: {e}"[:300]); continue
+        general, lo, hi, fee = summarize_prices(tickets)
+        if general is None:
+            log(f"prices skip {chain} {r['show_id']}: sin boletos"); continue   # se reintenta en la siguiente pasada
+        conn.execute("""INSERT INTO price_sample (chain, show_id, cinema_id, screen, format_bucket, day_type, date, datetime_local,
+                            sampled_at, general_cents, min_cents, max_cents, fee_cents, tickets_json)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                     (chain, r["show_id"], cinema_id, r["screen"], bucket, day_type, r["date"], r["datetime_local"],
+                      utc_now(), general, lo, hi, fee, json.dumps(tickets, ensure_ascii=False)))
+        conn.commit(); ok += 1
+    log(f"prices ok={ok} fail={fail} calls={stats['calls']}")
+    return fail == 0
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--capacity", action="store_true")
+    ap.add_argument("--occupancy", action="store_true")
+    ap.add_argument("--prices", action="store_true")
+    ap.add_argument("--chain", choices=["cinepolis", "cinemex"], default="cinepolis",
+                    help="cadena para --capacity / --occupancy (los precios siempre son de ambas)")
+    ap.add_argument("--per-level", type=int, help="occupancy: calibración, máximo N funciones por nivel del semáforo")
+    ap.add_argument("--lead", type=int, default=60, help="minutos antes de la función (ocupación)")
+    ap.add_argument("--tolerance", type=int, default=15)
+    ap.add_argument("--refresh", action="store_true", help="capacity: volver a medir salas ya conocidas")
+    ap.add_argument("--limit", type=int)
+    ap.add_argument("--dry-run", action="store_true")
+    a = ap.parse_args(argv)
+    if not (a.capacity or a.occupancy or a.prices):
+        ap.error("indica --capacity, --occupancy y/o --prices")
+    conn = store.connect()
+    ok = True
+    t0 = time.time()
+    if a.capacity:
+        ok &= capacity_pass(conn, chain=a.chain, refresh=a.refresh, dry_run=a.dry_run, limit=a.limit)
+    if a.occupancy:
+        ok &= occupancy_pass(conn, chain=a.chain, lead=a.lead, tolerance=a.tolerance, dry_run=a.dry_run,
+                             limit=a.limit, per_level=a.per_level)
+    if a.prices:
+        ok &= price_pass(conn, limit=a.limit, dry_run=a.dry_run)
+    conn.close()
+    log(f"done in {time.time() - t0:.0f}s ok={ok}")
+    return 0 if ok else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

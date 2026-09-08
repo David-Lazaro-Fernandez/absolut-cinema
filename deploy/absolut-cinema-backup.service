@@ -1,0 +1,11 @@
+[Unit]
+Description=absolut-cinema: respaldo de snapshots.db y crudo al bucket
+
+[Service]
+Type=oneshot
+User=absolut
+WorkingDirectory=/opt/absolut-cinema
+EnvironmentFile=-/etc/absolut-cinema.env
+ExecStart=/opt/absolut-cinema/deploy/backup.sh
+StandardOutput=append:/opt/absolut-cinema/data/logs/systemd.out
+StandardError=append:/opt/absolut-cinema/data/logs/systemd.out

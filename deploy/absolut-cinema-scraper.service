@@ -1,0 +1,17 @@
+[Unit]
+Description=absolut-cinema: snapshot de cartelera CDMX (Cinemex + Cinépolis)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=absolut
+WorkingDirectory=/opt/absolut-cinema
+EnvironmentFile=-/etc/absolut-cinema.env
+ExecStart=/usr/bin/python3 -m scraper.run
+ExecStart=/usr/bin/python3 -m scraper.sample --occupancy
+# Un snapshot tarda 2–5 min; si algo se cuelga, no queremos que se encime con el siguiente.
+TimeoutStartSec=12min
+Nice=5
+StandardOutput=append:/opt/absolut-cinema/data/logs/systemd.out
+StandardError=append:/opt/absolut-cinema/data/logs/systemd.out

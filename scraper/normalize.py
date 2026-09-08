@@ -99,6 +99,13 @@ def cinepolis_rows(raw):
 CINEMEX_NON_EXPERIENCE = {"platinum", "premium", "traditional", "lang_sub", "lang_es", "lang_esp", "lang_orig", "2d", "3d", "v3d"}
 
 
+def _first_str(*values):
+    for v in values:
+        if v is not None and str(v) != "":
+            return str(v)
+    return None
+
+
 def cinemex_rows(raw):
     for area in raw.get("areas", []):
         for day in area.get("days", []):
@@ -134,7 +141,9 @@ def cinemex_rows(raw):
                                 "distributor": info.get("distributor"),
                                 "date": dt[:10],
                                 "datetime_local": dt,
-                                "screen": str(s.get("screen_number")) if s.get("screen_number") is not None else None,
+                                # 2026-09-08 ~10:30 CDMX: Cinemex adelgazó el payload de sesión y `screen_number`
+                                # pasó a llamarse `auditorium_number` (mismo valor, ahora string).
+                                "screen": _first_str(s.get("screen_number"), s.get("auditorium_number")),
                                 "language": language,
                                 "language_raw": v.get("label"),
                                 "format": fmt,
@@ -151,3 +160,17 @@ def rows(chain, raw):
     for r in gen:
         seen.setdefault(r["show_id"], r)   # una fila por función aunque aparezca dos veces
     return list(seen.values())
+
+
+def format_bucket(row):
+    """premium | large | 3d4d | traditional. Misma regla que el CASE de analytics/queries.py: si
+    cambia una, cambiar la otra. La sala manda sobre la tecnología, y la tecnología sobre el 3D."""
+    tier = (row.get("premium_tier") or "").lower()
+    exp = (row.get("experience") or "")
+    if tier in ("premium", "platinum", "vip") or exp in ("confort", "SP"):
+        return "premium"
+    if exp.lower() in ("imax", "xe", "screenx", "xescreenx", "dolby_atmos", "jumbo", "led"):
+        return "large"
+    if (row.get("format") or "") == "3D" or exp.lower() in ("v4d", "4dx"):
+        return "3d4d"
+    return "traditional"

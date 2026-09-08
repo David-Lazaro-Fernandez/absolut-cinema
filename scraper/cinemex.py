@@ -89,6 +89,11 @@ def snapshot(area_ids=None, days_ahead=config.CINEMEX_DAYS_AHEAD):
         first = area_billboard(area_id, stats=stats)
         available = first.get("dates") or []
         wanted = [d for d in available if today.isoformat() <= d <= horizon.isoformat()]
+        # Por la tarde-noche cada área deja de listar el día en curso en `dates`, pero `date=hoy`
+        # sigue devolviendo las funciones que faltan. Sin esto, el diff las daba por canceladas
+        # (502 falsas "removed" el 2026-09-07 a las 19:00). Pedimos hoy siempre.
+        if today.isoformat() not in wanted:
+            wanted.insert(0, today.isoformat())
         days = {}
         first_date = _payload_date(first)
         if first_date and first_date in wanted:

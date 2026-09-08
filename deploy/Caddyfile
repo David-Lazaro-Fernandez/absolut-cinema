@@ -1,0 +1,9 @@
+# /etc/caddy/Caddyfile. Cambia el dominio y genera el hash con `caddy hash-password`.
+# Caddy obtiene el certificado TLS solo; el DNS del dominio debe apuntar al droplet antes.
+cinema.example.com {
+    basic_auth {
+        cinemex REEMPLAZAR_CON_LA_SALIDA_DE_caddy_hash-password
+    }
+    reverse_proxy 127.0.0.1:8501
+    encode zstd gzip
+}

@@ -45,6 +45,29 @@ CREATE TABLE IF NOT EXISTS event (
 CREATE INDEX IF NOT EXISTS idx_event_detected ON event (chain, detected_at);
 CREATE INDEX IF NOT EXISTS idx_event_show ON event (chain, show_id);
 CREATE INDEX IF NOT EXISTS idx_current_cinema ON current_showtime (chain, cinema_id, date);
+-- Aforo por sala (Cinépolis desde el plano de asientos; Cinemex llegará del cliente).
+CREATE TABLE IF NOT EXISTS auditorium (
+  chain TEXT NOT NULL, cinema_id TEXT NOT NULL, screen TEXT NOT NULL,
+  seats INTEGER, broken INTEGER, areas_json TEXT, session_id TEXT, sampled_at TEXT,
+  PRIMARY KEY (chain, cinema_id, screen)
+);
+-- Muestreo de ocupación: un plano de asientos por función a N minutos de empezar.
+CREATE TABLE IF NOT EXISTS occupancy_sample (
+  id INTEGER PRIMARY KEY,
+  chain TEXT NOT NULL, show_id TEXT NOT NULL, cinema_id TEXT, screen TEXT, movie_id TEXT, movie_title TEXT,
+  datetime_local TEXT, sampled_at TEXT NOT NULL, minutes_to_start INTEGER,
+  seats INTEGER, sold INTEGER, broken INTEGER, sold_pct REAL, availability TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_occ_show ON occupancy_sample (chain, show_id);
+CREATE INDEX IF NOT EXISTS idx_occ_time ON occupancy_sample (chain, datetime_local);
+-- Muestreo de precios: una función por cine, cubeta de formato y tipo de día.
+CREATE TABLE IF NOT EXISTS price_sample (
+  id INTEGER PRIMARY KEY,
+  chain TEXT NOT NULL, show_id TEXT NOT NULL, cinema_id TEXT, screen TEXT, format_bucket TEXT, day_type TEXT,
+  date TEXT, datetime_local TEXT, sampled_at TEXT NOT NULL,
+  general_cents INTEGER, min_cents INTEGER, max_cents INTEGER, fee_cents INTEGER, tickets_json TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_price_key ON price_sample (chain, cinema_id, format_bucket, day_type, date);
 """ % ",\n  ".join(f"{c} TEXT" if c not in ("lat", "lng", "duration_min") else f"{c} REAL" for c in COLUMNS if c not in ("chain", "show_id"))
 
 ROW_COLUMNS = [c for c in COLUMNS if c not in ("chain", "show_id")]
