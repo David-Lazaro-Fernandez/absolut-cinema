@@ -1,0 +1,3463 @@
+# Cines Cinépolis México. El campo `slug` es el valor de ?cinema= en https://cinepolis.com/mx. lat/lng vienen de la API de locations.
+pais: MX
+fuente: https://api-g.cinepolis.com/shared-services/locations/graphql
+extraido: 2026-09-07
+total_ciudades: 154
+total_cines: 499
+ciudades:
+  - nombre: "Acámbaro"
+    id: acambaro
+    cines:
+      - nombre: "Plaza Acámbaro"
+        slug: plaza-acambaro
+        vista_id: "1196"
+        timezone: America/Mexico_City
+        lat: 20.0380333
+        lng: -100.711999
+  - nombre: "Acapulco"
+    id: acapulco
+    cines:
+      - nombre: "Acapulco Renacimiento"
+        slug: acapulco-renacimiento
+        vista_id: "218"
+        timezone: America/Mexico_City
+        lat: 16.9
+        lng: -99.832
+      - nombre: "Diana Acapulco"
+        slug: cinepolis-galerias-diana-acapulco
+        vista_id: "235"
+        timezone: America/Mexico_City
+        lat: 16.861
+        lng: -99.873
+      - nombre: "Diana Acapulco"
+        slug: cinepolis-vip-galerias-diana-acapulco
+        vista_id: "265"
+        timezone: America/Mexico_City
+        lat: 16.861
+        lng: 99.873
+      - nombre: "Galerías Acapulco"
+        slug: cinepolis-galerias-acapulco
+        vista_id: "142"
+        timezone: America/Mexico_City
+        lat: 16.861
+        lng: -99.883
+      - nombre: "Patio Acapulco"
+        slug: cinepolis-patio-acapulco
+        vista_id: "378"
+        timezone: America/Mexico_City
+        lat: 16.832813512801
+        lng: -99.810525778558
+      - nombre: "Pie de la Cuesta"
+        slug: cinepolis-pie-de-la-cuesta
+        vista_id: "224"
+        timezone: America/Mexico_City
+        lat: 16.858
+        lng: -99.916
+  - nombre: "Acayucan"
+    id: acayucan
+    cines:
+      - nombre: "La Florida"
+        slug: cinepolis-la-florida-acayucan
+        vista_id: "611"
+        timezone: America/Mexico_City
+        lat: 17.939588
+        lng: -94.909798
+  - nombre: "Aguascalientes"
+    id: aguascalientes
+    cines:
+      - nombre: "Aguascalientes"
+        slug: cinepolis-aguascalientes
+        vista_id: "141"
+        timezone: America/Mexico_City
+        lat: 21.903
+        lng: -102.315
+      - nombre: "Altaria"
+        slug: cinepolis-altaria-aguascalientes
+        vista_id: "282"
+        timezone: America/Mexico_City
+        lat: 21.925
+        lng: -102.29
+      - nombre: "Altaria"
+        slug: cinepolis-vip-altaria-aguascalientes
+        vista_id: "316"
+        timezone: America/Mexico_City
+        lat: 21.925
+        lng: -102.29
+      - nombre: "Espacio Aguascalientes"
+        slug: cinepolis-espacio-aguascalientes
+        vista_id: "392"
+        timezone: America/Mexico_City
+        lat: 21.880299
+        lng: -102.260243
+      - nombre: "Sur Aguascalientes"
+        slug: cinepolis-sur-aguascalientes
+        vista_id: "217"
+        timezone: America/Mexico_City
+        lat: 21.852
+        lng: -102.293
+      - nombre: "Velaria Mall"
+        slug: cinepolis-velaria-mall-aguascalientes
+        vista_id: "820"
+        timezone: America/Mexico_City
+        lat: 21.85884
+        lng: -102.315839
+  - nombre: "Apatzingán"
+    id: apatzingan
+    cines:
+      - nombre: "Plaza Paseo Akia Apatzingán"
+        slug: cinepolis-plaza-paseo-akia-apatzingan
+        vista_id: "1206"
+        timezone: America/Mexico_City
+        lat: 19.087008
+        lng: -102.374092
+  - nombre: "Apizaco"
+    id: apizaco
+    cines:
+      - nombre: "Plaza Comercial Apizaco"
+        slug: cinepolis-plaza-comercial-apizaco
+        vista_id: "565"
+        timezone: America/Mexico_City
+        lat: 19.412358
+        lng: -98.13135
+  - nombre: "Autlán de Navarro"
+    id: autlan-de-navarro
+    cines:
+      - nombre: "Galerías Metropolitana Autlán"
+        slug: cinepolis-galerias-metropolitana-autlan-autlan-de-navarro
+        vista_id: "584"
+        timezone: America/Mexico_City
+        lat: 19.766685
+        lng: -104.350731
+  - nombre: "Caborca"
+    id: caborca
+    cines:
+      - nombre: "Caborca"
+        slug: cinepolis-caborca
+        vista_id: "1048"
+        timezone: America/Hermosillo
+        lat: 30.709149
+        lng: -112.1732
+  - nombre: "Cadereyta"
+    id: cadereyta
+    cines:
+      - nombre: "Plaza Cadereyta"
+        slug: cinepolis-plaza-cadereyta
+        vista_id: "513"
+        timezone: America/Monterrey
+        lat: 25.574653
+        lng: -100.002972
+  - nombre: "Camargo"
+    id: camargo
+    cines:
+      - nombre: "Plaza Camargo"
+        slug: cinepolis-plaza-camargo
+        vista_id: "1141"
+        timezone: America/Chihuahua
+        lat: 27.667694
+        lng: -105.170041
+  - nombre: "Campeche"
+    id: campeche
+    cines:
+      - nombre: "Galerías Campeche"
+        slug: cinepolis-galerias-campeche
+        vista_id: "544"
+        timezone: America/Merida
+        lat: 19.856816
+        lng: -90.522895
+      - nombre: "Galerías Campeche"
+        slug: cinepolis-vip-galerias-campeche
+        vista_id: "574"
+        timezone: America/Merida
+        lat: 19.856816
+        lng: -90.522895
+  - nombre: "Cancún"
+    id: cancun
+    cines:
+      - nombre: "Arco Norte"
+        slug: cinepolis-arco-norte-cancun
+        vista_id: "1000"
+        timezone: America/Cancun
+        lat: 21.175874
+        lng: -86.91362
+      - nombre: "Cancún Mall"
+        slug: cinepolis-cancun-mall
+        vista_id: "233"
+        timezone: America/Cancun
+        lat: 21.182
+        lng: -86.851
+      - nombre: "La Gran Plaza Cancún"
+        slug: cinepolis-la-gran-plaza-cancun
+        vista_id: "246"
+        timezone: America/Cancun
+        lat: 21.134
+        lng: -86.854
+      - nombre: "Plaza Las Américas"
+        slug: cinepolis-vip-plaza-las-americas-cancun
+        vista_id: "185"
+        timezone: America/Cancun
+        lat: 21.148
+        lng: -86.824
+      - nombre: "Plaza Las Américas Cancún"
+        slug: cinepolis-plaza-las-americas-cancun
+        vista_id: "159"
+        timezone: America/Cancun
+        lat: 21.1481
+        lng: -86.824
+      - nombre: "Puerto Cancún"
+        slug: cinepolis-puerto-cancun
+        vista_id: "655"
+        timezone: America/Cancun
+        lat: 21.160439
+        lng: -86.807806
+      - nombre: "Puerto Cancún"
+        slug: cinepolis-vip-puerto-cancun
+        vista_id: "948"
+        timezone: America/Cancun
+        lat: 21.160439
+        lng: -86.807806
+      - nombre: "Punta Lakin"
+        slug: cinepolis-punta-lakin-cancun
+        vista_id: "1267"
+        timezone: America/Cancun
+        lat: 21.134260311122
+        lng: -86.907135435191
+  - nombre: "Cd. Acuña"
+    id: cd-acuna
+    cines:
+      - nombre: "Ciudad Acuña"
+        slug: cinepolis-ciudad-acuna-cd-acuna
+        vista_id: "386"
+        timezone: America/Matamoros
+        lat: 29.317
+        lng: -100.947
+  - nombre: "Cd. Cuauhtémoc"
+    id: cd-cuauhtemoc
+    cines:
+      - nombre: "Cuauhtémoc"
+        slug: cinepolis-cuauhtemoc-cd-cuauhtemoc
+        vista_id: "238"
+        timezone: America/Chihuahua
+        lat: 28.41
+        lng: -106.855
+  - nombre: "Cd. del Carmen"
+    id: cd-del-carmen
+    cines:
+      - nombre: "Zentralia"
+        slug: cinepolis-vip-zentralia-cd-del-carmen
+        vista_id: "578"
+        timezone: America/Merida
+        lat: 18.649565675715
+        lng: -91.805081317342
+      - nombre: "Zentralia Cd. del Carmen"
+        slug: cinepolis-zentralia-cd-del-carmen
+        vista_id: "396"
+        timezone: America/Merida
+        lat: 18.649565675715
+        lng: -91.805081317342
+  - nombre: "Cd. Guzmán"
+    id: cd-guzman
+    cines:
+      - nombre: "Ciudad Guzmán"
+        slug: cinepolis-ciudad-guzman-cd-guzman
+        vista_id: "872"
+        timezone: America/Mexico_City
+        lat: 19.6811
+        lng: -103.474383
+  - nombre: "Cd. Hidalgo"
+    id: cd-hidalgo
+    cines:
+      - nombre: "Plaza San Francisco"
+        slug: cinepolis-plaza-san-francisco-cd-hidalgo
+        vista_id: "517"
+        timezone: America/Mexico_City
+        lat: 19.683828
+        lng: -100.546925
+  - nombre: "Cd. Juárez"
+    id: cd-juarez
+    cines:
+      - nombre: "Gran Patio Zaragoza"
+        slug: cinepolis-gran-patio-zaragoza-cd-juarez
+        vista_id: "292"
+        timezone: America/Ciudad_Juarez
+        lat: 31.657
+        lng: -106.439
+      - nombre: "Juárez Centro Mall"
+        slug: cinepolis-juarez-centro-mall-cd-juarez
+        vista_id: "950"
+        timezone: America/Ciudad_Juarez
+        lat: 31.741197
+        lng: -106.487415
+      - nombre: "La Monumental"
+        slug: cinepolis-la-monumental-cd-juarez
+        vista_id: "822"
+        timezone: America/Ciudad_Juarez
+        lat: 31.736763
+        lng: -106.443925
+      - nombre: "Las Américas Juárez"
+        slug: cinepolis-las-americas-juarez-cd-juarez
+        vista_id: "124"
+        timezone: America/Ciudad_Juarez
+        lat: 31.740501
+        lng: -106.452009
+      - nombre: "Las Misiones"
+        slug: cinepolis-las-misiones-cd-juarez
+        vista_id: "219"
+        timezone: America/Chihuahua
+        lat: 31.685
+        lng: -106.409
+      - nombre: "Las Misiones"
+        slug: cinepolis-vip-las-misiones-cd-juarez
+        vista_id: "220"
+        timezone: America/Ciudad_Juarez
+        lat: 31.685
+        lng: -106.409
+      - nombre: "Pinocelli"
+        slug: cinepolis-pinocelli-cd-juarez
+        vista_id: "1262"
+        timezone: America/Ciudad_Juarez
+        lat: 31.636503
+        lng: -106.409849
+      - nombre: "Plaza Areno"
+        slug: cinepolis-plaza-areno-cd-juarez
+        vista_id: "1271"
+        timezone: America/Ciudad_Juarez
+        lat: 31.582262
+        lng: -106.362937
+      - nombre: "Plaza Sendero Las Torres"
+        slug: cinepolis-plaza-sendero-las-torres-cd-juarez
+        vista_id: "213"
+        timezone: America/Mexico_City
+        lat: 31.624
+        lng: -106.395
+      - nombre: "Sendero Ciudad Juárez"
+        slug: cinepolis-sendero-ciudad-juarez-cd-juarez
+        vista_id: "332"
+        timezone: America/Ciudad_Juarez
+        lat: 31.693
+        lng: -106.38
+  - nombre: "Cd. Obregón"
+    id: cd-obregon
+    cines:
+      - nombre: "Bella Vista"
+        slug: cinepolis-bella-vista-cd-obregon
+        vista_id: "223"
+        timezone: America/Hermosillo
+        lat: 27.485
+        lng: -109.959
+      - nombre: "Sendero Obregón"
+        slug: cinepolis-sendero-obregon-cd-obregon
+        vista_id: "951"
+        timezone: America/Hermosillo
+        lat: 27.467771
+        lng: -109.912987
+  - nombre: "Cd. Victoria"
+    id: cd-victoria
+    cines:
+      - nombre: "Adelitas"
+        slug: cinepolis-adelitas-cd-victoria
+        vista_id: "779"
+        timezone: America/Monterrey
+        lat: 23.749399
+        lng: -99.156198
+      - nombre: "Plaza Campestre"
+        slug: cinepolis-plaza-campestre-cd-victoria
+        vista_id: "190"
+        timezone: America/Monterrey
+        lat: 23.762
+        lng: -99.141
+  - nombre: "CDMX"
+    id: cdmx
+    cines:
+      - nombre: "Ajusco"
+        slug: cinepolis-ajusco-cdmx
+        vista_id: "236"
+        timezone: America/Mexico_City
+        lat: 19.299
+        lng: -99.213
+      - nombre: "Anfora"
+        slug: cinepolis-anfora-cdmx
+        vista_id: "253"
+        timezone: America/Mexico_City
+        lat: 19.436186
+        lng: -99.109684
+      - nombre: "City Center Zona Esmeralda"
+        slug: cinepolis-city-center-zona-esmeralda-cdmx
+        vista_id: "878"
+        timezone: America/Mexico_City
+        lat: 19.548425
+        lng: -99.288006
+      - nombre: "Copilco"
+        slug: cinepolis-copilco-cdmx
+        vista_id: "630"
+        timezone: America/Mexico_City
+        lat: 19.335388
+        lng: -99.157622
+      - nombre: "Diana"
+        slug: cinepolis-diana-cdmx
+        vista_id: "155"
+        timezone: America/Mexico_City
+        lat: 19.426
+        lng: -99.171
+      - nombre: "Encuentro Fortuna"
+        slug: cinepolis-encuentro-fortuna-cdmx
+        vista_id: "357"
+        timezone: America/Mexico_City
+        lat: 19.483086
+        lng: -99.133411
+      - nombre: "Encuentro Fortuna"
+        slug: cinepolis-vip-encuentro-fortuna-cdmx
+        vista_id: "932"
+        timezone: America/Mexico_City
+        lat: 19.483086
+        lng: -99.133411
+      - nombre: "Encuentro Tlalnepantla"
+        slug: cinepolis-encuentro-tlalnepantla-cdmx
+        vista_id: "761"
+        timezone: America/Mexico_City
+        lat: 19.532049
+        lng: -99.172937
+      - nombre: "Ermita"
+        slug: cinepolis-ermita-cdmx
+        vista_id: "304"
+        timezone: America/Mexico_City
+        lat: 19.347
+        lng: -99.018
+      - nombre: "Fórum Buenavista"
+        slug: cinepolis-forum-buenavista-cdmx
+        vista_id: "297"
+        timezone: America/Mexico_City
+        lat: 19.44737
+        lng: -99.15205
+      - nombre: "Galerías Atizapán"
+        slug: cinepolis-galerias-atizapan-cdmx
+        vista_id: "254"
+        timezone: America/Mexico_City
+        lat: 19.549
+        lng: -99.274
+      - nombre: "Galerías Atizapán"
+        slug: cinepolis-vip-galerias-atizapan-cdmx
+        vista_id: "375"
+        timezone: America/Mexico_City
+        lat: 19.549
+        lng: -99.274
+      - nombre: "Gran Terraza Coapa"
+        slug: cinepolis-gran-terraza-coapa-cdmx
+        vista_id: "859"
+        timezone: America/Mexico_City
+        lat: 19.294729
+        lng: -99.127679
+      - nombre: "Gran Terraza Coapa"
+        slug: cinepolis-vip-gran-terraza-coapa-cdmx
+        vista_id: "1223"
+        timezone: America/Mexico_City
+        lat: 19.294617
+        lng: -99.127679
+      - nombre: "Gustavo Baz"
+        slug: cinepolis-gustavo-baz-cdmx
+        vista_id: "704"
+        timezone: America/Mexico_City
+        lat: 19.509692
+        lng: -99.220031
+      - nombre: "Hollywood"
+        slug: cinepolis-hollywood-cdmx
+        vista_id: "021"
+        timezone: America/Mexico_City
+        lat: 19.4532251
+        lng: -99.2206401
+      - nombre: "Interlomas"
+        slug: cinepolis-vip-interlomas-cdmx
+        vista_id: "169"
+        timezone: America/Mexico_City
+        lat: 19.402
+        lng: -99.269
+      - nombre: "La Cúspide"
+        slug: cinepolis-la-cuspide-cdmx
+        vista_id: "267"
+        timezone: America/Mexico_City
+        lat: 19.515
+        lng: -99.268
+      - nombre: "La Cúspide"
+        slug: cinepolis-vip-la-cuspide-cdmx
+        vista_id: "279"
+        timezone: America/Mexico_City
+        lat: 19.515
+        lng: -99.268
+      - nombre: "Las Antenas"
+        slug: cinepolis-las-antenas-cdmx
+        vista_id: "879"
+        timezone: America/Mexico_City
+        lat: 19.31379
+        lng: -99.076371
+      - nombre: "Magno Centro Interlomas"
+        slug: cinepolis-magno-centro-interlomas-cdmx
+        vista_id: "877"
+        timezone: America/Mexico_City
+        lat: 19.406915
+        lng: -99.272069
+      - nombre: "Miramontes"
+        slug: cinepolis-miramontes-cdmx
+        vista_id: "151"
+        timezone: America/Mexico_City
+        lat: 19.309
+        lng: -99.125
+      - nombre: "Mítikah"
+        slug: cinepolis-mitikah-cdmx
+        vista_id: "472"
+        timezone: America/Mexico_City
+        lat: 19.360721308837
+        lng: -99.167936885684
+      - nombre: "Mítikah"
+        slug: cinepolis-vip-mitikah-cdmx
+        vista_id: "1226"
+        timezone: America/Mexico_City
+        lat: 19.360721308837
+        lng: -99.167936885684
+      - nombre: "Miyana Polanco"
+        slug: cinepolis-vip-miyana-polanco-cdmx
+        vista_id: "673"
+        timezone: America/Mexico_City
+        lat: 19.438951
+        lng: -99.199661
+      - nombre: "Oasis Coyoacán"
+        slug: cinepolis-oasis-coyoacan-cdmx
+        vista_id: "579"
+        timezone: America/Mexico_City
+        lat: 19.345815
+        lng: -99.179914
+      - nombre: "Oasis Coyoacán"
+        slug: cinepolis-vip-oasis-coyoacan-cdmx
+        vista_id: "607"
+        timezone: America/Mexico_City
+        lat: 19.345815
+        lng: -99.179914
+      - nombre: "Pabellón Cuemanco"
+        slug: cinepolis-pabellon-cuemanco-cdmx
+        vista_id: "595"
+        timezone: America/Mexico_City
+        lat: 19.295
+        lng: -99.108184
+      - nombre: "Pabellón Río de los Remedios"
+        slug: cinepolis-pabellon-rio-de-los-remedios-cdmx
+        vista_id: "657"
+        timezone: America/Mexico_City
+        lat: 19.519311
+        lng: -99.117738
+      - nombre: "Parque Jardín Azcapotzalco"
+        slug: cinepolis-parque-jardin-azcapotzalco-cdmx
+        vista_id: "461"
+        timezone: America/Mexico_City
+        lat: 19.468083
+        lng: -99.160611
+      - nombre: "Parque Tepeyac"
+        slug: cinepolis-parque-tepeyac-cdmx
+        vista_id: "1203"
+        timezone: America/Mexico_City
+        lat: 19.477328
+        lng: -99.099956
+      - nombre: "Parque Toreo"
+        slug: cinepolis-parque-toreo-cdmx
+        vista_id: "570"
+        timezone: America/Mexico_City
+        lat: 19.454352
+        lng: -99.219165
+      - nombre: "Parque Toreo"
+        slug: cinepolis-vip-parque-toreo-cdmx
+        vista_id: "656"
+        timezone: America/Mexico_City
+        lat: 19.454352
+        lng: -99.219165
+      - nombre: "Paseo Acoxpa"
+        slug: cinepolis-paseo-acoxpa-cdmx
+        vista_id: "308"
+        timezone: America/Mexico_City
+        lat: 19.297
+        lng: -99.135
+      - nombre: "Paseo Acoxpa"
+        slug: cinepolis-vip-paseo-acoxpa-cdmx
+        vista_id: "1019"
+        timezone: America/Mexico_City
+        lat: 19.300465
+        lng: -99.136577
+      - nombre: "Paseo Arcos Bosques"
+        slug: cinepolis-vip-paseo-arcos-bosques-cdmx
+        vista_id: "317"
+        timezone: America/Mexico_City
+        lat: 19.387
+        lng: -99.252
+      - nombre: "Paseo Interlomas"
+        slug: cinepolis-paseo-interlomas-cdmx
+        vista_id: "286"
+        timezone: America/Mexico_City
+        lat: 19.397
+        lng: -99.282
+      - nombre: "Paseo Interlomas"
+        slug: cinepolis-vip-paseo-interlomas-cdmx
+        vista_id: "453"
+        timezone: America/Mexico_City
+        lat: 19.397
+        lng: -99.282
+      - nombre: "Patio Santa Fe"
+        slug: cinepolis-patio-santa-fe-cdmx
+        vista_id: "458"
+        timezone: America/Mexico_City
+        lat: 19.377046
+        lng: -99.254639
+      - nombre: "Patio Tlalpan"
+        slug: cinepolis-patio-tlalpan-cdmx
+        vista_id: "576"
+        timezone: America/Mexico_City
+        lat: 19.28413
+        lng: -99.176627
+      - nombre: "Patio Universidad"
+        slug: cinepolis-patio-universidad-cdmx
+        vista_id: "457"
+        timezone: America/Mexico_City
+        lat: 19.365521
+        lng: -99.167037
+      - nombre: "Pedregal Atizapán"
+        slug: cinepolis-pedregal-atizapan-cdmx
+        vista_id: "340"
+        timezone: America/Mexico_City
+        lat: 19.594
+        lng: -99.263
+      - nombre: "Perisur"
+        slug: cinepolis-perisur-cdmx
+        vista_id: "180"
+        timezone: America/Mexico_City
+        lat: 19.304
+        lng: -99.191
+      - nombre: "Perisur"
+        slug: cinepolis-vip-perisur-cdmx
+        vista_id: "183"
+        timezone: America/Mexico_City
+        lat: 19.304
+        lng: -99.191
+      - nombre: "Plaza Aeropuerto"
+        slug: cinepolis-plaza-aeropuerto-cdmx
+        vista_id: "342"
+        timezone: America/Mexico_City
+        lat: 19.419
+        lng: -99.094
+      - nombre: "Plaza Carso"
+        slug: cinepolis-plaza-carso-cdmx
+        vista_id: "419"
+        timezone: America/Mexico_City
+        lat: 19.441
+        lng: -99.202
+      - nombre: "Plaza Carso"
+        slug: cinepolis-vip-plaza-carso-cdmx
+        vista_id: "446"
+        timezone: America/Mexico_City
+        lat: 19.441
+        lng: -99.202
+      - nombre: "Plaza Central"
+        slug: cinepolis-plaza-central-cdmx
+        vista_id: "293"
+        timezone: America/Mexico_City
+        lat: 19.377
+        lng: -99.096
+      - nombre: "Plaza Crystal Atizapán"
+        slug: cinepolis-plaza-crystal-atizapan-cdmx
+        vista_id: "119"
+        timezone: America/Mexico_City
+        lat: 19.562325
+        lng: -99.242834
+      - nombre: "Plaza Cuitláhuac"
+        slug: cinepolis-plaza-cuitlahuac-cdmx
+        vista_id: "826"
+        timezone: America/Mexico_City
+        lat: 19.460565
+        lng: -99.177387
+      - nombre: "Plaza Oriente"
+        slug: cinepolis-plaza-oriente-cdmx
+        vista_id: "132"
+        timezone: America/Mexico_City
+        lat: 19.4845
+        lng: -99.0932
+      - nombre: "Plaza Satélite"
+        slug: cinepolis-vip-plaza-satelite-cdmx
+        vista_id: "900"
+        timezone: America/Mexico_City
+        lat: 19.510061
+        lng: -99.233435
+      - nombre: "Plaza Tepeyac"
+        slug: cinepolis-plaza-tepeyac-cdmx
+        vista_id: "101"
+        timezone: America/Mexico_City
+        lat: 19.4716
+        lng: -99.1181
+      - nombre: "Plaza Tlatelolco"
+        slug: cinepolis-plaza-tlatelolco-cdmx
+        vista_id: "921"
+        timezone: America/Mexico_City
+        lat: 19.450446
+        lng: -99.140705
+      - nombre: "Portal Centenario"
+        slug: cinepolis-portal-centenario-cdmx
+        vista_id: "703"
+        timezone: America/Mexico_City
+        lat: 19.362244675606
+        lng: -99.223874752221
+      - nombre: "Portal Churubusco"
+        slug: cinepolis-portal-churubusco-cdmx
+        vista_id: "294"
+        timezone: America/Mexico_City
+        lat: 19.369
+        lng: -99.121
+      - nombre: "Portal San Ángel"
+        slug: cinepolis-portal-san-angel-cdmx
+        vista_id: "575"
+        timezone: America/Mexico_City
+        lat: 19.361258
+        lng: -99.19065
+      - nombre: "Portal San Ángel"
+        slug: cinepolis-vip-portal-san-angel-cdmx
+        vista_id: "830"
+        timezone: America/Mexico_City
+        lat: 19.361258
+        lng: -99.19065
+      - nombre: "Puerta Aragón"
+        slug: cinepolis-puerta-aragon-cdmx
+        vista_id: "901"
+        timezone: America/Mexico_City
+        lat: 19.480006121965
+        lng: -99.065282777519
+      - nombre: "Puerta Tlatelolco"
+        slug: cinepolis-puerta-tlatelolco-cdmx
+        vista_id: "944"
+        timezone: America/Mexico_City
+        lat: 19.4560316
+        lng: -99.141879
+      - nombre: "Punto Atizapán"
+        slug: cinepolis-punto-atizapan-cdmx
+        vista_id: "455"
+        timezone: America/Mexico_City
+        lat: 19.567349
+        lng: -99.25015
+      - nombre: "Samara"
+        slug: cinepolis-vip-samara-cdmx
+        vista_id: "348"
+        timezone: America/Mexico_City
+        lat: 19.367887
+        lng: -99.259219
+      - nombre: "Satélite"
+        slug: cinepolis-satelite-cdmx
+        vista_id: "158"
+        timezone: America/Mexico_City
+        lat: 19.51
+        lng: -99.233
+      - nombre: "Sentura Tlalnepantla"
+        slug: cinepolis-sentura-tlalnepantla-cdmx
+        vista_id: "735"
+        timezone: America/Mexico_City
+        lat: 19.539977
+        lng: -99.215642
+      - nombre: "Sentura Tlalnepantla"
+        slug: cinepolis-vip-sentura-tlalnepantla-cdmx
+        vista_id: "1046"
+        timezone: America/Mexico_City
+        lat: 19.539977
+        lng: -99.215642
+      - nombre: "Torres Lindavista"
+        slug: cinepolis-torres-lindavista-cdmx
+        vista_id: "402"
+        timezone: America/Mexico_City
+        lat: 19.506
+        lng: -99.145
+      - nombre: "Town Center El Rosario"
+        slug: cinepolis-town-center-el-rosario-cdmx
+        vista_id: "371"
+        timezone: America/Mexico_City
+        lat: 19.50253
+        lng: -99.20369
+      - nombre: "Town Center Nicolás Romero"
+        slug: cinepolis-town-center-nicolas-romero-cdmx
+        vista_id: "525"
+        timezone: America/Mexico_City
+        lat: 19.629353
+        lng: -99.298402
+      - nombre: "Universidad"
+        slug: cinepolis-universidad-cdmx
+        vista_id: "193"
+        timezone: America/Mexico_City
+        lat: 19.367
+        lng: -99.167
+      - nombre: "Universidad"
+        slug: cinepolis-vip-universidad-cdmx
+        vista_id: "194"
+        timezone: America/Mexico_City
+        lat: 19.367
+        lng: -99.167
+      - nombre: "Via Vallejo"
+        slug: cinepolis-via-vallejo-cdmx
+        vista_id: "486"
+        timezone: America/Mexico_City
+        lat: 19.487002
+        lng: -99.152464
+      - nombre: "Via Vallejo"
+        slug: cinepolis-vip-via-vallejo-cdmx
+        vista_id: "832"
+        timezone: America/Mexico_City
+        lat: 19.487002
+        lng: -99.152464
+      - nombre: "Viaducto"
+        slug: cinepolis-viaducto-cdmx
+        vista_id: "1256"
+        timezone: America/Mexico_City
+        lat: 19.4055432
+        lng: -99.110605
+      - nombre: "Vista Norte"
+        slug: cinepolis-vista-norte-cdmx
+        vista_id: "899"
+        timezone: America/Mexico_City
+        lat: 19.501809
+        lng: -99.121016
+  - nombre: "Celaya"
+    id: celaya
+    cines:
+      - nombre: "Galerías Celaya"
+        slug: cinepolis-galerias-celaya
+        vista_id: "438"
+        timezone: America/Mexico_City
+        lat: 20.53039
+        lng: -100.779801
+      - nombre: "Parque Celaya"
+        slug: cinepolis-parque-celaya
+        vista_id: "284"
+        timezone: America/Mexico_City
+        lat: 20.546
+        lng: -100.84
+  - nombre: "Chalco - Ixtapaluca"
+    id: chalco-ixtapaluca
+    cines:
+      - nombre: "Patio Ayotla"
+        slug: cinepolis-patio-ayotla-chalco-ixtapaluca
+        vista_id: "358"
+        timezone: America/Mexico_City
+        lat: 19.32
+        lng: -98.942
+      - nombre: "Sendero Ixtapaluca"
+        slug: cinepolis-sendero-ixtapaluca-chalco-ixtapaluca
+        vista_id: "359"
+        timezone: America/Mexico_City
+        lat: 19.297
+        lng: -98.881
+      - nombre: "Sendero Valle de Chalco"
+        slug: cinepolis-sendero-valle-de-chalco-chalco-ixtapaluca
+        vista_id: "385"
+        timezone: America/Mexico_City
+        lat: 19.300306
+        lng: -98.95425
+      - nombre: "Tezozómoc"
+        slug: cinepolis-tezozomoc-chalco-ixtapaluca
+        vista_id: "1013"
+        timezone: America/Mexico_City
+        lat: 19.27648
+        lng: -98.938304
+  - nombre: "Chetumal"
+    id: chetumal
+    cines:
+      - nombre: "Las Américas Chetumal"
+        slug: cinepolis-las-americas-chetumal
+        vista_id: "214"
+        timezone: America/Cancun
+        lat: 18.52
+        lng: -88.323
+  - nombre: "Chihuahua"
+    id: chihuahua
+    cines:
+      - nombre: "Chihuahua Av. Vallarta"
+        slug: cinepolis-chihuahua-av-vallarta
+        vista_id: "137"
+        timezone: America/Chihuahua
+        lat: 28.673
+        lng: -106.101
+      - nombre: "Fashion Mall"
+        slug: cinepolis-fashion-mall-chihuahua
+        vista_id: "198"
+        timezone: America/Chihuahua
+        lat: 28.623
+        lng: -106.115
+      - nombre: "Fashion Mall"
+        slug: cinepolis-vip-fashion-mall-chihuahua
+        vista_id: "200"
+        timezone: America/Chihuahua
+        lat: 28.623
+        lng: -106.115
+      - nombre: "Paseo Central"
+        slug: cinepolis-paseo-central-chihuahua
+        vista_id: "920"
+        timezone: America/Chihuahua
+        lat: 28.630459
+        lng: -106.12156
+      - nombre: "Paseo Nueva España"
+        slug: cinepolis-paseo-nueva-espana-chihuahua
+        vista_id: "1074"
+        timezone: America/Chihuahua
+        lat: 28.62395
+        lng: -106.031704
+      - nombre: "Sendero Jabil Chihuahua"
+        slug: cinepolis-sendero-jabil-chihuahua
+        vista_id: "770"
+        timezone: America/Chihuahua
+        lat: 28.722712
+        lng: -106.112653
+  - nombre: "Chilpancingo"
+    id: chilpancingo
+    cines:
+      - nombre: "Galerías Chilpancingo"
+        slug: cinepolis-galerias-chilpancingo
+        vista_id: "355"
+        timezone: America/Mexico_City
+        lat: 17.527
+        lng: -99.491
+      - nombre: "Plaza Chilpancingo"
+        slug: cinepolis-plaza-chilpancingo
+        vista_id: "1207"
+        timezone: America/Mexico_City
+        lat: 17.5436491
+        lng: -99.5026703
+  - nombre: "Chimalhuacán"
+    id: chimalhuacan
+    cines:
+      - nombre: "Plaza Chimalhuacán"
+        slug: cinepolis-plaza-chimalhuacan
+        vista_id: "420"
+        timezone: America/Mexico_City
+        lat: 19.411
+        lng: -98.928
+  - nombre: "Ciudad Nezahualcoyotl"
+    id: cd-nezahualcoyotl
+    cines:
+      - nombre: "Neza Cd. Jardín"
+        slug: cinepolis-neza-cd-jardin-cd-nezahualcoyotl
+        vista_id: "344"
+        timezone: America/Mexico_City
+        lat: 19.427
+        lng: -99.024
+      - nombre: "Nezahualcóyotl"
+        slug: cinepolis-nezahualcoyotl-cd-nezahualcoyotl
+        vista_id: "225"
+        timezone: America/Mexico_City
+        lat: 19.401
+        lng: -98.988
+      - nombre: "Nezahualcóyotl Norte"
+        slug: cinepolis-nezahualcoyotl-norte-cd-nezahualcoyotl
+        vista_id: "245"
+        timezone: America/Mexico_City
+        lat: 19.483
+        lng: -99.036
+  - nombre: "Coacalco"
+    id: coacalco
+    cines:
+      - nombre: "Coacalco Power Center"
+        slug: cinepolis-coacalco-power-center
+        vista_id: "300"
+        timezone: America/Mexico_City
+        lat: 19.63
+        lng: -99.124
+      - nombre: "Cosmopol"
+        slug: cinepolis-cosmopol-coacalco
+        vista_id: "667"
+        timezone: America/Mexico_City
+        lat: 19.632153
+        lng: -99.124857
+      - nombre: "Cosmopol"
+        slug: cinepolis-vip-cosmopol-coacalco
+        vista_id: "668"
+        timezone: America/Mexico_City
+        lat: 19.632153
+        lng: -99.124857
+      - nombre: "Zentralia Coacalco"
+        slug: cinepolis-zentralia-coacalco
+        vista_id: "289"
+        timezone: America/Mexico_City
+        lat: 19.632
+        lng: -99.088
+  - nombre: "Coatepec"
+    id: coatepec
+    cines:
+      - nombre: "MC Plaza Santa Cecilia"
+        slug: cinepolis-plaza-santa-cecilia
+        vista_id: "1294"
+        timezone: America/Mexico_City
+        lat: 19.45136
+        lng: -96.952142
+  - nombre: "Coatzacoalcos"
+    id: coatzacoalcos
+    cines:
+      - nombre: "Acaya Coatzacoalcos"
+        slug: cinepolis-acaya-coatzacoalcos
+        vista_id: "658"
+        timezone: America/Mexico_City
+        lat: 18.143896
+        lng: -94.513954
+      - nombre: "El Dorado Coatzacoalcos"
+        slug: cinepolis-el-dorado-coatzacoalcos
+        vista_id: "635"
+        timezone: America/Mexico_City
+        lat: 18.137673
+        lng: -94.500801
+  - nombre: "Colima"
+    id: colima
+    cines:
+      - nombre: "San Fernando"
+        slug: cinepolis-san-fernando-colima
+        vista_id: "587"
+        timezone: America/Mexico_City
+        lat: 19.252317
+        lng: -103.720925
+      - nombre: "Zentralia Colima"
+        slug: cinepolis-zentralia-colima
+        vista_id: "270"
+        timezone: America/Mexico_City
+        lat: 19.269
+        lng: -103.702
+  - nombre: "Comalcalco"
+    id: comalcalco
+    cines:
+      - nombre: "Comalcalco"
+        slug: cinepolis-comalcalco
+        vista_id: "439"
+        timezone: America/Mexico_City
+        lat: 18.267351053747
+        lng: -93.218724220609
+  - nombre: "Comitán"
+    id: comitan
+    cines:
+      - nombre: "Plaza Las Flores Comitán"
+        slug: cinepolis-plaza-las-flores-comitan
+        vista_id: "369"
+        timezone: America/Mexico_City
+        lat: 16.214
+        lng: -92.114
+  - nombre: "Córdoba"
+    id: cordoba
+    cines:
+      - nombre: "Plaza Shangri-La"
+        slug: cinepolis-plaza-shangri-la-cordoba
+        vista_id: "443"
+        timezone: America/Mexico_City
+        lat: 18.902343
+        lng: -96.961905
+  - nombre: "Cozumel"
+    id: cozumel
+    cines:
+      - nombre: "Cozumel"
+        slug: cinepolis-cozumel
+        vista_id: "175"
+        timezone: America/Cancun
+        lat: 20.507
+        lng: -86.955
+      - nombre: "Plaza Puerta Cozumel"
+        slug: cinepolis-plaza-puerta-cozumel
+        vista_id: "1109"
+        timezone: America/Cancun
+        lat: 20.495928879169
+        lng: -86.928964003658
+  - nombre: "Cuautla"
+    id: cuautla
+    cines:
+      - nombre: "Cuautla"
+        slug: cinepolis-cuautla
+        vista_id: "361"
+        timezone: America/Mexico_City
+        lat: 18.847
+        lng: -98.937
+  - nombre: "Cuernavaca"
+    id: cuernavaca
+    cines:
+      - nombre: "Averanda"
+        slug: cinepolis-averanda-cuernavaca
+        vista_id: "868"
+        timezone: America/Mexico_City
+        lat: 18.933601
+        lng: -99.197346
+      - nombre: "Galerías Cuernavaca"
+        slug: cinepolis-cuernavaca
+        vista_id: "240"
+        timezone: America/Mexico_City
+        lat: 18.936
+        lng: -99.191
+      - nombre: "Galerías Cuernavaca"
+        slug: cinepolis-vip-cuernavaca
+        vista_id: "266"
+        timezone: America/Mexico_City
+        lat: 18.936
+        lng: -99.191
+      - nombre: "Plaza Portal D10"
+        slug: cinepolis-plaza-portal-d10-cuernavaca
+        vista_id: "871"
+        timezone: America/Mexico_City
+        lat: 18.9551
+        lng: -99.237089
+  - nombre: "Culiacán"
+    id: culiacan
+    cines:
+      - nombre: "Culiacán"
+        slug: cinepolis-culiacan
+        vista_id: "149"
+        timezone: America/Mazatlan
+        lat: 24.8
+        lng: -107.413
+      - nombre: "Culiacán"
+        slug: cinepolis-vip-culiacan
+        vista_id: "176"
+        timezone: America/Mazatlan
+        lat: 24.8
+        lng: -107.413
+      - nombre: "La Ceiba"
+        slug: cinepolis-vip-la-ceiba-culiacan
+        vista_id: "952"
+        timezone: America/Mazatlan
+        lat: 24.799426
+        lng: -107.422402
+      - nombre: "Paseo San Isidro"
+        slug: cinepolis-paseo-san-isidro-culiacan
+        vista_id: "372"
+        timezone: America/Mazatlan
+        lat: 24.755822
+        lng: -107.402746
+      - nombre: "Plaza Azahares"
+        slug: cinepolis-plaza-azahares-culiacan
+        vista_id: "954"
+        timezone: America/Mazatlan
+        lat: 24.775348
+        lng: -107.456913
+      - nombre: "Sendero Ganadera Culiacán"
+        slug: cinepolis-sendero-ganadera-culiacan
+        vista_id: "771"
+        timezone: America/Mazatlan
+        lat: 24.825901
+        lng: -107.427116
+  - nombre: "Cunduacán"
+    id: cunduacan
+    cines:
+      - nombre: "Paseo Cunduacán"
+        slug: cinepolis-paseo-cunduacan
+        vista_id: "674"
+        timezone: America/Mexico_City
+        lat: 18.066999
+        lng: -93.176616
+  - nombre: "Delicias"
+    id: delicias
+    cines:
+      - nombre: "Delicias"
+        slug: cinepolis-delicias
+        vista_id: "1050"
+        timezone: America/Chihuahua
+        lat: 28.189836
+        lng: -105.462861
+  - nombre: "Dolores Hidalgo"
+    id: dolores-hidalgo
+    cines:
+      - nombre: "Paseo Dolores"
+        slug: cinepolis-paseo-dolores-dolores-hidalgo
+        vista_id: "666"
+        timezone: America/Mexico_City
+        lat: 21.159993
+        lng: -100.929274
+  - nombre: "Durango"
+    id: durango
+    cines:
+      - nombre: "Chedraui Durango"
+        slug: cinepolis-chedraui-durango
+        vista_id: "618"
+        timezone: America/Monterrey
+        lat: 24.012198
+        lng: -104.661076
+      - nombre: "Durango"
+        slug: cinepolis-durango
+        vista_id: "153"
+        timezone: America/Monterrey
+        lat: 24.044
+        lng: -104.628
+      - nombre: "Guadiana"
+        slug: cinepolis-guadiana-durango
+        vista_id: "1008"
+        timezone: America/Monterrey
+        lat: 24.0134855
+        lng: -104.691454
+  - nombre: "Ecatepec"
+    id: ecatepec
+    cines:
+      - nombre: "Ecatepec Las Américas"
+        slug: cinepolis-ecatepec-las-americas
+        vista_id: "244"
+        timezone: America/Mexico_City
+        lat: 19.584
+        lng: -99.023
+      - nombre: "Ecatepec Las Américas"
+        slug: cinepolis-vip-ecatepec-las-americas
+        vista_id: "1278"
+        timezone: America/Mexico_City
+        lat: 19.5777539
+        lng: -99.0223868
+      - nombre: "Plaza Aragón"
+        slug: cinepolis-plaza-aragon-ecatepec
+        vista_id: "172"
+        timezone: America/Mexico_City
+        lat: 19.53
+        lng: -99.027
+      - nombre: "Sendero Ecatepec"
+        slug: cinepolis-sendero-ecatepec
+        vista_id: "330"
+        timezone: America/Mexico_City
+        lat: 19.619
+        lng: -98.996
+      - nombre: "Teleférico Mexicable"
+        slug: cinepolis-teleferico-mexicable-ecatepec
+        vista_id: "1064"
+        timezone: America/Mexico_City
+        lat: 19.55638694397
+        lng: -99.080715217168
+  - nombre: "Emiliano Zapata"
+    id: emiliano-zapata
+    cines:
+      - nombre: "Plaza Emiliano Zapata"
+        slug: cinepolis-plaza-emiliano-zapata
+        vista_id: "529"
+        timezone: America/Mexico_City
+        lat: 18.831562
+        lng: -99.187607
+  - nombre: "Ensenada"
+    id: ensenada
+    cines:
+      - nombre: "Macroplaza del Mar"
+        slug: cinepolis-macroplaza-del-mar-ensenada
+        vista_id: "273"
+        timezone: America/Tijuana
+        lat: 31.82
+        lng: -116.601
+      - nombre: "Plaza Marina"
+        slug: cinepolis-plaza-marina-ensenada
+        vista_id: "353"
+        timezone: America/Tijuana
+        lat: 31.852
+        lng: -116.616
+      - nombre: "Sendero Ensenada"
+        slug: cinepolis-sendero-ensenada
+        vista_id: "1323"
+        timezone: America/Tijuana
+        lat: 31.8414718
+        lng: -116.6355465
+  - nombre: "García"
+    id: garcia
+    cines:
+      - nombre: "La Plazoleta García"
+        slug: cinepolis-la-plazoleta-garcia
+        vista_id: "563"
+        timezone: America/Monterrey
+        lat: 25.794048
+        lng: -100.582444
+  - nombre: "Gómez Palacio"
+    id: gomez-palacio
+    cines:
+      - nombre: "San Antonio Gomez Palacio"
+        slug: cinepolis-san-antonio-gomez-palacio
+        vista_id: "1145"
+        timezone: America/Monterrey
+        lat: 25.59
+        lng: -103.48
+  - nombre: "Guadalajara"
+    id: guadalajara
+    cines:
+      - nombre: "Alameda Guadalajara"
+        slug: cinepolis-alameda-guadalajara
+        vista_id: "264"
+        timezone: America/Mexico_City
+        lat: 20.674
+        lng: -103.342
+      - nombre: "Andares"
+        slug: cinepolis-vip-andares-guadalajara
+        vista_id: "283"
+        timezone: America/Mexico_City
+        lat: 20.709
+        lng: -103.412
+      - nombre: "Arboledas Guadalajara"
+        slug: cinepolis-arboledas-guadalajara
+        vista_id: "147"
+        timezone: America/Mexico_City
+        lat: 20.649
+        lng: -103.386
+      - nombre: "Centro Magno"
+        slug: cinepolis-centro-magno-guadalajara
+        vista_id: "164"
+        timezone: America/Mexico_City
+        lat: 20.674
+        lng: -103.381
+      - nombre: "Centro Sur"
+        slug: cinepolis-centro-sur-guadalajara
+        vista_id: "262"
+        timezone: America/Mexico_City
+        lat: 20.597
+        lng: -103.391
+      - nombre: "Ciudadela Lifestyle Center"
+        slug: cinepolis-ciudadela-lifestyle-center-guadalajara
+        vista_id: "311"
+        timezone: America/Mexico_City
+        lat: 20.649
+        lng: -103.422
+      - nombre: "Fórum Tlaquepaque"
+        slug: cinepolis-forum-tlaquepaque-guadalajara
+        vista_id: "272"
+        timezone: America/Mexico_City
+        lat: 20.6483
+        lng: -103.3193
+      - nombre: "Galerías Guadalajara"
+        slug: cinepolis-galerias-guadalajara
+        vista_id: "206"
+        timezone: America/Mexico_City
+        lat: 20.677
+        lng: -103.432
+      - nombre: "Galerías Guadalajara"
+        slug: cinepolis-vip-galerias-guadalajara
+        vista_id: "207"
+        timezone: America/Mexico_City
+        lat: 20.677
+        lng: -103.432
+      - nombre: "Galerías Santa Anita"
+        slug: cinepolis-galerias-santa-anita-guadalajara
+        vista_id: "898"
+        timezone: America/Mexico_City
+        lat: 20.554197
+        lng: -103.469758
+      - nombre: "Galerías Santa Anita"
+        slug: cinepolis-vip-galerias-santa-anita-guadalajara
+        vista_id: "1224"
+        timezone: America/Mexico_City
+        lat: 20.55474
+        lng: -103.471811
+      - nombre: "Gran Plaza"
+        slug: cinepolis-vip-gran-plaza-guadalajara
+        vista_id: "935"
+        timezone: America/Mexico_City
+        lat: 20.672809
+        lng: -103.405577
+      - nombre: "Gran Terraza Belenes"
+        slug: cinepolis-gran-terraza-belenes-guadalajara
+        vista_id: "463"
+        timezone: America/Mexico_City
+        lat: 20.738736
+        lng: -103.401622
+      - nombre: "Independencia"
+        slug: cinepolis-independencia-guadalajara
+        vista_id: "128"
+        timezone: America/Mexico_City
+        lat: 20.720393934088
+        lng: -103.31817626953
+      - nombre: "La Gran Plaza"
+        slug: cinepolis-la-gran-plaza-guadalajara
+        vista_id: "140"
+        timezone: America/Mexico_City
+        lat: 20.675
+        lng: -103.405
+      - nombre: "La Normal"
+        slug: cinepolis-la-normal-guadalajara
+        vista_id: "069"
+        timezone: America/Mexico_City
+        lat: 20.693779108104
+        lng: -103.35010528564
+      - nombre: "La Perla"
+        slug: cinepolis-la-perla-guadalajara
+        vista_id: "936"
+        timezone: America/Mexico_City
+        lat: 20.645191742772
+        lng: -103.41180600322
+      - nombre: "La Perla"
+        slug: cinepolis-vip-la-perla-guadalajara
+        vista_id: "1309"
+        timezone: America/Mexico_City
+        lat: 20.645191742772
+        lng: -103.41180600322
+      - nombre: "La Rioja Urban Center"
+        slug: cinepolis-la-rioja-urban-center-guadalajara
+        vista_id: "762"
+        timezone: America/Mexico_City
+        lat: 20.570041
+        lng: -103.457322
+      - nombre: "Las Torres"
+        slug: cinepolis-las-torres-guadalajara
+        vista_id: "032"
+        timezone: America/Mexico_City
+        lat: 20.685629139656
+        lng: -103.34804534912
+      - nombre: "Midtown Jalisco"
+        slug: cinepolis-vip-midtown-jalisco-guadalajara
+        vista_id: "677"
+        timezone: America/Mexico_City
+        lat: 20.694065
+        lng: -103.375872
+      - nombre: "Multicenter El Salto"
+        slug: cinepolis-multicenter-el-salto-guadalajara
+        vista_id: "589"
+        timezone: America/Mexico_City
+        lat: 20.560893
+        lng: -103.284267
+      - nombre: "Oblatos"
+        slug: cinepolis-oblatos-guadalajara
+        vista_id: "448"
+        timezone: America/Mexico_City
+        lat: 20.687307
+        lng: -103.295875
+      - nombre: "Pabellón Guadalajara"
+        slug: cinepolis-pabellon-guadalajara
+        vista_id: "171"
+        timezone: America/Mexico_City
+        lat: 20.709
+        lng: -103.406
+      - nombre: "Plaza México"
+        slug: cinepolis-plaza-mexico-guadalajara
+        vista_id: "933"
+        timezone: America/Mexico_City
+        lat: 20.679502
+        lng: -103.400769
+      - nombre: "Plaza Río Nilo"
+        slug: cinepolis-plaza-rio-nilo-guadalajara
+        vista_id: "462"
+        timezone: America/Mexico_City
+        lat: 20.640339
+        lng: -103.274947
+      - nombre: "Punto Oriente"
+        slug: cinepolis-punto-oriente-guadalajara
+        vista_id: "675"
+        timezone: America/Mexico_City
+        lat: 20.679036
+        lng: -103.291135
+      - nombre: "Punto Sur"
+        slug: cinepolis-punto-sur-guadalajara
+        vista_id: "737"
+        timezone: America/Mexico_City
+        lat: 20.5700158
+        lng: -103.455105
+      - nombre: "Punto Sur"
+        slug: cinepolis-vip-punto-sur-guadalajara
+        vista_id: "1222"
+        timezone: America/Mexico_City
+        lat: 20.5685834
+        lng: -103.455105
+      - nombre: "Real Center"
+        slug: cinepolis-real-center-guadalajara
+        vista_id: "588"
+        timezone: America/Mexico_City
+        lat: 20.73377
+        lng: -103.429157
+      - nombre: "Tolsá"
+        slug: cinepolis-tolsa-guadalajara
+        vista_id: "077"
+        timezone: America/Mexico_City
+        lat: 20.671
+        lng: -103.359
+  - nombre: "Guasave"
+    id: guasave
+    cines:
+      - nombre: "Guasave"
+        slug: cinepolis-guasave
+        vista_id: "1266"
+        timezone: America/Mazatlan
+        lat: 25.581298
+        lng: -108.474678
+  - nombre: "Hermosillo"
+    id: hermosillo
+    cines:
+      - nombre: "Galerías Mall Hermosillo"
+        slug: cinepolis-galerias-mall-hermosillo
+        vista_id: "322"
+        timezone: America/Hermosillo
+        lat: 29.068
+        lng: -110.957
+      - nombre: "Galerías Mall Hermosillo"
+        slug: cinepolis-vip-galerias-mall-hermosillo
+        vista_id: "401"
+        timezone: America/Hermosillo
+        lat: 29.068
+        lng: -110.957
+      - nombre: "Hermosillo"
+        slug: cinepolis-hermosillo
+        vista_id: "029"
+        timezone: America/Hermosillo
+        lat: 29.088
+        lng: -110.964
+      - nombre: "Sendero Hermosillo"
+        slug: cinepolis-sendero-hermosillo
+        vista_id: "275"
+        timezone: America/Hermosillo
+        lat: 29.034
+        lng: -110.94
+  - nombre: "Hidalgo del Parral"
+    id: hidalgo-del-parral
+    cines:
+      - nombre: "Escala Parral"
+        slug: cinepolis-escala-parral-hidalgo-del-parral
+        vista_id: "418"
+        timezone: America/Chihuahua
+        lat: 26.934
+        lng: -105.651
+  - nombre: "Huatulco "
+    id: huatulco
+    cines:
+      - nombre: "Puerta Huatulco"
+        slug: cinepolis-puerta-huatulco-huatulco
+        vista_id: "902"
+        timezone: America/Mexico_City
+        lat: 15.762884
+        lng: -96.128959
+  - nombre: "Huauchinango"
+    id: huauchinango
+    cines:
+      - nombre: "Las Palmas Huauchinango"
+        slug: cinepolis-las-palmas-huauchinango
+        vista_id: "1143"
+        timezone: America/Mexico_City
+        lat: 20.174321
+        lng: -98.054113
+  - nombre: "Huehuetoca"
+    id: huehuetoca
+    cines:
+      - nombre: "Plaza La Cañada"
+        slug: cinepolis-plaza-la-canada-huehuetoca
+        vista_id: "449"
+        timezone: America/Mexico_City
+        lat: 19.840306
+        lng: -99.23868
+  - nombre: "Iguala"
+    id: iguala
+    cines:
+      - nombre: "Galerías Tamarindos"
+        slug: cinepolis-galerias-tamarindos-iguala
+        vista_id: "335"
+        timezone: America/Mexico_City
+        lat: 18.341
+        lng: -99.522
+  - nombre: "Irapuato"
+    id: irapuato
+    cines:
+      - nombre: "Plaza Cibeles"
+        slug: cinepolis-plaza-cibeles-irapuato
+        vista_id: "201"
+        timezone: America/Mexico_City
+        lat: 20.671
+        lng: -101.372
+      - nombre: "Plaza Cibeles Irapuato"
+        slug: cinepolis-vip-plaza-cibeles-irapuato
+        vista_id: "734"
+        timezone: America/Mexico_City
+        lat: 20.680076
+        lng: -101.38014
+  - nombre: "Ixtlahuaca de Rayón"
+    id: ixtlahuaca-de-rayon
+    cines:
+      - nombre: "Bugambilias Ixtlahuaca"
+        slug: cinepolis-bugambilias-ixtlahuaca-ixtlahuaca-de-rayon
+        vista_id: "1116"
+        timezone: America/Mexico_City
+        lat: 25.44685
+        lng: -102.17272
+  - nombre: "Jiménez"
+    id: jimenez
+    cines:
+      - nombre: "Jiménez Chihuahua"
+        slug: cinepolis-jimenez-chihuahua
+        vista_id: "1051"
+        timezone: America/Chihuahua
+        lat: 27.135741
+        lng: -104.911888
+  - nombre: "Jiutepec"
+    id: jiutepec
+    cines:
+      - nombre: "Los Cedros Jiutepec"
+        slug: cinepolis-los-cedros-jiutepec
+        vista_id: "564"
+        timezone: America/Mexico_City
+        lat: 18.911819
+        lng: -99.179266
+  - nombre: "Jojutla"
+    id: jojutla
+    cines:
+      - nombre: "Jojutla"
+        slug: cinepolis-jojutla
+        vista_id: "518"
+        timezone: America/Mexico_City
+        lat: 18.617227
+        lng: -99.192668
+  - nombre: "La Paz"
+    id: la-paz
+    cines:
+      - nombre: "La Paz"
+        slug: cinepolis-la-paz
+        vista_id: "204"
+        timezone: America/Mazatlan
+        lat: 24.132
+        lng: -110.313
+      - nombre: "Paseo La Paz"
+        slug: cinepolis-paseo-la-paz
+        vista_id: "467"
+        timezone: America/Tijuana
+        lat: 24.11601
+        lng: -110.33934
+      - nombre: "The Shoppes"
+        slug: cinepolis-the-shoppes-la-paz
+        vista_id: "400"
+        timezone: America/Tijuana
+        lat: 24.115235
+        lng: -110.340572
+  - nombre: "La Piedad"
+    id: la-piedad
+    cines:
+      - nombre: "La Piedad"
+        slug: cinepolis-la-piedad
+        vista_id: "404"
+        timezone: America/Mexico_City
+        lat: 20.3508
+        lng: -102.030521
+  - nombre: "Lázaro Cárdenas"
+    id: lazaro-cardenas
+    cines:
+      - nombre: "Las Américas Lázaro Cárdenas"
+        slug: cinepolis-las-americas-lazaro-cardenas
+        vista_id: "469"
+        timezone: America/Mexico_City
+        lat: 17.9776
+        lng: -102.213575
+  - nombre: "León"
+    id: leon
+    cines:
+      - nombre: "Centro Comercial Altacia"
+        slug: cinepolis-centro-comercial-altacia-leon
+        vista_id: "527"
+        timezone: America/Mexico_City
+        lat: 21.092348
+        lng: -101.626083
+      - nombre: "Centro Comercial Altacia"
+        slug: cinepolis-vip-centro-comercial-altacia-leon
+        vista_id: "568"
+        timezone: America/Mexico_City
+        lat: 21.092348
+        lng: -101.626083
+      - nombre: "Centro Max"
+        slug: cinepolis-centro-max-leon
+        vista_id: "168"
+        timezone: America/Mexico_City
+        lat: 21.098
+        lng: -101.634
+      - nombre: "City Center León"
+        slug: vip-city-center-leon
+        vista_id: "1136"
+        timezone: America/Mexico_City
+        lat: 21.17021
+        lng: -101.68174
+      - nombre: "Galerías Las Torres"
+        slug: cinepolis-galerias-las-torres-leon
+        vista_id: "303"
+        timezone: America/Mexico_City
+        lat: 21.148
+        lng: -101.654
+      - nombre: "Hilamas"
+        slug: cinepolis-hilamas-leon
+        vista_id: "757"
+        timezone: America/Mexico_City
+        lat: 21.12223
+        lng: -101.722096
+      - nombre: "León"
+        slug: cinepolis-leon
+        vista_id: "033"
+        timezone: America/Mexico_City
+        lat: 21.12
+        lng: -101.666
+      - nombre: "Paseo Morelos"
+        slug: cinepolis-paseo-morelos-leon
+        vista_id: "1105"
+        timezone: America/Mexico_City
+        lat: 21.165755
+        lng: -101.650248
+  - nombre: "Linares"
+    id: linares
+    cines:
+      - nombre: "Altea Linares"
+        slug: cinepolis-altea-linares
+        vista_id: "515"
+        timezone: America/Monterrey
+        lat: 24.865639378267
+        lng: -99.569441247382
+  - nombre: "Los Cabos"
+    id: los-cabos
+    cines:
+      - nombre: "Cabo San Lucas"
+        slug: cinepolis-cabo-san-lucas-los-cabos
+        vista_id: "377"
+        timezone: America/Tijuana
+        lat: 22.904
+        lng: -109.932
+      - nombre: "San José del Cabo"
+        slug: cinepolis-san-jose-del-cabo-los-cabos
+        vista_id: "325"
+        timezone: America/Tijuana
+        lat: 23.053
+        lng: -109.703
+  - nombre: "Los Mochis"
+    id: los-mochis
+    cines:
+      - nombre: "Punto Los Mochis"
+        slug: cinepolis-punto-los-mochis
+        vista_id: "849"
+        timezone: America/Mazatlan
+        lat: 25.783598
+        lng: -109.002909
+      - nombre: "Sendero Los Mochis"
+        slug: cinepolis-sendero-los-mochis
+        vista_id: "848"
+        timezone: America/Mazatlan
+        lat: 25.818052
+        lng: -108.978792
+  - nombre: "Los Reyes La Paz "
+    id: los-reyes-la-paz
+    cines:
+      - nombre: "Centro Tepozán"
+        slug: cinepolis-centro-tepozan-los-reyes-la-paz
+        vista_id: "390"
+        timezone: America/Mexico_City
+        lat: 19.363023
+        lng: -98.98906
+  - nombre: "Macuspana"
+    id: macuspana
+    cines:
+      - nombre: "Chedrahui Macuspana"
+        slug: cinepolis-chedrahui-macuspana
+        vista_id: "561"
+        timezone: America/Mexico_City
+        lat: 17.762846
+        lng: -92.588829
+  - nombre: "Magdalena de Kino"
+    id: magdalena-de-kino
+    cines:
+      - nombre: "Magdalena"
+        slug: cinepolis-magdalena-magdalena-de-kino
+        vista_id: "1038"
+        timezone: America/Hermosillo
+        lat: 30.62559803234
+        lng: -110.97063904769
+  - nombre: "Manzanillo"
+    id: manzanillo
+    cines:
+      - nombre: "Punto Bahía"
+        slug: cinepolis-punto-bahia-manzanillo
+        vista_id: "821"
+        timezone: America/Mexico_City
+        lat: 19.09966
+        lng: -104.325525
+      - nombre: "Salagua"
+        slug: cinepolis-salagua-manzanillo
+        vista_id: "237"
+        timezone: America/Mexico_City
+        lat: 19.104
+        lng: -104.327
+  - nombre: "Martínez de la Torre"
+    id: martinez-de-la-torre
+    cines:
+      - nombre: "Chedraui Martínez de la Torre"
+        slug: cinepolis-chedraui-martinez-de-la-torre
+        vista_id: "573"
+        timezone: America/Mexico_City
+        lat: 20.059367
+        lng: -97.060695
+  - nombre: "Matamoros, Coahuila"
+    id: matamoros-coahuila
+    cines:
+      - nombre: "Matamoros"
+        slug: cinepolis-matamoros-matamoros-coahuila
+        vista_id: "998"
+        timezone: America/Monterrey
+        lat: 25.533172
+        lng: -103.238942
+  - nombre: "Matamoros, Tamaulipas"
+    id: matamoros-tamaulipas
+    cines:
+      - nombre: "Plaza Fiesta"
+        slug: cinepolis-plaza-fiesta-matamoros-tamaulipas
+        vista_id: "167"
+        timezone: America/Matamoros
+        lat: 25.849
+        lng: -97.505
+      - nombre: "Sendero Matamoros"
+        slug: cinepolis-sendero-matamoros-matamoros-tamaulipas
+        vista_id: "290"
+        timezone: America/Matamoros
+        lat: 25.859
+        lng: -97.531
+  - nombre: "Mazatlán"
+    id: mazatlan
+    cines:
+      - nombre: "Acaya Mazatlán"
+        slug: cinepolis-acaya-mazatlan
+        vista_id: "660"
+        timezone: America/Mazatlan
+        lat: 23.271636
+        lng: -106.417748
+      - nombre: "Gran Plaza Mazatlán"
+        slug: cinepolis-gran-plaza-mazatlan
+        vista_id: "374"
+        timezone: America/Mazatlan
+        lat: 23.208533980912
+        lng: -106.42172813416
+      - nombre: "Santa Rosa"
+        slug: cinepolis-santa-rosa-mazatlan
+        vista_id: "452"
+        timezone: America/Mazatlan
+        lat: 23.25905
+        lng: -106.407013
+  - nombre: "Mérida"
+    id: merida
+    cines:
+      - nombre: "Akrópolis (Fracc. Las Américas)"
+        slug: cinepolis-akropolis-fracc-las-americas-merida
+        vista_id: "1011"
+        timezone: America/Merida
+        lat: 21.06216
+        lng: -89.644499
+      - nombre: "Gran Santa Fé Caucel"
+        slug: cinepolis-gran-santa-fe-caucel-merida
+        vista_id: "1012"
+        timezone: America/Merida
+        lat: 21.006045
+        lng: -89.688333
+      - nombre: "La Isla Mérida"
+        slug: cinepolis-la-isla-merida
+        vista_id: "972"
+        timezone: America/Merida
+        lat: 21.056425
+        lng: -89.596116
+      - nombre: "Mérida Altabrisa"
+        slug: cinepolis-merida-altabrisa
+        vista_id: "301"
+        timezone: America/Merida
+        lat: 21.019
+        lng: -89.555
+      - nombre: "Plaza Kukulcán"
+        slug: cinepolis-plaza-kukulcan-merida
+        vista_id: "669"
+        timezone: America/Merida
+        lat: 20.9408755
+        lng: -89.5915535
+      - nombre: "Plaza Las Américas Mérida"
+        slug: cinepolis-plaza-las-americas-merida
+        vista_id: "178"
+        timezone: America/Merida
+        lat: 20.992
+        lng: -89.65
+      - nombre: "Sendero Mérida"
+        slug: cinepolis-sendero-merida
+        vista_id: "257"
+        timezone: America/Merida
+        lat: 20.975
+        lng: -89.596
+      - nombre: "The Harbor Mérida"
+        slug: cinepolis-the-harbor-merida
+        vista_id: "904"
+        timezone: America/Merida
+        lat: 21.045964
+        lng: -89.630927
+      - nombre: "The Harbor Mérida"
+        slug: cinepolis-vip-the-harbor-merida
+        vista_id: "1044"
+        timezone: America/Merida
+        lat: 21.045964
+        lng: -89.630927
+      - nombre: "VIP Mérida Altabrisa"
+        slug: cinepolis-vip-merida-altabrisa
+        vista_id: "323"
+        timezone: America/Merida
+        lat: 21.019
+        lng: -89.555
+  - nombre: "Mexicali"
+    id: mexicali
+    cines:
+      - nombre: "Centro Cívico"
+        slug: cinepolis-centro-civico-mexicali
+        vista_id: "035"
+        timezone: America/Tijuana
+        lat: 32.645
+        lng: -115.473
+      - nombre: "Galerías del Valle"
+        slug: cinepolis-galerias-del-valle-mexicali
+        vista_id: "321"
+        timezone: America/Tijuana
+        lat: 32.621
+        lng: -115.514
+      - nombre: "Nuevo Mexicali"
+        slug: cinepolis-nuevo-mexicali
+        vista_id: "177"
+        timezone: America/Tijuana
+        lat: 32.613
+        lng: -115.387
+      - nombre: "Plaza Centenario"
+        slug: cinepolis-plaza-centenario-mexicali
+        vista_id: "352"
+        timezone: America/Tijuana
+        lat: 32.625
+        lng: -115.443
+      - nombre: "Plaza San Pedro Mexicali"
+        slug: cinepolis-plaza-san-pedro-mexicali
+        vista_id: "263"
+        timezone: America/Tijuana
+        lat: 32.656
+        lng: -115.413
+      - nombre: "Punta Anáhuac"
+        slug: cinepolis-punta-anahuac-mexicali
+        vista_id: "1218"
+        timezone: America/Tijuana
+        lat: 32.594872
+        lng: -115.478853
+      - nombre: "San Pedro Mexicali"
+        slug: cinepolis-vip-san-pedro-mexicali
+        vista_id: "1020"
+        timezone: America/Tijuana
+        lat: 32.656
+        lng: -115.413
+      - nombre: "Sendero Mexicali"
+        slug: cinepolis-sendero-mexicali
+        vista_id: "1073"
+        timezone: America/Tijuana
+        lat: 32.592352
+        lng: -115.356871
+  - nombre: "Minatitlán"
+    id: minatitlan
+    cines:
+      - nombre: "Plaza Minatitlán"
+        slug: cinepolis-plaza-minatitlan
+        vista_id: "139"
+        timezone: America/Mexico_City
+        lat: 17.994
+        lng: -94.574
+  - nombre: "Monclova"
+    id: monclova
+    cines:
+      - nombre: "Paseo Monclova"
+        slug: cinepolis-paseo-monclova
+        vista_id: "975"
+        timezone: America/Monterrey
+        lat: 26.952163
+        lng: -101.416721
+      - nombre: "Paseo Monclova"
+        slug: cinepolis-vip-paseo-monclova
+        vista_id: "1072"
+        timezone: America/Monterrey
+        lat: 26.952163
+        lng: -101.416721
+  - nombre: "Montemorelos"
+    id: montemorelos
+    cines:
+      - nombre: "Paseo Fundadores"
+        slug: cinepolis-paseo-fundadores-montemorelos
+        vista_id: "585"
+        timezone: America/Monterrey
+        lat: 25.191463
+        lng: -99.819022
+  - nombre: "Monterrey"
+    id: monterrey
+    cines:
+      - nombre: "Adana Lincoln"
+        slug: cinepolis-adana-lincoln-monterrey
+        vista_id: "395"
+        timezone: America/Monterrey
+        lat: 25.727
+        lng: -100.369
+      - nombre: "Almenares"
+        slug: cinepolis-almenares-monterrey
+        vista_id: "837"
+        timezone: America/Monterrey
+        lat: 25.768207
+        lng: -100.277876
+      - nombre: "Altea Huinalá"
+        slug: cinepolis-altea-huinala-monterrey
+        vista_id: "682"
+        timezone: America/Monterrey
+        lat: 25.74667
+        lng: -100.199887
+      - nombre: "Avanta Gardens"
+        slug: cinepolis-vip-avanta-gardens-monterrey
+        vista_id: "629"
+        timezone: America/Monterrey
+        lat: 25.657552
+        lng: -100.389199
+      - nombre: "Citadel"
+        slug: cinepolis-citadel-monterrey
+        vista_id: "319"
+        timezone: America/Monterrey
+        lat: 25.727
+        lng: -100.216
+      - nombre: "Citadina Escobedo"
+        slug: cinepolis-citadina-escobedo-monterrey
+        vista_id: "1070"
+        timezone: America/Monterrey
+        lat: 25.793504
+        lng: -100.330022
+      - nombre: "Cumbres"
+        slug: cinepolis-vip-cumbres-monterrey
+        vista_id: "520"
+        timezone: America/Monterrey
+        lat: 25.733
+        lng: -100.397
+      - nombre: "Cumbres Monterrey"
+        slug: cinepolis-cumbres-monterrey
+        vista_id: "231"
+        timezone: America/Mexico_City
+        lat: 25.733
+        lng: -100.397
+      - nombre: "El Titán"
+        slug: cinepolis-el-titan-monterrey
+        vista_id: "1032"
+        timezone: America/Monterrey
+        lat: 25.688707
+        lng: -100.324151
+      - nombre: "Eloy Cavazos"
+        slug: cinepolis-eloy-cavazos-monterrey
+        vista_id: "949"
+        timezone: America/Mexico_City
+        lat: 25.659618
+        lng: -100.226481
+      - nombre: "Esfera Monterrey"
+        slug: cinepolis-esfera-monterrey
+        vista_id: "632"
+        timezone: America/Monterrey
+        lat: 25.578123
+        lng: -100.246308
+      - nombre: "Esfera Monterrey"
+        slug: cinepolis-vip-esfera-monterrey
+        vista_id: "634"
+        timezone: America/Monterrey
+        lat: 25.578123
+        lng: -100.246308
+      - nombre: "Galerías Monterrey"
+        slug: cinepolis-galerias-monterrey
+        vista_id: "255"
+        timezone: America/Monterrey
+        lat: 25.681
+        lng: -100.355
+      - nombre: "Galerías Monterrey"
+        slug: cinepolis-vip-galerias-monterrey
+        vista_id: "261"
+        timezone: America/Monterrey
+        lat: 25.681
+        lng: -100.355
+      - nombre: "Galerías Valle Oriente"
+        slug: cinepolis-galerias-valle-oriente-monterrey
+        vista_id: "202"
+        timezone: America/Monterrey
+        lat: 25.639
+        lng: -100.316
+      - nombre: "Galerías Valle Oriente"
+        slug: cinepolis-vip-galerias-valle-oriente-monterrey
+        vista_id: "203"
+        timezone: America/Monterrey
+        lat: 25.639
+        lng: -100.316
+      - nombre: "Garza Sada"
+        slug: cinepolis-garza-sada-monterrey
+        vista_id: "071"
+        timezone: America/Monterrey
+        lat: 25.644
+        lng: -100.287
+      - nombre: "Interplaza Monterrey"
+        slug: cinepolis-interplaza-monterrey
+        vista_id: "333"
+        timezone: America/Monterrey
+        lat: 25.668
+        lng: -100.315
+      - nombre: "La Plazoleta"
+        slug: cinepolis-la-plazoleta-monterrey
+        vista_id: "512"
+        timezone: America/Monterrey
+        lat: 25.901509
+        lng: -100.176665
+      - nombre: "Los Ángeles"
+        slug: cinepolis-xtreme-los-angeles-monterrey
+        vista_id: "109"
+        timezone: America/Monterrey
+        lat: 25.71069675346
+        lng: -100.26161670685
+      - nombre: "Nuevo Sur"
+        slug: cinepolis-nuevo-sur-monterrey
+        vista_id: "470"
+        timezone: America/Monterrey
+        lat: 25.653318
+        lng: -100.274504
+      - nombre: "Nuevo Sur"
+        slug: cinepolis-vip-nuevo-sur-monterrey
+        vista_id: "606"
+        timezone: America/Monterrey
+        lat: 25.653318
+        lng: -100.274504
+      - nombre: "Pablo Livas Monterrey"
+        slug: cinepolis-pablo-livas-monterrey
+        vista_id: "181"
+        timezone: America/Mexico_City
+        lat: 25.663
+        lng: -100.204
+      - nombre: "Paseo La Fe"
+        slug: cinepolis-paseo-la-fe-monterrey
+        vista_id: "681"
+        timezone: America/Monterrey
+        lat: 25.720085
+        lng: -100.220435
+      - nombre: "Paseo La Fe"
+        slug: cinepolis-vip-paseo-la-fe-monterrey
+        vista_id: "774"
+        timezone: America/Monterrey
+        lat: 25.720085
+        lng: -100.220435
+      - nombre: "Patio Lincoln (Sendero Lincoln)"
+        slug: cinepolis-patio-lincoln-sendero-lincoln-monterrey
+        vista_id: "318"
+        timezone: America/Monterrey
+        lat: 25.763
+        lng: -100.41
+      - nombre: "Pesquería Nuevo León"
+        slug: cinepolis-pesqueria-nuevo-leon-monterrey
+        vista_id: "1037"
+        timezone: America/Monterrey
+        lat: 25.8212774
+        lng: -100.107982
+      - nombre: "Plaza Santiago"
+        slug: cinepolis-plaza-santiago-monterrey
+        vista_id: "1128"
+        timezone: America/Monterrey
+        lat: 25.425112
+        lng: -100.149372
+      - nombre: "Punto Valle"
+        slug: cinepolis-punto-valle-monterrey
+        vista_id: "875"
+        timezone: America/Monterrey
+        lat: 25.659239
+        lng: -100.355275
+      - nombre: "Punto Valle"
+        slug: cinepolis-vip-punto-valle-monterrey
+        vista_id: "1047"
+        timezone: America/Monterrey
+        lat: 25.6599494
+        lng: -100.355275
+      - nombre: "San Roque"
+        slug: cinepolis-san-roque-monterrey
+        vista_id: "280"
+        timezone: America/Mexico_City
+        lat: 25.638
+        lng: -100.155
+      - nombre: "Sendero Apodaca"
+        slug: cinepolis-sendero-apodaca-monterrey
+        vista_id: "343"
+        timezone: America/Monterrey
+        lat: 25.783
+        lng: -100.238
+      - nombre: "Sendero la Fe"
+        slug: cinepolis-sendero-la-fe-monterrey
+        vista_id: "659"
+        timezone: America/Monterrey
+        lat: 25.771274
+        lng: -100.187028
+      - nombre: "Sendero Monterrey"
+        slug: cinepolis-sendero-monterrey
+        vista_id: "197"
+        timezone: America/Monterrey
+        lat: 25.768
+        lng: -100.303
+      - nombre: "Sendero Santa Catarina"
+        slug: cinepolis-sendero-santa-catarina-monterrey
+        vista_id: "1173"
+        timezone: America/Monterrey
+        lat: 25.689516
+        lng: -100.493581
+      - nombre: "Solidaridad"
+        slug: cinepolis-solidaridad-monterrey
+        vista_id: "1208"
+        timezone: America/Monterrey
+        lat: 25.776201
+        lng: -100.383978
+      - nombre: "Valle Soleado Monterrey"
+        slug: cinepolis-valle-soleado-monterrey
+        vista_id: "447"
+        timezone: America/Mexico_City
+        lat: 25.704
+        lng: -100.161
+  - nombre: "Morelia"
+    id: morelia
+    cines:
+      - nombre: "El Prado Morelia"
+        slug: cinepolis-plaza-el-prado-tarimbaro-morelia
+        vista_id: "631"
+        timezone: America/Mexico_City
+        lat: 19.7796
+        lng: -101.12914
+      - nombre: "Escala La Huerta"
+        slug: cinepolis-escala-la-huerta-morelia
+        vista_id: "154"
+        timezone: America/Mexico_City
+        lat: 19.680793642022
+        lng: -101.21889122209
+      - nombre: "Escala Morelia"
+        slug: cinepolis-escala-morelia-plaza-morelia
+        vista_id: "060"
+        timezone: America/Mexico_City
+        lat: 19.687
+        lng: -101.151
+      - nombre: "Espacio Las Américas"
+        slug: cinepolis-espacio-las-americas-morelia
+        vista_id: "305"
+        timezone: America/Mexico_City
+        lat: 19.69
+        lng: -101.159
+      - nombre: "Espacio Las Américas"
+        slug: cinepolis-vip-las-americas-morelia
+        vista_id: "295"
+        timezone: America/Mexico_City
+        lat: 19.6901
+        lng: -101.159
+      - nombre: "Morelia Centro"
+        slug: cinepolis-morelia-centro
+        vista_id: "208"
+        timezone: America/Mexico_City
+        lat: 19.705
+        lng: -101.196
+      - nombre: "Morelia Río"
+        slug: cinepolis-morelia-rio
+        vista_id: "970"
+        timezone: America/Mexico_City
+        lat: 19.688572
+        lng: -101.18595
+      - nombre: "Plaza Paseo Poniente"
+        slug: cinepolis-plaza-paseo-poniente-morelia
+        vista_id: "1320"
+        timezone: America/Mexico_City
+        lat: 19.687485
+        lng: -101.294733
+  - nombre: "Muzquiz"
+    id: muzquiz
+    cines:
+      - nombre: "Muzquiz"
+        slug: cinepolis-muzquiz
+        vista_id: "1124"
+        timezone: America/Monterrey
+        lat: 27.874222
+        lng: -101.501173
+  - nombre: "Navojoa"
+    id: navojoa
+    cines:
+      - nombre: "Plaza de Hierro Navojoa"
+        slug: cinepolis-plaza-de-hierro-navojoa
+        vista_id: "1269"
+        timezone: America/Hermosillo
+        lat: 16.350581
+        lng: -98.066565
+  - nombre: "Nogales"
+    id: nogales
+    cines:
+      - nombre: "Nogales Mall"
+        slug: cinepolis-nogales-mall
+        vista_id: "241"
+        timezone: America/Hermosillo
+        lat: 31.29
+        lng: -110.939
+  - nombre: "Nuevo  Laredo"
+    id: nuevo-laredo
+    cines:
+      - nombre: "México Nuevo Laredo"
+        slug: cinepolis-mexico-nuevo-laredo
+        vista_id: "009"
+        timezone: America/Matamoros
+        lat: 27.459539332718
+        lng: -99.51416015625
+      - nombre: "Paseo Reforma"
+        slug: cinepolis-paseo-reforma-nuevo-laredo
+        vista_id: "307"
+        timezone: America/Matamoros
+        lat: 27.444
+        lng: -99.52
+  - nombre: "Nuevo Casas Grandes"
+    id: nuevo-casas-grandes
+    cines:
+      - nombre: "Plaza Nogales"
+        slug: cinepolis-plaza-nogales-nuevo-casas-grandes
+        vista_id: "1236"
+        timezone: America/Chihuahua
+        lat: 30.3947425
+        lng: -107.9092189
+  - nombre: "Nuevo Vallarta"
+    id: nuevo-vallarta
+    cines:
+      - nombre: "Lago Real"
+        slug: cinepolis-lago-real-nuevo-vallarta
+        vista_id: "456"
+        timezone: America/Mexico_City
+        lat: 20.721234
+        lng: -105.277545
+      - nombre: "San Vicente Las Palmas"
+        slug: cinepolis-san-vicente-las-palmas-nuevo-vallarta
+        vista_id: "991"
+        timezone: America/Mexico_City
+        lat: 20.744936
+        lng: -105.254146
+  - nombre: "Oaxaca"
+    id: oaxaca
+    cines:
+      - nombre: "Oaxaca"
+        slug: cinepolis-oaxaca
+        vista_id: "205"
+        timezone: America/Mexico_City
+        lat: 17.042
+        lng: -96.716
+  - nombre: "Ometepec"
+    id: ometepec
+    cines:
+      - nombre: "Ometepec"
+        slug: cinepolis-ometepec
+        vista_id: "1204"
+        timezone: America/Mexico_City
+        lat: 16.691642
+        lng: -98.407974
+  - nombre: "Orizaba"
+    id: orizaba
+    cines:
+      - nombre: "Plaza Valle Orizaba"
+        slug: cinepolis-plaza-valle-orizaba
+        vista_id: "388"
+        timezone: America/Mexico_City
+        lat: 18.858
+        lng: -97.091
+      - nombre: "Río Blanco"
+        slug: cinepolis-rio-blanco-orizaba
+        vista_id: "609"
+        timezone: America/Mexico_City
+        lat: 18.836407
+        lng: -97.146763
+  - nombre: "Pachuca"
+    id: pachuca
+    cines:
+      - nombre: "Galerías Pachuca"
+        slug: cinepolis-galerias-pachuca
+        vista_id: "209"
+        timezone: America/Mexico_City
+        lat: 20.099
+        lng: -98.767
+      - nombre: "Galerías Pachuca"
+        slug: cinepolis-vip-galerias-pachuca
+        vista_id: "543"
+        timezone: America/Mexico_City
+        lat: 20.09809
+        lng: -98.768501
+      - nombre: "Plaza Bella"
+        slug: cinepolis-plaza-bella-pachuca
+        vista_id: "145"
+        timezone: America/Mexico_City
+        lat: 20.115
+        lng: -98.746
+      - nombre: "Vértice Pachuca"
+        slug: cinepolis-vertice-pachuca
+        vista_id: "1117"
+        timezone: America/Mexico_City
+        lat: 20.0548617
+        lng: -98.78355
+  - nombre: "Palenque"
+    id: palenque-chiapas
+    cines:
+      - nombre: "Plaza Las Flores Palenque"
+        slug: cinepolis-plaza-las-flores-palenque
+        vista_id: "1237"
+        timezone: America/Mexico_City
+        lat: 17.52902
+        lng: -91.99414
+  - nombre: "Paraíso"
+    id: paraiso
+    cines:
+      - nombre: "Plaza Crystal Paraíso"
+        slug: cinepolis-plaza-crystal-paraiso
+        vista_id: "617"
+        timezone: America/Mexico_City
+        lat: 18.399203
+        lng: -93.206502
+  - nombre: "Parras de la Fuente "
+    id: parras-de-la-fuente-
+    cines:
+      - nombre: "Plaza Madero"
+        slug: cinepolis-plaza-madero-parras-de-la-fuente-
+        vista_id: "1264"
+        timezone: America/Monterrey
+        lat: 25.44684
+        lng: -102.172277
+  - nombre: "Pátzcuaro"
+    id: patzcuaro
+    cines:
+      - nombre: "Pátzcuaro"
+        slug: cinepolis-patzcuaro
+        vista_id: "1178"
+        timezone: America/Mexico_City
+        lat: 19.512922
+        lng: -101.619558
+  - nombre: "Perinorte Cuautitlan"
+    id: perinorte-cuautitlan
+    cines:
+      - nombre: "Arkana Norte"
+        slug: cinepolis-arkana-norte-perinorte-cuautitlan
+        vista_id: "434"
+        timezone: America/Mexico_City
+        lat: 19.605111
+        lng: -99.188143
+      - nombre: "Centro Lago de Guadalupe"
+        slug: cinepolis-centro-lago-de-guadalupe-perinorte-cuautitlan
+        vista_id: "339"
+        timezone: America/Mexico_City
+        lat: 19.58
+        lng: -99.21
+      - nombre: "Izcalli"
+        slug: cinepolis-izcalli-perinorte-cuautitlan
+        vista_id: "064"
+        timezone: America/Mexico_City
+        lat: 19.645483
+        lng: -99.198787
+      - nombre: "Luna Parc"
+        slug: cinepolis-luna-parc-perinorte-cuautitlan
+        vista_id: "346"
+        timezone: America/Mexico_City
+        lat: 19.657
+        lng: -99.21
+      - nombre: "Perinorte"
+        slug: cinepolis-perinorte-perinorte-cuautitlan
+        vista_id: "258"
+        timezone: America/Mexico_City
+        lat: 19.601884
+        lng: -99.191936
+      - nombre: "Plaza Centella Cuautitlán"
+        slug: cinepolis-plaza-centella-cuautitlan-perinorte-cuautitlan
+        vista_id: "391"
+        timezone: America/Mexico_City
+        lat: 19.678636
+        lng: -99.150345
+      - nombre: "San Miguel Izcalli"
+        slug: cinepolis-san-miguel-izcalli-perinorte-cuautitlan
+        vista_id: "191"
+        timezone: America/Mexico_City
+        lat: 19.689
+        lng: -99.215
+  - nombre: "Pinotepa Nacional"
+    id: pinotepa-nacional
+    cines:
+      - nombre: "Las Flores Pinotepa"
+        slug: cinepolis-las-flores-pinotepa-pinotepa-nacional
+        vista_id: "1040"
+        timezone: America/Mexico_City
+        lat: 16.350581
+        lng: -98.066565
+  - nombre: "Playa del Carmen"
+    id: playa-del-carmen
+    cines:
+      - nombre: "Las Américas Playa del Carmen"
+        slug: cinepolis-las-americas-playa-del-carmen
+        vista_id: "234"
+        timezone: America/Cancun
+        lat: 20.647
+        lng: -87.081
+      - nombre: "Villas del Sol"
+        slug: cinepolis-villas-del-sol-playa-del-carmen
+        vista_id: "903"
+        timezone: America/Cancun
+        lat: 20.670399
+        lng: -87.114423
+  - nombre: "Puebla"
+    id: puebla
+    cines:
+      - nombre: "Angelópolis"
+        slug: cinepolis-angelopolis-puebla
+        vista_id: "162"
+        timezone: America/Mexico_City
+        lat: 19.032
+        lng: -98.232
+      - nombre: "Angelópolis"
+        slug: cinepolis-vip-angelopolis-puebla
+        vista_id: "345"
+        timezone: America/Mexico_City
+        lat: 19.032
+        lng: -98.232
+      - nombre: "Boulevard"
+        slug: cinepolis-boulevard-puebla
+        vista_id: "044"
+        timezone: America/Mexico_City
+        lat: 19.039
+        lng: -98.197
+      - nombre: "Centro Sur (Agua Santa)"
+        slug: cinepolis-centro-sur-agua-santa-puebla
+        vista_id: "243"
+        timezone: America/Mexico_City
+        lat: 18.987
+        lng: -98.247
+      - nombre: "Cruz del Sur"
+        slug: cinepolis-cruz-del-sur-puebla
+        vista_id: "227"
+        timezone: America/Mexico_City
+        lat: 19.075
+        lng: -98.259
+      - nombre: "Galerías Serdán"
+        slug: cinepolis-galerias-serdan-puebla
+        vista_id: "615"
+        timezone: America/Mexico_City
+        lat: 19.068794
+        lng: -98.224839
+      - nombre: "La Noria"
+        slug: cinepolis-la-noria-puebla
+        vista_id: "143"
+        timezone: America/Mexico_City
+        lat: 19.034
+        lng: -98.223
+      - nombre: "Moraleda Atlixco"
+        slug: cinepolis-moraleda-atlixco-puebla
+        vista_id: "1003"
+        timezone: America/Mexico_City
+        lat: 18.892455
+        lng: -98.426396
+      - nombre: "Parque Puebla"
+        slug: cinepolis-parque-puebla
+        vista_id: "880"
+        timezone: America/Mexico_City
+        lat: 19.068614
+        lng: -98.172651
+      - nombre: "Plaza Crystal Puebla"
+        slug: cinepolis-plaza-crystal-puebla
+        vista_id: "138"
+        timezone: America/Mexico_City
+        lat: 19.022
+        lng: -98.213
+      - nombre: "Plaza Loreto"
+        slug: cinepolis-plaza-loreto-puebla
+        vista_id: "046"
+        timezone: America/Mexico_City
+        lat: 19.0656864
+        lng: -98.1762056
+      - nombre: "Plaza Pradea Valsequillo"
+        slug: cinepolis-plaza-pradea-valsequillo-puebla
+        vista_id: "1274"
+        timezone: America/Mexico_City
+        lat: 18.991875243293
+        lng: -98.201129990419
+      - nombre: "Plaza San Diego"
+        slug: cinepolis-plaza-san-diego-puebla
+        vista_id: "415"
+        timezone: America/Mexico_City
+        lat: 19.07633
+        lng: -98.29609
+      - nombre: "San Jerónimo"
+        slug: cinepolis-san-jeronimo-puebla
+        vista_id: "516"
+        timezone: America/Mexico_City
+        lat: 19.097136
+        lng: -98.220037
+      - nombre: "San Sebastián"
+        slug: cinepolis-san-sebastian-puebla
+        vista_id: "1104"
+        timezone: America/Mexico_City
+        lat: 19.06013
+        lng: -98.127385
+  - nombre: "Puerto Aventuras"
+    id: puerto-aventuras
+    cines:
+      - nombre: "Multiplaza Puerto Aventuras"
+        slug: cinepolis-multiplaza-puerto-aventuras
+        vista_id: "1108"
+        timezone: America/Cancun
+        lat: 20.511909271621
+        lng: -87.227277181107
+  - nombre: "Puerto Peñasco "
+    id: puerto-penasco-
+    cines:
+      - nombre: "Puerto Peñasco"
+        slug: cinepolis-puerto-penasco-puerto-penasco
+        vista_id: "1195"
+        timezone: America/Hermosillo
+        lat: 31.3389354
+        lng: -113.527399
+  - nombre: "Puerto Vallarta"
+    id: puerto-vallarta
+    cines:
+      - nombre: "La Isla Puerto Vallarta"
+        slug: cinepolis-vip-la-isla-puerto-vallarta
+        vista_id: "680"
+        timezone: America/Mexico_City
+        lat: 20.644455
+        lng: -105.23895
+      - nombre: "Puerto Vallarta"
+        slug: cinepolis-puerto-vallarta
+        vista_id: "232"
+        timezone: America/Mexico_City
+        lat: 20.649
+        lng: -105.219
+  - nombre: "Querétaro"
+    id: queretaro
+    cines:
+      - nombre: "Antea Querétaro"
+        slug: cinepolis-antea-queretaro
+        vista_id: "560"
+        timezone: America/Mexico_City
+        lat: 20.67493
+        lng: -100.436586
+      - nombre: "Antea Querétaro"
+        slug: cinepolis-vip-antea-queretaro
+        vista_id: "571"
+        timezone: America/Mexico_City
+        lat: 20.67493
+        lng: -100.436586
+      - nombre: "Citadina Corregidora"
+        slug: cinepolis-citadina-corregidora-queretaro
+        vista_id: "945"
+        timezone: America/Mexico_City
+        lat: 20.5367
+        lng: -100.43415
+      - nombre: "Esfera Querétaro"
+        slug: cinepolis-esfera-queretaro
+        vista_id: "309"
+        timezone: America/Mexico_City
+        lat: 20.575532
+        lng: -100.407769
+      - nombre: "Esfera Querétaro"
+        slug: cinepolis-vip-esfera-queretaro
+        vista_id: "380"
+        timezone: America/Mexico_City
+        lat: 20.575532
+        lng: -100.407769
+      - nombre: "Juriquilla Uptown"
+        slug: cinepolis-juriquilla-uptown-queretaro
+        vista_id: "672"
+        timezone: America/Mexico_City
+        lat: 20.676215
+        lng: -100.433631
+      - nombre: "La Victoria"
+        slug: cinepolis-la-victoria-queretaro
+        vista_id: "528"
+        timezone: America/Mexico_City
+        lat: 20.583978
+        lng: -100.379903
+      - nombre: "La Victoria"
+        slug: cinepolis-vip-la-victoria-queretaro
+        vista_id: "976"
+        timezone: America/Mexico_City
+        lat: 20.583978
+        lng: -100.379903
+      - nombre: "Peñaflor"
+        slug: cinepolis-penaflor-queretaro
+        vista_id: "915"
+        timezone: America/Mexico_City
+        lat: 20.647902
+        lng: -100.47957
+      - nombre: "Plaza del Parque"
+        slug: cinepolis-plaza-del-parque-queretaro
+        vista_id: "080"
+        timezone: America/Mexico_City
+        lat: 20.609608625266
+        lng: -100.38280963898
+      - nombre: "Plaza Las Américas Querétaro"
+        slug: cinepolis-plaza-las-americas-queretaro
+        vista_id: "063"
+        timezone: America/Mexico_City
+        lat: 20.5883491
+        lng: -100.3757292
+      - nombre: "Sendero Querétaro"
+        slug: cinepolis-sendero-queretaro
+        vista_id: "274"
+        timezone: America/Mexico_City
+        lat: 20.619
+        lng: -100.44
+  - nombre: "Ramos Arizpe"
+    id: ramos-arizpe
+    cines:
+      - nombre: "Ramos Arizpe"
+        slug: cinepolis-ramos-arizpe
+        vista_id: "1123"
+        timezone: America/Monterrey
+        lat: 25.539707
+        lng: -100.942648
+  - nombre: "Reynosa"
+    id: reynosa
+    cines:
+      - nombre: "Del Río Plaza Comercial"
+        slug: cinepolis-del-rio-plaza-comercial-reynosa
+        vista_id: "435"
+        timezone: America/Matamoros
+        lat: 26.058
+        lng: -98.292
+      - nombre: "Plaza Citadina"
+        slug: cinepolis-plaza-citadina-reynosa
+        vista_id: "514"
+        timezone: America/Matamoros
+        lat: 26.00788
+        lng: -98.275543
+      - nombre: "Plaza Periférico"
+        slug: cinepolis-plaza-periferico-reynosa
+        vista_id: "221"
+        timezone: America/Matamoros
+        lat: 26.055
+        lng: -98.365
+      - nombre: "Plaza Periférico"
+        slug: cinepolis-vip-plaza-periferico-reynosa
+        vista_id: "222"
+        timezone: America/Matamoros
+        lat: 26.055
+        lng: -98.365
+  - nombre: "Rosarito"
+    id: rosarito
+    cines:
+      - nombre: "Pabellón Rosarito"
+        slug: cinepolis-pabellon-rosarito
+        vista_id: "315"
+        timezone: America/Tijuana
+        lat: 32.367
+        lng: -117.055
+  - nombre: "Sabinas, Coahuila"
+    id: sabinas-coahuila
+    cines:
+      - nombre: "Plaza Leones"
+        slug: cinepolis-plaza-leones-coahuila
+        vista_id: "1295"
+        timezone: America/Monterrey
+        lat: 27.858039
+        lng: -101.126748
+  - nombre: "Sahuayo"
+    id: sahuayo
+    cines:
+      - nombre: "Sahuayo"
+        slug: cinepolis-sahuayo
+        vista_id: "566"
+        timezone: America/Mexico_City
+        lat: 20.043538
+        lng: -102.719147
+  - nombre: "Salamanca"
+    id: salamanca
+    cines:
+      - nombre: "Galerías Salamanca"
+        slug: cinepolis-galerias-salamanca
+        vista_id: "189"
+        timezone: America/Mexico_City
+        lat: 20.586
+        lng: -101.214
+  - nombre: "Saltillo"
+    id: saltillo
+    cines:
+      - nombre: "La Nogalera"
+        slug: cinepolis-la-nogalera-saltillo
+        vista_id: "250"
+        timezone: America/Monterrey
+        lat: 25.388
+        lng: -100.996
+      - nombre: "Paseo Villalta"
+        slug: cinepolis-paseo-villalta-saltillo
+        vista_id: "1081"
+        timezone: America/Monterrey
+        lat: 25.4767466
+        lng: -100.9789735
+      - nombre: "Paseo Villalta"
+        slug: cinepolis-vip-paseo-villalta-saltillo
+        vista_id: "1082"
+        timezone: America/Monterrey
+        lat: 25.4767466
+        lng: -100.9789735
+      - nombre: "Sendero Saltillo"
+        slug: cinepolis-sendero-saltillo
+        vista_id: "291"
+        timezone: America/Monterrey
+        lat: 25.442
+        lng: -100.96
+      - nombre: "Sendero Saltillo"
+        slug: cinepolis-vip-sendero-saltillo
+        vista_id: "379"
+        timezone: America/Monterrey
+        lat: 25.442
+        lng: -100.96
+      - nombre: "Sendero Saltillo Sur"
+        slug: cinepolis-sendero-saltillo-sur
+        vista_id: "908"
+        timezone: America/Monterrey
+        lat: 25.377291
+        lng: -101.01366
+  - nombre: "San Cristóbal de las Casas"
+    id: san-cristobal-de-las-casas
+    cines:
+      - nombre: "San Cristóbal"
+        slug: cinepolis-san-cristobal-san-cristobal-de-las-casas
+        vista_id: "226"
+        timezone: America/Mexico_City
+        lat: 16.734
+        lng: -92.652
+  - nombre: "San Francisco del Rincón"
+    id: san-francisco-del-rincon
+    cines:
+      - nombre: "Paseo San Francisco"
+        slug: cinepolis-paseo-san-francisco-san-francisco-del-rincon
+        vista_id: "464"
+        timezone: America/Mexico_City
+        lat: 21.029731
+        lng: -101.867586
+  - nombre: "San Juan de los Lagos"
+    id: san-juan-de-los-lagos
+    cines:
+      - nombre: "Argania"
+        slug: cinepolis-argania-san-juan-de-los-lagos
+        vista_id: "1258"
+        timezone: America/Mexico_City
+        lat: 21.241851
+        lng: -102.335889
+  - nombre: "San Juan del Río"
+    id: san-juan-del-rio
+    cines:
+      - nombre: "Paseo del Río"
+        slug: cinepolis-paseo-del-rio-san-juan-del-rio
+        vista_id: "444"
+        timezone: America/Mexico_City
+        lat: 20.40144312
+        lng: -99.98502669
+  - nombre: "San L Río Colorado"
+    id: san-l-rio-colorado
+    cines:
+      - nombre: "San Luis Río Colorado"
+        slug: cinepolis-san-luis-rio-colorado-san-l-rio-colorado
+        vista_id: "324"
+        timezone: America/Hermosillo
+        lat: 32.447
+        lng: -114.761
+  - nombre: "San Luis Potosí"
+    id: san-luis-potosi
+    cines:
+      - nombre: "El Dorado SLP"
+        slug: cinepolis-vip-el-dorado-slp-san-luis-potosi
+        vista_id: "1031"
+        timezone: America/Mexico_City
+        lat: 22.156592
+        lng: -101.003211
+      - nombre: "Macro Plaza San Luis Potosí"
+        slug: cinepolis-macro-plaza-san-luis-potosi
+        vista_id: "733"
+        timezone: America/Mexico_City
+        lat: 22.142482
+        lng: -100.957529
+      - nombre: "Plaza Citadina San Luis"
+        slug: cinepolis-plaza-citadina-san-luis-san-luis-potosi
+        vista_id: "598"
+        timezone: America/Mexico_City
+        lat: 22.181997
+        lng: -100.951389
+      - nombre: "Plaza El Dorado"
+        slug: cinepolis-plaza-el-dorado-san-luis-potosi
+        vista_id: "160"
+        timezone: America/Mexico_City
+        lat: 22.156
+        lng: -101.005
+      - nombre: "Plaza San Luis"
+        slug: cinepolis-plaza-san-luis-san-luis-potosi
+        vista_id: "414"
+        timezone: America/Mexico_City
+        lat: 22.129
+        lng: -101.031
+      - nombre: "Plaza San Luis"
+        slug: cinepolis-vip-plaza-san-luis-san-luis-potosi
+        vista_id: "450"
+        timezone: America/Mexico_City
+        lat: 22.129
+        lng: -101.031
+      - nombre: "Plaza Sendero San Luis Potosí"
+        slug: cinepolis-plaza-sendero-san-luis-potosi
+        vista_id: "249"
+        timezone: America/Mexico_City
+        lat: 22.139
+        lng: -100.935
+      - nombre: "Tangamanga"
+        slug: cinepolis-tangamanga-san-luis-potosi
+        vista_id: "079"
+        timezone: America/Mexico_City
+        lat: 22.1364918
+        lng: -100.9963
+  - nombre: "San Pedro"
+    id: san-pedro
+    cines:
+      - nombre: "San Pedro"
+        slug: cinepolis-san-pedro
+        vista_id: "999"
+        timezone: America/Monterrey
+        lat: 25.758962
+        lng: -102.97697
+  - nombre: "Santiago Tianguistenco de Galeana"
+    id: santiago-tianguistenco-de-galeana
+    cines:
+      - nombre: "Santiago Tianguistenco"
+        slug: cinepolis-santiago-tianguistenco-santiago-tianguistenco-de-galeana
+        vista_id: "572"
+        timezone: America/Mexico_City
+        lat: 19.176689
+        lng: -99.471122
+  - nombre: "Sayula Jalisco"
+    id: sayula-jalisco
+    cines:
+      - nombre: "Plaza Sayula"
+        slug: cinepolis-plaza-sayula-sayula-jalisco
+        vista_id: "1106"
+        timezone: America/Mexico_City
+        lat: 19.8792454
+        lng: -103.590276
+  - nombre: "Silao"
+    id: silao
+    cines:
+      - nombre: "La Joya"
+        slug: cinepolis-la-joya-silao
+        vista_id: "542"
+        timezone: America/Mexico_City
+        lat: 20.946585
+        lng: -101.417636
+  - nombre: "Tampico"
+    id: tampico
+    cines:
+      - nombre: "Altama"
+        slug: cinepolis-altama-tampico
+        vista_id: "577"
+        timezone: America/Monterrey
+        lat: 22.248908
+        lng: -97.865095
+      - nombre: "Altama"
+        slug: cinepolis-vip-altama-tampico
+        vista_id: "905"
+        timezone: America/Monterrey
+        lat: 22.250618
+        lng: -97.863533
+      - nombre: "Multiplaza Real Tampico"
+        slug: cinepolis-multiplaza-real-tamaulipas-tampico
+        vista_id: "1238"
+        timezone: America/Monterrey
+        lat: 22.315491
+        lng: -97.867402
+      - nombre: "Tampico"
+        slug: cinepolis-tampico
+        vista_id: "166"
+        timezone: America/Monterrey
+        lat: 22.273
+        lng: -97.873
+  - nombre: "Tapachula"
+    id: tapachula
+    cines:
+      - nombre: "Galerías Tapachula"
+        slug: cinepolis-galerias-tapachula
+        vista_id: "329"
+        timezone: America/Mexico_City
+        lat: 14.881
+        lng: -92.281
+      - nombre: "Tapachula"
+        slug: cinepolis-tapachula
+        vista_id: "152"
+        timezone: America/Mexico_City
+        lat: 14.894
+        lng: -92.275
+  - nombre: "Taxco"
+    id: taxco
+    cines:
+      - nombre: "Las Américas Taxco"
+        slug: cinepolis-las-americas-taxco
+        vista_id: "393"
+        timezone: America/Mexico_City
+        lat: 18.549
+        lng: -99.61
+  - nombre: "Tecámac"
+    id: tecamac
+    cines:
+      - nombre: "Tecámac"
+        slug: cinepolis-tecamac
+        vista_id: "299"
+        timezone: America/Mexico_City
+        lat: 19.697
+        lng: -98.98
+      - nombre: "Town Center Zumpango"
+        slug: cinepolis-town-center-zumpango-tecamac
+        vista_id: "370"
+        timezone: America/Mexico_City
+        lat: 19.789
+        lng: -99.053
+  - nombre: "Tecate"
+    id: tecate
+    cines:
+      - nombre: "Tecate"
+        slug: cinepolis-tecate
+        vista_id: "242"
+        timezone: America/Tijuana
+        lat: 32.567
+        lng: -116.634
+  - nombre: "Tecomán"
+    id: tecoman
+    cines:
+      - nombre: "Tecomán"
+        slug: cinepolis-tecoman
+        vista_id: "1272"
+        timezone: America/Mexico_City
+        lat: 18.9162327
+        lng: -103.8793161
+  - nombre: "Tehuacán"
+    id: tehuacan
+    cines:
+      - nombre: "Tehuacán"
+        slug: cinepolis-tehuacan
+        vista_id: "278"
+        timezone: America/Mexico_City
+        lat: 18.469
+        lng: -97.417
+  - nombre: "Temixco"
+    id: temixco
+    cines:
+      - nombre: "Solaz Plaza (Temixco)"
+        slug: cinepolis-solaz-plaza-temixco
+        vista_id: "778"
+        timezone: America/Mexico_City
+        lat: 18.836517
+        lng: -99.223964
+  - nombre: "Tepatitlán"
+    id: tepatitlan
+    cines:
+      - nombre: "Punto La Gloria"
+        slug: cinepolis-punto-la-gloria-tepatitlan
+        vista_id: "661"
+        timezone: America/Mexico_City
+        lat: 20.783631
+        lng: -102.785969
+  - nombre: "Tepeji del Río"
+    id: tepeji-del-rio
+    cines:
+      - nombre: "Tepeji del Río"
+        slug: cinepolis-tepeji-del-rio
+        vista_id: "326"
+        timezone: America/Mexico_City
+        lat: 19.902
+        lng: -99.337
+  - nombre: "Tepic"
+    id: tepic
+    cines:
+      - nombre: "Plaza Cantera Aguamilpa"
+        slug: cinepolis-plaza-cantera-aguamilpa-tepic
+        vista_id: "608"
+        timezone: America/Los_Angeles
+        lat: 21.488476
+        lng: -104.831815
+  - nombre: "Texcoco"
+    id: texcoco
+    cines:
+      - nombre: "Gran Patio Texcoco"
+        slug: cinepolis-gran-patio-texcoco
+        vista_id: "349"
+        timezone: America/Mexico_City
+        lat: 19.517
+        lng: -98.868
+  - nombre: "Teziutlán Puebla"
+    id: teziutlan-puebla
+    cines:
+      - nombre: "Plaza Edén Teziutlán"
+        slug: cinepolis-plaza-eden-teziutlan-teziutlan-puebla
+        vista_id: "1062"
+        timezone: America/Mexico_City
+        lat: 19.8246012
+        lng: -97.360865
+  - nombre: "Tijuana"
+    id: tijuana
+    cines:
+      - nombre: "Carrousel"
+        slug: cinepolis-carrousel-tijuana
+        vista_id: "131"
+        timezone: America/Tijuana
+        lat: 32.497
+        lng: -116.959
+      - nombre: "Galerías Hipódromo"
+        slug: cinepolis-galerias-hipodromo-tijuana
+        vista_id: "312"
+        timezone: America/Tijuana
+        lat: 32.508
+        lng: -116.993
+      - nombre: "Galerías Hipódromo"
+        slug: cinepolis-vip-galerias-hipodromo-tijuana
+        vista_id: "376"
+        timezone: America/Tijuana
+        lat: 32.508
+        lng: -116.993
+      - nombre: "La Pajarita"
+        slug: cinepolis-la-pajarita-tijuana
+        vista_id: "468"
+        timezone: America/Tijuana
+        lat: 32.444749
+        lng: -117.03497
+      - nombre: "Paseo 2000"
+        slug: cinepolis-paseo-2000-tijuana
+        vista_id: "306"
+        timezone: America/Tijuana
+        lat: 32.4926106
+        lng: -116.8546193
+      - nombre: "Paseo Chapultepec"
+        slug: cinepolis-paseo-chapultepec-tijuana
+        vista_id: "819"
+        timezone: America/Tijuana
+        lat: 32.513814
+        lng: -117.012585
+      - nombre: "Playas"
+        slug: cinepolis-playas-tijuana
+        vista_id: "351"
+        timezone: America/Tijuana
+        lat: 32.531
+        lng: -117.114
+      - nombre: "Plaza Monarca"
+        slug: cinepolis-plaza-monarca-tijuana
+        vista_id: "179"
+        timezone: America/Tijuana
+        lat: 32.5
+        lng: -116.92
+      - nombre: "Plaza Río"
+        slug: cinepolis-plaza-rio-tijuana
+        vista_id: "165"
+        timezone: America/Tijuana
+        lat: 32.529
+        lng: -117.021
+      - nombre: "Plaza Río"
+        slug: cinepolis-vip-plaza-rio-tijuana
+        vista_id: "173"
+        timezone: America/Tijuana
+        lat: 32.529
+        lng: -117.021
+      - nombre: "Sendero Tijuana"
+        slug: cinepolis-sendero-tijuana
+        vista_id: "860"
+        timezone: America/Tijuana
+        lat: 32.453999
+        lng: -116.838579
+  - nombre: "Tizayuca"
+    id: tizayuca
+    cines:
+      - nombre: "Tizayuca"
+        slug: cinepolis-tizayuca
+        vista_id: "907"
+        timezone: America/Mexico_City
+        lat: 19.871354
+        lng: -98.957308
+  - nombre: "Tlajomulco"
+    id: tlajomulco
+    cines:
+      - nombre: "Multiplaza del Valle Tlajomulco"
+        slug: cinepolis-multiplaza-del-valle-tlajomulco
+        vista_id: "1220"
+        timezone: America/Mexico_City
+        lat: 20.542698397046
+        lng: -103.36286841736
+      - nombre: "Plaza Chedraui Tlajomulco"
+        slug: cinepolis-plaza-chedraui-tlajomulco
+        vista_id: "485"
+        timezone: America/Mexico_City
+        lat: 20.52638
+        lng: -103.38697
+  - nombre: "Tlaxcala"
+    id: tlaxcala
+    cines:
+      - nombre: "Gran Patio Tlaxcala"
+        slug: cinepolis-gran-patio-tlaxcala
+        vista_id: "399"
+        timezone: America/Mexico_City
+        lat: 19.34
+        lng: -98.201
+      - nombre: "Plaza Vértice Tlaxcala"
+        slug: cinepolis-plaza-vertice-tlaxcala
+        vista_id: "1096"
+        timezone: America/Mexico_City
+        lat: 19.3240287
+        lng: -98.23002
+  - nombre: "Toluca"
+    id: toluca
+    cines:
+      - nombre: "Galerías Metepec"
+        slug: cinepolis-galerias-metepec-toluca
+        vista_id: "161"
+        timezone: America/Mexico_City
+        lat: 19.256
+        lng: -99.62
+      - nombre: "Galerías Metepec"
+        slug: cinepolis-vip-galerias-metepec-toluca
+        vista_id: "252"
+        timezone: America/Mexico_City
+        lat: 19.256
+        lng: -99.62
+      - nombre: "Galerías Toluca"
+        slug: cinepolis-galerias-toluca
+        vista_id: "613"
+        timezone: America/Mexico_City
+        lat: 19.289484
+        lng: -99.622653
+      - nombre: "Galerías Toluca"
+        slug: cinepolis-vip-galerias-toluca
+        vista_id: "614"
+        timezone: America/Mexico_City
+        lat: 19.289484
+        lng: -99.622653
+      - nombre: "Grand Plaza"
+        slug: cinepolis-grand-plaza-toluca
+        vista_id: "146"
+        timezone: America/Mexico_City
+        lat: 19.288
+        lng: -99.654
+      - nombre: "Paseo Molino"
+        slug: cinepolis-paseo-molino-toluca
+        vista_id: "772"
+        timezone: America/Mexico_City
+        lat: 19.2917097
+        lng: -99.662326
+      - nombre: "Sendero Toluca"
+        slug: cinepolis-sendero-toluca
+        vista_id: "276"
+        timezone: America/Mexico_City
+        lat: 19.291
+        lng: -99.555
+      - nombre: "Zinacantepec"
+        slug: cinepolis-zinacantepec-toluca
+        vista_id: "646"
+        timezone: America/Mexico_City
+        lat: 19.292319
+        lng: -99.735497
+  - nombre: "Tonalá"
+    id: tonala
+    cines:
+      - nombre: "Plaza Las Flores"
+        slug: cinepolis-plaza-las-flores-tonala
+        vista_id: "620"
+        timezone: America/Mexico_City
+        lat: 16.099224
+        lng: -93.769618
+  - nombre: "Torreón"
+    id: torreon
+    cines:
+      - nombre: "Cuatro Caminos"
+        slug: cinepolis-cuatro-caminos-torreon
+        vista_id: "186"
+        timezone: America/Monterrey
+        lat: 25.559
+        lng: -103.434
+      - nombre: "Cuatro Caminos"
+        slug: cinepolis-vip-cuatro-caminos-torreon
+        vista_id: "188"
+        timezone: America/Monterrey
+        lat: 25.559
+        lng: -103.434
+      - nombre: "Galerías Laguna"
+        slug: cinepolis-galerias-laguna-torreon
+        vista_id: "184"
+        timezone: America/Monterrey
+        lat: 25.582
+        lng: -103.405
+      - nombre: "Galerías Laguna"
+        slug: cinepolis-vip-galerias-laguna-torreon
+        vista_id: "187"
+        timezone: America/Monterrey
+        lat: 25.582
+        lng: -103.405
+      - nombre: "Plaza Nazas"
+        slug: cinepolis-plaza-nazas-torreon
+        vista_id: "1233"
+        timezone: America/Monterrey
+        lat: 25.535894847297
+        lng: -103.3562789347
+  - nombre: "Tuxpan"
+    id: tuxpan
+    cines:
+      - nombre: "Plaza Crystal Tuxpan"
+        slug: cinepolis-plaza-crystal-tuxpan
+        vista_id: "298"
+        timezone: America/Mexico_City
+        lat: 20.95
+        lng: -97.42
+  - nombre: "Tuxtepec"
+    id: tuxtepec
+    cines:
+      - nombre: "Los Ángeles Tuxtepec"
+        slug: cinepolis-los-angeles-tuxtepec-tuxtepec
+        vista_id: "1129"
+        timezone: America/Mexico_City
+        lat: 18.09177
+        lng: -96.130855
+  - nombre: "Tuxtla Gutiérrez"
+    id: tuxtla-gutierrez
+    cines:
+      - nombre: "Paso Limón"
+        slug: cinepolis-paso-limon-tuxtla-gutierrez
+        vista_id: "996"
+        timezone: America/Mexico_City
+        lat: 16.763957393542
+        lng: -93.081165360079
+      - nombre: "Plaza Las Américas Tuxtla Gutiérrez"
+        slug: cinepolis-plaza-las-americas-tuxtla-gutierrez
+        vista_id: "288"
+        timezone: America/Mexico_City
+        lat: 16.762
+        lng: -93.142
+      - nombre: "Poliforum"
+        slug: cinepolis-poliforum-tuxtla-gutierrez
+        vista_id: "216"
+        timezone: America/Mexico_City
+        lat: 16.749
+        lng: -93.08
+  - nombre: "Uriangato"
+    id: uriangato
+    cines:
+      - nombre: "Galerías Metropolitana"
+        slug: cinepolis-galerias-metropolitana-uriangato
+        vista_id: "334"
+        timezone: America/Mexico_City
+        lat: 20.121
+        lng: -101.179
+  - nombre: "Uruapan"
+    id: uruapan
+    cines:
+      - nombre: "Plaza Ágora Uruapan"
+        slug: cinepolis-plaza-agora-uruapan
+        vista_id: "259"
+        timezone: America/Mexico_City
+        lat: 19.426
+        lng: -102.037
+      - nombre: "Uruapan Plaza 500"
+        slug: cinepolis-uruapan-plaza-500
+        vista_id: "1177"
+        timezone: America/Mexico_City
+        lat: 19.425767
+        lng: -102.025898
+  - nombre: "Veracruz"
+    id: veracruz
+    cines:
+      - nombre: "El Dorado Veracruz"
+        slug: cinepolis-el-dorado-veracruz
+        vista_id: "484"
+        timezone: America/Mexico_City
+        lat: 19.094984
+        lng: -96.104688
+      - nombre: "El Dorado Veracruz"
+        slug: cinepolis-vip-el-dorado-veracruz
+        vista_id: "545"
+        timezone: America/Mexico_City
+        lat: 19.094984
+        lng: -96.104688
+      - nombre: "Las Américas Veracruz"
+        slug: cinepolis-las-americas-veracruz
+        vista_id: "126"
+        timezone: America/Mexico_City
+        lat: 19.14
+        lng: -96.107
+      - nombre: "Las Américas Veracruz"
+        slug: cinepolis-vip-las-americas-veracruz
+        vista_id: "192"
+        timezone: America/Mexico_City
+        lat: 19.139188
+        lng: -96.105997
+      - nombre: "Plaza del Puerto"
+        slug: cinepolis-plaza-del-puerto-veracruz
+        vista_id: "260"
+        timezone: America/Mexico_City
+        lat: 19.214
+        lng: -96.187
+      - nombre: "Portal Veracruz"
+        slug: cinepolis-portal-veracruz
+        vista_id: "1103"
+        timezone: America/Mexico_City
+        lat: 19.175392
+        lng: -96.135076
+  - nombre: "Villaflores"
+    id: villaflores
+    cines:
+      - nombre: "Plaza Las Flores Villaflores"
+        slug: cinepolis-plaza-las-flores-villaflores
+        vista_id: "864"
+        timezone: America/Mexico_City
+        lat: 16.224246
+        lng: -93.274463
+  - nombre: "Villahermosa"
+    id: villahermosa
+    cines:
+      - nombre: "Las Américas Villahermosa"
+        slug: cinepolis-las-americas-villahermosa
+        vista_id: "196"
+        timezone: America/Mexico_City
+        lat: 18.013
+        lng: -92.92
+      - nombre: "Plaza Deportiva"
+        slug: cinepolis-plaza-deportiva-villahermosa
+        vista_id: "445"
+        timezone: America/Mexico_City
+        lat: 17.978284
+        lng: -92.943408
+      - nombre: "San Joaquín"
+        slug: cinepolis-san-joaquin-villahermosa
+        vista_id: "440"
+        timezone: America/Mexico_City
+        lat: 17.969
+        lng: -92.971
+      - nombre: "Sendero Villahermosa"
+        slug: cinepolis-sendero-villahermosa
+        vista_id: "320"
+        timezone: America/Mexico_City
+        lat: 18.018333
+        lng: -92.912533
+      - nombre: "Villahermosa"
+        slug: cinepolis-villahermosa
+        vista_id: "156"
+        timezone: America/Mexico_City
+        lat: 17.988
+        lng: -92.965
+      - nombre: "Villahermosa"
+        slug: cinepolis-vip-villahermosa
+        vista_id: "212"
+        timezone: America/Mexico_City
+        lat: 17.988
+        lng: -92.965
+  - nombre: "Xalapa"
+    id: xalapa
+    cines:
+      - nombre: "Las Américas Xalapa"
+        slug: cinepolis-vip-las-americas-xalapa
+        vista_id: "665"
+        timezone: America/Mexico_City
+        lat: 19.514
+        lng: -96.878
+      - nombre: "Plaza Crystal Xalapa"
+        slug: cinepolis-plaza-crystal-xalapa
+        vista_id: "040"
+        timezone: America/Mexico_City
+        lat: 19.53904
+        lng: -96.90665
+      - nombre: "Plaza Las Américas Xalapa"
+        slug: cinepolis-plaza-las-americas-xalapa
+        vista_id: "247"
+        timezone: America/Mexico_City
+        lat: 19.514
+        lng: -96.878
+      - nombre: "Plaza Museo"
+        slug: cinepolis-plaza-museo-xalapa
+        vista_id: "125"
+        timezone: America/Mexico_City
+        lat: 19.548
+        lng: -96.933
+  - nombre: "Zacatecas"
+    id: zacatecas
+    cines:
+      - nombre: "Galerías Zacatecas"
+        slug: cinepolis-galerias-zacatecas
+        vista_id: "474"
+        timezone: America/Mexico_City
+        lat: 22.776831
+        lng: -102.598907
+  - nombre: "Zamora"
+    id: zamora
+    cines:
+      - nombre: "Plaza Ana"
+        slug: cinepolis-plaza-ana-zamora
+        vista_id: "296"
+        timezone: America/Mexico_City
+        lat: 19.974
+        lng: -102.295
+      - nombre: "Sentura Zamora"
+        slug: cinepolis-sentura-zamora
+        vista_id: "870"
+        timezone: America/Mexico_City
+        lat: 20.026307
+        lng: -102.277331
+  - nombre: "Zitácuaro"
+    id: zitacuaro
+    cines:
+      - nombre: "Gran Plaza los Soles Zitácuaro"
+        slug: gran-plaza-los-soles-zitacuaro
+        vista_id: "1010"
+        timezone: America/Mexico_City
+        lat: 19.42937118
+        lng: 100.3478885
