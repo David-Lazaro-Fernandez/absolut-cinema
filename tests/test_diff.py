@@ -55,3 +55,17 @@ def test_moved_strips_first_seen_from_both_sides():
     events = diff.diff("cinepolis", prev, cur, 2, 1, TAKEN)
     assert kinds(events) == [("moved", "e")]
     assert "first_seen" not in events[0]["before"] and "first_seen" not in events[0]["after"]
+
+
+def test_closing_kind_rules():
+    assert diff.closing_kind("2026-09-09T13:30:00", TAKEN) == "expired"     # ya empezó
+    assert diff.closing_kind("2026-09-09T14:20:00", TAKEN) == "expired"     # empieza dentro de la gracia
+    assert diff.closing_kind("2026-09-09T19:00:00", TAKEN) == "removed"     # faltaban horas
+    assert diff.closing_kind(None, TAKEN) == "removed"
+
+
+def test_changed_fields_ignores_unknown_screen():
+    a, b = row("f", "2026-09-10T12:00:00", screen=""), row("f", "2026-09-10T12:00:00", screen="4")
+    assert diff.changed_fields(a, b, ("datetime_local", "screen")) == []
+    c = row("f", "2026-09-10T12:30:00", screen="5")
+    assert diff.changed_fields(b, c, ("datetime_local", "screen", "availability")) == ["datetime_local", "screen"]

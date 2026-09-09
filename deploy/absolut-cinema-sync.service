@@ -1,0 +1,16 @@
+[Unit]
+Description=absolut-cinema: copia lo nuevo de SQLite al archivo histórico en PostgreSQL
+After=network-online.target
+Wants=network-online.target
+# Lee snapshots.db en modo solo lectura; el DSN de Postgres (AC_PG_DSN) viene de /etc/absolut-cinema.env.
+
+[Service]
+Type=oneshot
+User=absolut
+WorkingDirectory=/opt/absolut-cinema
+EnvironmentFile=-/etc/absolut-cinema.env
+ExecStart=/usr/bin/make -C /opt/absolut-cinema sync
+TimeoutStartSec=30min
+Nice=10
+StandardOutput=append:/opt/absolut-cinema/data/logs/systemd.out
+StandardError=append:/opt/absolut-cinema/data/logs/systemd.out

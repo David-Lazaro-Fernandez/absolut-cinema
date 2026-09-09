@@ -440,6 +440,10 @@ Petición del cliente tras la primera revisión: entender los precios de dulcer�
 - `docs/postgres-esquema.md`: diseño de tablas de PostgreSQL para el archivo histórico (etapa 1, propuesta 2026-09-09):
   identidad de la función separada de sus versiones de estado, eventos, muestreos, trabajo `sync` y tamaño estimado.
   `docs/arquitectura_aws.py` genera el diagrama de despliegue (`arquitectura-aws.png`) con la librería `diagrams`.
+- `docs/ec2-sizing.md`: qué instancia EC2 pide el proyecto, con el consumo de cada trabajo, el volumen de
+  escritura medido y el crecimiento en disco (2026-09-09).
+- `docs/aws-setup.md`: provisión en AWS paso a paso (VPC, grupos de seguridad, rol de IAM, RDS, EC2, S3,
+  secretos y monitoreo) para el plan 1 con SQLite y el plan 2 con PostgreSQL.
 - `project.md`: este documento.
 
 ## Scraper de snapshots (piloto CDMX)
@@ -539,17 +543,39 @@ lleven más de 8 días sin renovarse; escribe una línea en `data/logs/health.lo
 `timeout=60` para convivir con una captura en curso (SQLite en WAL, un escritor a la vez). Hay pruebas unitarias
 para la lógica pura (`tests/`, pytest en el venv, `requirements-dev.txt`).
 
-## Front end y hosting (decisión 2026-09-07)
+## Front end y hosting (decisión 2026-09-07; servidor fijado el 2026-09-09)
 
 - **Streamlit para el piloto**, con la lógica en `analytics/` y no en las páginas. FastAPI + Next.js
   queda para cuando haya login por usuario de Cinemex, UI con marca, más de un consumidor de los
   datos (alertas, etc.) o más de cinco o seis pantallas. Con `analytics/` separado, el cambio es
   envolver cada función en un endpoint.
-- **Servidor**: un droplet de DigitalOcean (1 vCPU / 2 GB basta) o EC2 si el entregable vive en la
-  cuenta de AWS de Cinemex. Lo urgente es salir de la Mac: launchd deja huecos en la serie cada vez
+- **Servidor: EC2 en la cuenta de AWS de Cinemex** (decisión de David, 2026-09-09; queda descartado el
+  droplet de DigitalOcean). Instancia `t4g.medium` (ARM Graviton2, 2 vCPU, 4 GB) con 30 GB de EBS gp3,
+  ~29–32 USD al mes con el respaldo en S3. Con el archivo histórico en RDS (plan 2) la instancia puede
+  bajar a `t4g.small`, porque deja de llevar el WAL de SQLite. Dimensionamiento en `docs/ec2-sizing.md`
+  y provisión paso a paso en `docs/aws-setup.md`.
+  Lo urgente es salir de la Mac: launchd deja huecos en la serie cada vez
   que la laptop duerme (la noche del 7 al 8 de septiembre se perdieron ~8 h de snapshots por eso).
   Zona horaria del servidor en `America/Mexico_City`. SQLite ya está en WAL; el dashboard abre la
   base en modo lectura.
+
+### Volumen de escritura y crecimiento (medido el 2026-09-09)
+
+Contado sobre `data/snapshots.db` con la historia desde el 2026-09-07, no estimado. Con la cadencia de
+tres capturas al día se escriben **~320,000 filas al día**, de las cuales **el 96 % es el `DELETE` de la
+cadena y el `INSERT` de sus 51,468 funciones vigentes** que hace `store.replace_current` en cada captura
+(Cinemex 28,346 y Cinépolis 23,122). La información nueva de verdad son ~11,600 filas: ~7,000 eventos,
+~1,750 muestras de ocupación, ~1,563 precios de dulcería, ~968 de dulcería a domicilio y el resto entre
+precios de boleto, aforo y metadatos de captura.
+
+En SQLite ese reemplazo es una transacción local y no cuesta nada. Importa para el plan 2: replicarlo en
+Postgres dejaría 308,808 tuplas muertas al día para autovacuum, y por eso `showtime_state` versiona con
+`valid_from`/`valid_to` en vez de reescribir el estado entero.
+
+Crecimiento en disco: la base sube ~7 MB al día (~2.5 GB al año) y el crudo comprimido ~2 MB al día
+(~0.7 GB al año, 0.65 MB por corrida). `current_showtime` no crece porque se reemplaza; lo que crece sin
+límite es `event` (883 B por fila, ~980 B con sus tres índices). Al pasar a Postgres el mismo año de CDMX ocupa ~1.7 GB
+porque separa identidad de estado y no guarda los JSON completos (ver `docs/postgres-esquema.md`).
 
 ## Dashboard ejecutivo (estructura en tres capas, 2026-09-08)
 
@@ -672,28 +698,29 @@ horaria, dumbbell por película, mapa de calor, formatos e idioma, módulo de du
 indicadores, comportamiento semanal del competidor, precios, salas y butacas, historial por función con cartelera "tal
 como estaba", y ocupación medida.
 
-**Qué está diseñado y no construido:** el archivo histórico en PostgreSQL (`docs/postgres-esquema.md`, DDL validado en
-Postgres 16 local con `make pg-up pg-schema`; diagrama `docs/arquitectura-aws.png`). Nada escribe en Postgres todavía.
+**Archivo histórico en PostgreSQL (etapa 1, construido el 2026-09-09):** `sync/` (`make sync`, launchd y systemd a :22 y
+:52) copia lo nuevo de SQLite por marca de agua y reconstruye la historia de cada función desde el crudo de cada captura
+como identidad (`showtime`) + versiones de estado (`showtime_state`, `valid_from`/`valid_to`), con las mismas reglas del diff
+del scraper (`scraper.diff.changed_fields`, `closing_kind`, `normalize.TRACKED_FIELDS`). Carga inicial: 79 capturas,
+62,499 funciones, 2,480 con más de una versión, en 30 s; verificado contra SQLite (0 diferencias en el estado vigente),
+contra el crudo (misma cantidad de funciones distintas; la reconstrucción "tal como estaba" coincide en dos capturas
+intermedias) y en eventos (mismos ids). Destino hoy: Postgres 16 en Docker local (`make pg-up pg-schema`); RDS después
+cambiando `AC_PG_DSN`. Diseño en `docs/postgres-esquema.md`, operación en `deploy/README.md`.
 
 **Decisiones abiertas con el cliente:** alcance nacional (hoy solo CDMX; multiplica ~7× las llamadas y exige muestrear
 los planos en vez de censarlos), entrega de su tablero de dulcería y de su taquilla por función, si el entregable vive en
 su cuenta de AWS (RDS) o en DigitalOcean.
 
-### Plan 2 (siguiente): etapa 1 del archivo histórico
+### Etapa 1 del archivo histórico: hecha (2026-09-09)
 
-Objetivo: Postgres poblándose desde el primer día sin tocar el scraper ni el dashboard. Alcance previsto:
+Decisiones de diseño que quedaron: el crudo es la fuente de la historia (no `current_showtime`); una función cerrada que
+reaparece con la misma llave se reabre (479 casos en dos días); un cambio de película o cine corrige la identidad; un
+snapshot sin cerrar más viejo de 2 h se copia como fallido; Postgres es append-only (los borrados manuales de eventos en
+SQLite no se propagan); particiones mensuales bajo demanda, sin DEFAULT; `cinema.city_id` sale del crudo (Cinépolis
+`cdmx`, Cinemex el id de estado `8`). El sync escribe `data/logs/sync_status.json` y `scraper.health` lo vigila.
 
-1. Trabajo `make sync` (paquete `sync/` con su propio venv y `psycopg`; el scraper sigue solo stdlib): lee
-   `snapshots.db` en `mode=ro`, lleva a Postgres lo nuevo de las tablas que solo crecen por marca de agua, y mantiene
-   `cinema`, `movie`, `showtime` (identidad, `first_seen_at`, `closed_at`/`closed_kind`) y `showtime_state` (versiones con
-   `valid_from`/`valid_to`) a partir de cada captura. Idempotente; corre en `:22` y `:52`.
-2. Creación de particiones mensuales antes de escribir; `sync_watermark`; `event.changes` como `jsonb` de campos cambiados.
-3. Carga inicial desde la historia acumulada en SQLite (capturas desde el 2026-09-07) y verificación contra el crudo gz.
-4. Unidad de systemd `absolut-cinema-sync.timer`, plist de launchd para la Mac, `make sync`, cobertura en `scraper.health`
-   (marca de agua atrasada = problema), credenciales en `deploy/absolut-cinema.env`.
-5. Documentación: `deploy/README.md` (RDS: instancia, red, respaldos), `ARCHITECTURE.md`, `AGENTS.md` (nueva capa `sync/`).
-
-Fuera de la etapa 1 (etapa 2): portar `analytics/` a Postgres y encender el filtro de plaza para lo nacional.
+**Etapa 2 (siguiente):** portar `analytics/` a Postgres con tipos nativos, encender el filtro de plaza para lo nacional,
+y mover el destino a RDS cuando el cliente confirme la cuenta.
 
 ### Pendientes que no dependen del plan 2
 

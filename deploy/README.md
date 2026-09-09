@@ -1,7 +1,13 @@
-# Despliegue en un servidor (droplet de DigitalOcean o EC2)
+# Despliegue en un servidor (EC2 en la cuenta de AWS de Cinemex)
 
 Todo vive en `/opt/absolut-cinema` con el usuario de sistema `absolut`. Reemplaza al launchd de la Mac,
 que deja huecos en la serie cada vez que la laptop duerme.
+
+**Servidor de destino (decisión 2026-09-09):** EC2 `t4g.medium` (ARM Graviton2, 2 vCPU, 4 GB) con 30 GB
+de EBS gp3 y la zona horaria en `America/Mexico_City`. El pico medido de memoria es ~600 MB (una captura
+y el dashboard a la vez) y la base crece ~7 MB al día, así que 4 GB y 30 GB dan margen para años. Por qué
+esa instancia y no otra: `docs/ec2-sizing.md`. Cómo se crea la VPC, el rol de IAM, el bucket y la
+instancia: `docs/aws-setup.md`. Los pasos de abajo valen igual en cualquier Ubuntu 24.04.
 
 ## Primera vez
 
@@ -25,6 +31,7 @@ mostraría un aviso de "aún no hay datos"), enlaza los units de systemd y los h
 | `absolut-cinema-delivery.timer` | diario 15:07 | dulcería a domicilio en Rappi y DiDi Food, con las tiendas ya abiertas; renovada cada 7 días (`make delivery`) |
 | `absolut-cinema-health.timer` | diario 08:07 | reporte de salud en `data/logs/health.log`; falla si hay huecos o errores (`make health`) |
 | `absolut-cinema-capacity.timer` | día 1, 04:07 | refresco mensual del aforo de Cinépolis (`make capacity REFRESH=1`) |
+| `absolut-cinema-sync.timer` | :22 y :52 | copia lo nuevo de SQLite al archivo histórico en PostgreSQL (`make sync`); DSN en `AC_PG_DSN` |
 | `absolut-cinema-backup.timer` | diario 05:07 | `backup.sh`: copia de la base y sync del crudo al bucket (`make backup`) |
 | `absolut-cinema-calibrate-cinemex.timer` | diario 19:07, **apagado** | calibración del semáforo de Cinemex, 60 funciones por corrida; abre órdenes de checkout, por eso `install.sh` lo enlaza pero no lo habilita (`make calibrate-cinemex`) |
 | `absolut-cinema-dashboard.service` | siempre | Streamlit en `127.0.0.1:8501` |
@@ -69,3 +76,20 @@ systemctl stop absolut-cinema-scraper.timer
 mv snapshots-FECHA.db /opt/absolut-cinema/data/snapshots.db && chown absolut:absolut /opt/absolut-cinema/data/snapshots.db
 systemctl start absolut-cinema-scraper.timer
 ```
+
+## Archivo histórico en PostgreSQL
+
+`make sync` (cada 30 min) lee `snapshots.db` en solo lectura y el crudo de cada captura, y escribe en Postgres por
+marca de agua (`sync_watermark`). `AC_PG_DSN` va en `/etc/absolut-cinema.env`; en desarrollo apunta al Postgres de
+`docker-compose.dev.yml`. Esquema: `deploy/postgres/schema.sql` (aplicar una vez con `psql -f`; en local `make pg-schema`).
+Diseño y consultas de ejemplo en `docs/postgres-esquema.md`.
+
+- **Estado**: `data/logs/sync_status.json` (última corrida, marcas, pendiente); `make health` lo reporta.
+- **Postgres es append-only.** Si en SQLite se borran eventos a mano (falsos positivos), en Postgres hay que repetirlo:
+  `DELETE FROM event WHERE id = ANY(ARRAY[...]);`.
+- **Si cambia la semántica de `scraper/normalize.py`**, la historia ya cargada no se recalcula sola: `TRUNCATE showtime_state,
+  showtime; DELETE FROM sync_watermark WHERE source_table = 'showtime';` y volver a correr `make sync`, que la reconstruye
+  desde los crudos (30 s por cada 80 capturas).
+- **Particiones**: el sync crea `showtime_YYYYMM`, `showtime_state_YYYYMM` y `event_YYYYMM` bajo demanda; no hay DEFAULT.
+- **Si falta el crudo de una captura buena**, el sync se detiene en ella y lo reporta: hay que restaurarlo del bucket
+  (`raw/{chain}/{fecha}/…`) antes de seguir; saltarla rompería la historia.

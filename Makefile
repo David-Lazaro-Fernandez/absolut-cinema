@@ -5,7 +5,7 @@ PY ?= /usr/bin/python3
 VENV ?= .venv/bin
 
 .PHONY: help tick snapshot seats occupancy post-start daily health prices concessions delivery capacity capacity-cinemex \
-        calibrate-cinemex dashboard backup launchd-load launchd-unload pg-up pg-schema pg-psql pg-admin pg-down
+        calibrate-cinemex dashboard backup launchd-load launchd-unload pg-up pg-schema pg-psql pg-admin pg-down sync
 
 help:               ## lista los targets
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-20s %s\n", $$1, $$2}'
@@ -62,14 +62,17 @@ pg-psql:            ## consola psql en el Postgres local
 pg-down:            ## apaga Postgres y pgAdmin locales y borra sus datos
 	docker compose -f deploy/docker-compose.dev.yml --profile admin down -v
 
+sync:               ## copia lo nuevo de SQLite al archivo histórico en Postgres (programado a :22 y :52)
+	$(VENV)/python -m sync.run
+
 dashboard:          ## Streamlit local
 	$(VENV)/streamlit run app.py
 
 backup:             ## respaldo (requiere BACKUP_BUCKET en el entorno)
 	bash deploy/backup.sh
 
-launchd-load:       ## Mac: cargar los cuatro agentes (cartelera 3/día, planos cada hora, diario, delivery)
-	for a in scraper seats daily delivery; do launchctl bootstrap gui/$$(id -u) scraper/com.absolut-cinema.$$a.plist; done
+launchd-load:       ## Mac: cargar los cinco agentes (cartelera 3/día, planos cada hora, diario, delivery, sync)
+	for a in scraper seats daily delivery sync; do launchctl bootstrap gui/$$(id -u) scraper/com.absolut-cinema.$$a.plist; done
 
 launchd-unload:     ## Mac: descargar los agentes (antes de mover el scraper al servidor)
-	-for a in scraper seats daily delivery; do launchctl bootout gui/$$(id -u)/com.absolut-cinema.$$a; done
+	-for a in scraper seats daily delivery sync; do launchctl bootout gui/$$(id -u)/com.absolut-cinema.$$a; done

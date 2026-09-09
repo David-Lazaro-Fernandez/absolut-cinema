@@ -132,10 +132,8 @@ CREATE TABLE sync_watermark (                    -- hasta dónde llegó el sync 
   source_table text PRIMARY KEY, last_id bigint NOT NULL, synced_at timestamptz NOT NULL
 );
 
--- Particiones por defecto para poder insertar desde el primer día; en producción el sync crea la partición
--- mensual (showtime_YYYYMM, event_YYYYMM) antes de escribir en ella.
-CREATE TABLE showtime_default        PARTITION OF showtime        DEFAULT;
-CREATE TABLE showtime_state_default  PARTITION OF showtime_state  DEFAULT;
-CREATE TABLE event_default           PARTITION OF event           DEFAULT;
+-- Sin particiones por defecto a propósito: si una fila cayera en DEFAULT, crear después la partición mensual de
+-- ese rango fallaría. El sync crea showtime_YYYYMM, showtime_state_YYYYMM (por show_date) y event_YYYYMM (por
+-- detected_at, límites en UTC) para los meses del lote más el siguiente, antes de insertar.
 
 COMMIT;

@@ -22,6 +22,7 @@ competidor), plaza piloto CDMX. Tres capas, sin mezclarse:
 | Captura | `scraper/` | **solo stdlib**, `/usr/bin/python3` | `data/snapshots.db`, `data/raw/`, `data/logs/` |
 | Negocio | `analytics/` | **solo stdlib** | nada (abre la base en `mode=ro`) |
 | Presentación | `app.py` + `ui/` + `views/` | `.venv` (streamlit, pandas, altair) | nada |
+| Archivo histórico | `sync/` | `.venv` (psycopg) | PostgreSQL (`AC_PG_DSN`) y `data/logs/sync_status.json` |
 
 ### Reglas de arquitectura (no negociables sin discutirlo)
 
@@ -37,6 +38,11 @@ competidor), plaza piloto CDMX. Tres capas, sin mezclarse:
 - **Un solo escritor** sobre `snapshots.db`. Todo lo que escribe corre en serie desde el mismo timer
   o en minutos distintos (`:07`). No añadas un proceso escritor sin ubicarlo en ese calendario.
 - **El dashboard nunca escribe.** `analytics.connect()` abre en `mode=ro` a propósito.
+- **`sync/` es la única capa que toca PostgreSQL** y lo hace por marca de agua y `ON CONFLICT DO NOTHING`: Postgres es
+  append-only, nadie borra ahí de forma automática. Lee SQLite en `mode=ro` y el crudo; puede importar
+  `scraper.config`, `scraper.normalize` y `scraper.diff` (stdlib), pero el scraper jamás importa `sync/`. Las reglas de
+  "qué cuenta como cambio" y "cómo se cierra una función" viven en `scraper/diff.py` (`changed_fields`,
+  `closing_kind`) y `scraper/normalize.py` (`TRACKED_FIELDS`); scraper, dashboard y sync las comparten y no se duplican.
 - **`app.py` vive en la raíz a propósito**: Streamlit solo recarga en caliente los módulos bajo la
   carpeta del script, así `ui/`, `views/`, `analytics/` y `scraper/` también se recargan al editarlos. No lo muevas.
 

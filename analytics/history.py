@@ -10,8 +10,7 @@ import json
 
 from .db import rows
 
-# Campos que cuentan como cambio en la línea de tiempo (mismos que el diff del scraper, más la ocupación).
-TRACKED_FIELDS = ("datetime_local", "screen", "language", "format", "experience", "premium_tier", "movie_id", "availability")
+from scraper.normalize import TRACKED_FIELDS   # mismos campos que el diff del scraper y el archivo histórico
 CLOSING_KINDS = ("removed", "expired")
 
 

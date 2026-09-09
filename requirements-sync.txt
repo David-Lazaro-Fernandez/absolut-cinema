@@ -1,0 +1,2 @@
+# Solo para el trabajo sync/ (archivo histórico en PostgreSQL). Se instala en el mismo venv que el dashboard.
+psycopg[binary]>=3.2

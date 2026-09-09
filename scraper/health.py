@@ -10,7 +10,8 @@ Revisa, para cada cadena y la ventana dada:
   - capturas programadas dentro de la ventana que no tienen un snapshot bueno a ±SLOT_TOLERANCE_MIN
     (la Mac dormida o sin red las pierde; en el servidor no debería faltar ninguna), y cuántas fallaron;
   - muestras de ocupación a T−60 y post-inicio, precios de 7 días, y que los pases semanales de dulcería
-    (menú de Cinépolis, tiendas a domicilio) no lleven más de 8 días sin renovarse.
+    (menú de Cinépolis, tiendas a domicilio) no lleven más de 8 días sin renovarse;
+  - el sync al archivo histórico (config.SYNC_STATUS_PATH): última corrida sin error, reciente y sin capturas pendientes.
 """
 import argparse
 import json
@@ -98,8 +99,30 @@ def check(conn, hours=24, now=None):
     cp = report["chains"].get("cinepolis", {})
     if cp and cp.get("snapshots") and not cp.get("occupancy_post_start"):
         report["problems"].append("cinepolis: cero planos post-inicio en la ventana (¿se cayó el pase de butacas?)")
+    report["sync"] = sync_status(now)
+    if report["sync"]:
+        s_ = report["sync"]
+        if not s_.get("ok"):
+            report["problems"].append(f"sync a Postgres: la última corrida falló ({(s_.get('error') or '')[:80]})")
+        if s_.get("age_min") is not None and s_["age_min"] > config.SYNC_MAX_AGE_MIN:
+            report["problems"].append(f"sync a Postgres: última corrida hace {s_['age_min']} min")
+        if (s_.get("lag") or {}).get("showtime", 0) > 2:
+            report["problems"].append(f"sync a Postgres: {s_['lag']['showtime']} capturas sin reconstruir")
     report["ok"] = not report["problems"]
     return report
+
+
+def sync_status(now):
+    """Último estado escrito por `sync.run` (sin psycopg: solo se lee el JSON). None si el sync no se ha instalado."""
+    if not config.SYNC_STATUS_PATH.exists():
+        return None
+    try:
+        s_ = json.loads(config.SYNC_STATUS_PATH.read_text())
+    except (OSError, ValueError):
+        return {"ok": False, "error": "estado ilegible", "age_min": None, "lag": {}}
+    fin = s_.get("finished_at")
+    age = round((now - _dt(fin)).total_seconds() / 60) if fin else None
+    return {"ok": bool(s_.get("ok")), "error": s_.get("error"), "age_min": age, "lag": s_.get("lag") or {}, "finished_at": fin}
 
 
 def format_report(r):
@@ -112,6 +135,9 @@ def format_report(r):
                      f"ocupación T−60 {c['occupancy_t60']}, post-inicio {c['occupancy_post_start']}; precios 7d {c['prices_7d']}; "
                      f"dulcería 8d: {c['concession_cinemas_8d']} cines, {c['delivery_stores_8d']} tiendas a domicilio"
                      + (f"; calibración semáforo {c['calibration']} de 100 por nivel" if "calibration" in c else ""))
+    if r.get("sync"):
+        s_ = r["sync"]
+        lines.append(f"  sync Postgres: {'ok' if s_['ok'] else 'FALLÓ'}, hace {s_['age_min']} min, pendiente {s_.get('lag')}")
     for p in r["problems"]:
         lines.append(f"  ! {p}")
     return "\n".join(lines)

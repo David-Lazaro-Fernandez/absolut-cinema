@@ -22,7 +22,7 @@ chown -R absolut:absolut "$APP"
 [ -f /etc/absolut-cinema.env ] || { cp deploy/absolut-cinema.env.example /etc/absolut-cinema.env; chmod 600 /etc/absolut-cinema.env; }
 
 sudo -u absolut python3 -m venv .venv
-sudo -u absolut .venv/bin/pip install -q -r requirements-dashboard.txt
+sudo -u absolut .venv/bin/pip install -q -r requirements-dashboard.txt -r requirements-sync.txt
 
 for unit in absolut-cinema-scraper.service absolut-cinema-scraper.timer \
             absolut-cinema-dashboard.service absolut-cinema-backup.service absolut-cinema-backup.timer \
@@ -30,6 +30,7 @@ for unit in absolut-cinema-scraper.service absolut-cinema-scraper.timer \
             absolut-cinema-prices.service absolut-cinema-prices.timer \
             absolut-cinema-delivery.service absolut-cinema-delivery.timer \
             absolut-cinema-health.service absolut-cinema-health.timer \
+            absolut-cinema-sync.service absolut-cinema-sync.timer \
             absolut-cinema-capacity.service absolut-cinema-capacity.timer \
             absolut-cinema-calibrate-cinemex.service absolut-cinema-calibrate-cinemex.timer; do
   ln -sf "$APP/deploy/$unit" "/etc/systemd/system/$unit"
@@ -45,7 +46,7 @@ fi
 
 systemctl enable --now absolut-cinema-scraper.timer absolut-cinema-dashboard.service absolut-cinema-backup.timer \
                        absolut-cinema-seats.timer absolut-cinema-prices.timer absolut-cinema-delivery.timer \
-                       absolut-cinema-health.timer absolut-cinema-capacity.timer
+                       absolut-cinema-health.timer absolut-cinema-capacity.timer absolut-cinema-sync.timer
 # La calibración de Cinemex abre órdenes de checkout: queda enlazada pero apagada. Encender a mano cuando se decida:
 #   systemctl enable --now absolut-cinema-calibrate-cinemex.timer
 

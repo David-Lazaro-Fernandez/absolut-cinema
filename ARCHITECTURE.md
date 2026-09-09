@@ -27,6 +27,11 @@ flowchart LR
         HEALTH["scraper.health<br/>salud de la captura"]
     end
 
+    subgraph archivo["Archivo histórico (venv, psycopg)"]
+        SYNC["sync.run · make sync<br/>:22 y :52 · marca de agua por tabla<br/>crudo → showtime + showtime_state"]
+        PGDB[("PostgreSQL<br/>local Docker hoy · RDS después<br/>identidad + versiones · eventos · muestreos")]
+    end
+
     subgraph datos["data/ (fuera de git)"]
         DB[("snapshots.db (SQLite WAL)<br/>snapshot · current_showtime · event (incl. expired)<br/>auditorium · occupancy_sample · price_sample<br/>concession_price · delivery_price")]
         RAW["raw/{chain}/{fecha}/*.json.gz"]
@@ -49,6 +54,10 @@ flowchart LR
     OCC & POST & PRICE & CAP & CAL & CONC & DLV --> DB
     DB -. lee .-> HEALTH
     HEALTH --> LOGS
+    DB -. mode=ro .-> SYNC
+    RAW -. crudo por captura .-> SYNC
+    SYNC --> PGDB
+    SYNC -. sync_status.json .-> HEALTH
     RUN & OCC & POST & PRICE & CAP --> LOGS
     DB -. solo lectura .-> AN --> APP --> CADDY
 
@@ -65,8 +74,11 @@ Reglas que sostiene el diagrama:
   distintos (:07); si coincide, SQLite espera hasta 60 s.
 - **El dashboard nunca escribe.** Abre la base en modo lectura y toda la lógica de negocio vive en `analytics/`,
   para envolverla después en un API sin reescribir.
-- **El scraper no tiene dependencias**; solo el dashboard usa el venv. El futuro `geo/` tendrá su propio venv y
+- **El scraper no tiene dependencias**; el dashboard y el `sync` usan el venv. El futuro `geo/` tendrá su propio venv y
   no corre en el servidor.
+- **Postgres es archivo, no fuente del dashboard (etapa 1).** El `sync` lee SQLite en solo lectura y el crudo, y escribe
+  en Postgres por marca de agua; nada más escribe ahí. La historia de cada función se reconstruye desde el crudo, así
+  que si cambia la normalización se trunca y se vuelve a cargar.
 
 ## 2. Programación: qué dispara cada servicio
 
@@ -77,6 +89,7 @@ flowchart TB
         L15["com.absolut-cinema.seats<br/>cada hora (:50)"]
         LD["com.absolut-cinema.daily<br/>06:00"]
         LDL["com.absolut-cinema.delivery<br/>15:00"]
+        LSY["com.absolut-cinema.sync<br/>:22 y :52"]
     end
 
     subgraph srv["Servidor (systemd, /opt/absolut-cinema, TZ America/Mexico_City)"]
@@ -84,6 +97,7 @@ flowchart TB
         T15["seats.timer<br/>cada hora (:50)"]
         TPR["prices.timer<br/>06:07 diario"]
         TDL["delivery.timer<br/>15:07 diario"]
+        TSY["sync.timer<br/>:22 y :52"]
         THE["health.timer<br/>08:07 diario"]
         TCA["capacity.timer<br/>día 1, 04:07"]
         TBK["backup.timer<br/>05:07 diario"]
@@ -96,6 +110,7 @@ flowchart TB
         MT["make -k seats<br/>--post-start (15–75 min tras el inicio)"]
         MP["make -k prices concessions<br/>boletos y menú de dulcería Cinépolis"]
         MD["make delivery<br/>Rappi y DiDi Food"]
+        MSY["make sync<br/>SQLite → PostgreSQL"]
         MH["make health<br/>sale con 1 si hay huecos o fallos"]
         MC["make capacity REFRESH=1"]
         MB["make backup<br/>backup.sh → bucket S3/Spaces"]
@@ -107,10 +122,12 @@ flowchart TB
     L15 --> MT
     LD --> MH & MP
     LDL --> MD
+    LSY --> MSY
     T3 --> MS
     T15 --> MT
     TPR --> MP
     TDL --> MD
+    TSY --> MSY
     THE --> MH
     TCA --> MC
     TBK --> MB
@@ -130,6 +147,7 @@ flowchart TB
 | `scraper.delivery` (`make delivery`) | dulcería a domicilio, ambas cadenas, Rappi y DiDi Food | diario 15:00; cada tienda a los 7 días | `delivery_price` | `delivery` (launchd) / `delivery.timer` |
 | `sample --capacity` | aforo por sala, Cinépolis | mensual | `auditorium` | `capacity.timer`; Cinemex a mano |
 | `sample --occupancy --chain cinemex --per-level` | calibración del semáforo | diario 19:07, opt-in | `occupancy_sample` | timer apagado o a mano |
+| `sync.run` (`make sync`) | copia lo nuevo de SQLite a PostgreSQL y reconstruye la historia de funciones desde el crudo (identidad + versiones) | :22 y :52 | Postgres: `snapshot`, `cinema`, `movie`, `showtime`, `showtime_state`, `event`, muestreos, `auditorium`, `sync_watermark`; `logs/sync_status.json` | `sync` (launchd) / `sync.timer` |
 | `scraper.health` (`make health`) | salud de la captura: capturas programadas, fallos, muestreos | diario | `logs/health.log` | `daily` (launchd) / `health.timer` |
 | `backup.sh` | copia de la base y sync del crudo | diario 05:07 | bucket | `backup.timer` |
 | `app.py` (+ `ui/`, `views/`) | dashboard Streamlit, páginas Cartelera y Dulcería | siempre | nada (solo lectura) | `dashboard.service`, detrás de Caddy |

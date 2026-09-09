@@ -13,6 +13,9 @@ COLUMNS = [
 MOVE_FIELDS = ("datetime_local", "screen")
 # Campos cuyo cambio se considera "cambiada" (idioma/formato/experiencia).
 CHANGE_FIELDS = ("language", "format", "experience", "premium_tier", "movie_id")
+# Todo lo que cuenta como cambio de estado de una función: lo usan el diff del scraper, la línea de tiempo del
+# dashboard (analytics/history.py) y las versiones de estado del archivo histórico (sync/).
+TRACKED_FIELDS = MOVE_FIELDS + CHANGE_FIELDS + ("availability",)
 
 
 def norm_title(title):

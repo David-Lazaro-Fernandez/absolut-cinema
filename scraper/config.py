@@ -76,3 +76,12 @@ DIDI_BASE_URL = os.environ.get("DIDI_BASE_URL", "https://web.didiglobal.com")
 DIDI_CITY = "ciudad-de-mexico-cdmx"
 DIDI_CATEGORY = "pasaboca"        # categoría de botanas: ahí lista los cines (2026-09-09)
 DIDI_MAX_PAGES = 60
+
+# --- Archivo histórico en PostgreSQL (sync/; ver docs/postgres-esquema.md) ---
+# El sync corre en el venv (psycopg); el scraper nunca lo importa. En desarrollo apunta al Postgres de
+# deploy/docker-compose.dev.yml; en el servidor, AC_PG_DSN va en /etc/absolut-cinema.env.
+PG_DSN = os.environ.get("AC_PG_DSN", "postgresql://absolut:absolut-dev@localhost:5433/absolut_cinema")
+BACKUP_BUCKET = os.environ.get("BACKUP_BUCKET")            # si existe, snapshot.raw_path en Postgres apunta al bucket
+SYNC_STATUS_PATH = LOG_DIR / "sync_status.json"            # lo escribe el sync y lo lee scraper.health (sin psycopg)
+SYNC_MAX_AGE_MIN = 90                                       # el sync corre cada 30 min; más de esto es un problema
+SNAPSHOT_STALE_HOURS = 2                                    # snapshot sin finish_snapshot más viejo que esto: se da por fallido

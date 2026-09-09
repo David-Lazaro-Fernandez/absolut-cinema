@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.absolut-cinema.sync</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/make</string>
+    <string>-C</string>
+    <string>/Users/david.fernandez/absolut-cinema</string>
+    <string>sync</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <array>
+    <dict><key>Minute</key><integer>22</integer></dict>
+    <dict><key>Minute</key><integer>52</integer></dict>
+  </array>
+  <key>WorkingDirectory</key><string>/Users/david.fernandez/absolut-cinema</string>
+  <key>StandardOutPath</key><string>/Users/david.fernandez/absolut-cinema/data/logs/launchd.out</string>
+  <key>StandardErrorPath</key><string>/Users/david.fernandez/absolut-cinema/data/logs/launchd.out</string>
+</dict>
+</plist>

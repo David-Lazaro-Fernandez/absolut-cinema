@@ -18,6 +18,17 @@ Principios:
 - **Append-only donde se pueda.** El `sync` inserta con `ON CONFLICT DO NOTHING`; solo `showtime` y `showtime_state`
   se actualizan (cierre de vigencia). Marca de agua por tabla en `sync_watermark`.
 - **El crudo no va a Postgres.** Sigue en S3 (`raw/{chain}/{fecha}/*.json.gz`); `snapshot.raw_path` apunta ahí.
+- **El crudo es la fuente de la historia.** `showtime` y `showtime_state` se reconstruyen procesando el gz de cada
+  captura buena en orden (no desde `current_showtime`, que solo guarda el último estado): así entran también las
+  funciones que expiraron antes de que existiera el evento `expired`.
+- **Particiones mensuales bajo demanda y sin DEFAULT.** El sync crea `showtime_YYYYMM`, `showtime_state_YYYYMM` y
+  `event_YYYYMM` antes de insertar; con una partición DEFAULT poblada, crear la mensual de ese rango fallaría.
+- **Reaparición.** Una función cerrada que vuelve a publicarse con la misma `(chain, show_id, show_date)` (479 casos en
+  los dos primeros días) se **reabre**: `closed_at`/`closed_kind` a NULL y una versión nueva; el hueco queda visible en
+  `showtime_state`. Un cambio de `movie_id` o `cinema_id` actualiza la identidad y queda en `event.changes`.
+- **Postgres es append-only.** Los eventos borrados a mano en SQLite no se propagan; si hace falta, se borran también
+  en Postgres a mano (`deploy/README.md`). Si cambia la semántica de `normalize.py`, la historia se recalcula truncando
+  `showtime*` y volviendo a correr el sync sobre los crudos.
 
 ## Tablas
 
@@ -200,6 +211,14 @@ de agua. El scraper no cambia y sigue sin dependencias externas.
 
 Comparado con copiar cada captura completa (83 GB al año a nivel nacional), separar identidad de estado reduce el
 archivo unas diez veces y deja la reconstrucción histórica como una consulta directa.
+
+**Contraste con lo medido en SQLite (2026-09-09).** Con tres capturas al día, `scraper/store.py` escribe ~320,000
+filas diarias, pero el 96 % es el `DELETE` de la cadena y el `INSERT` de sus 51,468 funciones vigentes que hace
+`replace_current`; la información nueva son ~11,600 filas al día. Ese reemplazo es gratis en SQLite y caro en
+Postgres: replicarlo dejaría 308,808 tuplas muertas al día para autovacuum. Es la razón de que el `sync` compare
+contra la versión vigente de `showtime_state` y solo escriba cuando el estado mutable cambió, en vez de volcar la
+captura entera. La base SQLite crece ~7 MB al día (~2.5 GB al año en CDMX), consistente con los ~1.7 GB de este
+diseño, que no guarda los JSON completos de `event`. Detalle en `docs/ec2-sizing.md`.
 
 ## Etapa 2 (fuera de este documento)
 

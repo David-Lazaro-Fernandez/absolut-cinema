@@ -1,0 +1,11 @@
+[Unit]
+Description=absolut-cinema: sync al archivo histórico, a :22 y :52
+
+[Timer]
+# Entre capturas (:30), planos (:50) y trabajos diarios (:07).
+OnCalendar=*-*-* *:22,52:00
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target
