@@ -659,36 +659,62 @@ vip o experiencia Confort / SP; Gran formato = IMAX, XE, ScreenX, XEScreenX, Dol
 LED; 3D o 4D = formato 3D o 4DX / v4d; el resto Tradicional. Idioma: subtitulada vs español
 (doblada u original). Horario prime: viernes a domingo desde las 6:00 P.M.
 
-## Siguiente fase
+## Estado al 2026-09-09 y siguiente fase
 
-1. Desplegar en el servidor con `deploy/install.sh`, copiar `data/` desde la Mac y apagar el launchd
-   local (ver `deploy/README.md`). Revisar `data/logs/run.log` a diario; en especial el
-   miércoles/jueves, cuando ambas cadenas publican la semana siguiente.
-2. Con historia acumulada: comparar la línea de tiempo entre cadenas (quién cancela más, quién mueve horarios) y
-   patrones de hora de publicación con las tres capturas diarias.
-3. Cinemex, a mano (la sesión de Claude Code no ejecuta llamadas al checkout): calibración del
-   semáforo por la tarde, hacia las 7 P.M.,
-   `--occupancy --chain cinemex --per-level 100 --lead 60 --tolerance 45`. Con eso se enciende la
-   ocupación estimada de Cinemex en el dashboard (el aforo ya está).
-3. Con una semana de `occupancy_sample` de Cinépolis: ocupación por película, franja y complejo;
-   fijar la escala de los colores `#FFBE06` / `#FF804A` / `#A2ACBA`.
-4. Tabla de equivalencias de películas entre cadenas (`title_norm` + duración + distribuidor, con
-   revisión manual de reestrenos, festivales `tcf-`/`cltcf-` y eventos en vivo). Hoy "Rápido y
-   Furioso (25° Aniversario)" y "Reestreno Rápido Y Furioso" cuentan como exclusivas de cada cadena.
-5. Emparejar cines por distancia (lat/lng de ambas fuentes) para zonas de choque y la comparación
-   por plaza; alcaldía + población INEGI para el panel geográfico.
-6. Paneles que se encienden con historia: decaimiento por título (≈2026-09-24), sparklines de 4
-   semanas (≈2026-10-05); con 8–12 semanas de `event`, patrones de hora de publicación.
-7. Integración con el cliente: aforo oficial, taquilla por función y preventa → paneles de
-   Decisiones, scatter pantalla vs butacas y Preventa.
-8. **Modelo de tipificación de zonas y consumo por complejo** (esquema de David, 2026-09-08, fuera del
-   repo): arquetipo de zona por complejo (isócronas a pie 15 min / auto 20 min, AGEB del Censo 2020,
-   CONAPO, DENUE, afluencia Metro; k-means con scikit-learn, geosnap para una v2 por AGEB) y después un
-   modelo de ocupación (LightGBM) cuyo target es el plano **post-inicio** (no T−60). Código en un paquete
-   `geo/` con `requirements-geo.txt` propio, corre en la Mac, resultados en `data/geo.db`; `analytics/`
-   sigue sin dependencias. Verificado: INEGIpy da geometrías y DENUE pero no la tabla censal por AGEB (va
-   por CSV), y su Ruteo es punto a punto en auto, sin isócronas (usar OpenRouteService). Modelo supervisado
-   no antes de finales de octubre de 2026 y solo Cinépolis mientras Cinemex dependa del semáforo.
+**Qué corre hoy (Mac, launchd; listo para el servidor con `deploy/`):** captura de cartelera de CDMX tres veces al día
+(07:30, 13:30, 20:30), planos de asientos post-inicio de Cinépolis cada hora, precios de boleto y menú de dulcería de
+Cinépolis a diario, dulcería a domicilio (Rappi, DiDi Food) a diario, salud de la captura a diario. Todo escribe solo en
+`data/snapshots.db`; el dashboard (dos páginas: cartelera y dulcería) la lee en modo solo lectura.
+
+**Qué tiene el dashboard:** hallazgos con umbral (título, concentración, dulcería, franjas, formato, exclusivas),
+Resumen general en el formato del cliente con los cortes "Todo el día" y "Después de las 6 PM", filtro global de franja
+horaria, dumbbell por película, mapa de calor, formatos e idioma, módulo de dulcería (sala y domicilio), apéndices de
+indicadores, comportamiento semanal del competidor, precios, salas y butacas, historial por función con cartelera "tal
+como estaba", y ocupación medida.
+
+**Qué está diseñado y no construido:** el archivo histórico en PostgreSQL (`docs/postgres-esquema.md`, DDL validado en
+Postgres 16 local con `make pg-up pg-schema`; diagrama `docs/arquitectura-aws.png`). Nada escribe en Postgres todavía.
+
+**Decisiones abiertas con el cliente:** alcance nacional (hoy solo CDMX; multiplica ~7× las llamadas y exige muestrear
+los planos en vez de censarlos), entrega de su tablero de dulcería y de su taquilla por función, si el entregable vive en
+su cuenta de AWS (RDS) o en DigitalOcean.
+
+### Plan 2 (siguiente): etapa 1 del archivo histórico
+
+Objetivo: Postgres poblándose desde el primer día sin tocar el scraper ni el dashboard. Alcance previsto:
+
+1. Trabajo `make sync` (paquete `sync/` con su propio venv y `psycopg`; el scraper sigue solo stdlib): lee
+   `snapshots.db` en `mode=ro`, lleva a Postgres lo nuevo de las tablas que solo crecen por marca de agua, y mantiene
+   `cinema`, `movie`, `showtime` (identidad, `first_seen_at`, `closed_at`/`closed_kind`) y `showtime_state` (versiones con
+   `valid_from`/`valid_to`) a partir de cada captura. Idempotente; corre en `:22` y `:52`.
+2. Creación de particiones mensuales antes de escribir; `sync_watermark`; `event.changes` como `jsonb` de campos cambiados.
+3. Carga inicial desde la historia acumulada en SQLite (capturas desde el 2026-09-07) y verificación contra el crudo gz.
+4. Unidad de systemd `absolut-cinema-sync.timer`, plist de launchd para la Mac, `make sync`, cobertura en `scraper.health`
+   (marca de agua atrasada = problema), credenciales en `deploy/absolut-cinema.env`.
+5. Documentación: `deploy/README.md` (RDS: instancia, red, respaldos), `ARCHITECTURE.md`, `AGENTS.md` (nueva capa `sync/`).
+
+Fuera de la etapa 1 (etapa 2): portar `analytics/` a Postgres y encender el filtro de plaza para lo nacional.
+
+### Pendientes que no dependen del plan 2
+
+- Desplegar en el servidor con `deploy/install.sh`, copiar `data/` y apagar los agentes de launchd (`make launchd-unload`).
+- Cinemex, a mano (`make calibrate-cinemex`, hacia las 7 P.M., por chunks de 60): calibración del semáforo; enciende la
+  ocupación estimada de Cinemex en el dashboard.
+- Con historia: ocupación por película, franja y complejo desde `occupancy_sample` post-inicio; escala de los colores
+  `#FFBE06` / `#FF804A` / `#A2ACBA` (hoy naranja ≈ 83 %, amarillo ≈ 53 % vendido con pocas muestras); comportamiento
+  semanal del competidor (cancelaciones, movimientos, hora de publicación); decaimiento por título (≈2026-09-24) y
+  tendencia de 4 semanas (≈2026-10-05).
+- Tabla de equivalencias de películas entre cadenas (`title_norm` + duración + distribuidor, con revisión manual de
+  reestrenos, festivales `tcf-`/`cltcf-` y eventos en vivo).
+- Emparejar cines por distancia (zonas de choque) y alcaldía + población INEGI para el panel geográfico.
+- Integración con el cliente: aforo oficial, taquilla por función, preventa y su tablero de dulcería.
+- **Modelo de tipificación de zonas y consumo por complejo** (esquema de David, 2026-09-08, fuera del repo): arquetipo
+  de zona por complejo (isócronas a pie 15 min / auto 20 min, AGEB del Censo 2020, CONAPO, DENUE, afluencia Metro;
+  k-means con scikit-learn, geosnap para una v2 por AGEB) y después un modelo de ocupación (LightGBM) cuyo target es el
+  plano **post-inicio**. Código en un paquete `geo/` con `requirements-geo.txt` propio, corre en la Mac, resultados en
+  `data/geo.db`; `analytics/` sigue sin dependencias. Verificado: INEGIpy da geometrías y DENUE pero no la tabla censal
+  por AGEB (va por CSV), y su Ruteo es punto a punto en auto, sin isócronas (usar OpenRouteService). Modelo supervisado
+  no antes de finales de octubre de 2026 y solo Cinépolis mientras Cinemex dependa del semáforo.
 
 ## Consideraciones
 
