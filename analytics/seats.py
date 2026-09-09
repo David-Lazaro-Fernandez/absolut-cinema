@@ -25,10 +25,10 @@ def capacity_by_cinema(conn, chain="cinepolis"):
         WHERE a.chain = ? GROUP BY a.cinema_id ORDER BY seats DESC""", (chain,))
 
 
-def offered_seats(conn, d0=None, d1=None, from_now=True):
+def offered_seats(conn, d0=None, d1=None, from_now=True, hours=None):
     """Butacas ofertadas en la ventana = funciones × aforo de su sala, por cadena, y qué parte de las
     funciones tiene aforo conocido. Solo suma las funciones con sala conocida."""
-    where, params, _ = _window(d0, d1, from_now)
+    where, params, _ = _window(d0, d1, from_now, hours=hours)
     return rows(conn, f"""
         SELECT s.chain, COUNT(*) shows, SUM(a.seats IS NOT NULL) shows_with_capacity,
                ROUND(100.0 * SUM(a.seats IS NOT NULL) / COUNT(*), 1) pct_known,
@@ -39,9 +39,9 @@ def offered_seats(conn, d0=None, d1=None, from_now=True):
         WHERE {where} GROUP BY s.chain ORDER BY s.chain""", params)
 
 
-def offered_by_title(conn, d0=None, d1=None, from_now=True, limit=15, chain="cinepolis"):
+def offered_by_title(conn, d0=None, d1=None, from_now=True, limit=15, chain="cinepolis", hours=None):
     """Share de butacas ofertadas por título frente a share de funciones (solo cadenas con aforo)."""
-    where, params, _ = _window(d0, d1, from_now)
+    where, params, _ = _window(d0, d1, from_now, hours=hours)
     return rows(conn, f"""
         WITH base AS (
           SELECT s.title_norm, s.movie_title, a.seats
@@ -101,10 +101,10 @@ def semaphore_calibration(conn, chain="cinemex", min_samples=5):
         GROUP BY 1 HAVING COUNT(*) >= ? ORDER BY sold_pct DESC""", (chain, min_samples))
 
 
-def estimated_occupancy(conn, d0=None, d1=None, from_now=True, chain="cinemex", min_samples=5):
+def estimated_occupancy(conn, d0=None, d1=None, from_now=True, chain="cinemex", min_samples=5, hours=None):
     """Butacas ocupadas estimadas en la ventana: aforo de la sala × % vendido calibrado del nivel de
     semáforo de cada función. Solo funciones con aforo conocido y nivel calibrado."""
-    where, params, _ = _window(d0, d1, from_now)
+    where, params, _ = _window(d0, d1, from_now, hours=hours)
     return rows(conn, f"""
         WITH cal AS (SELECT COALESCE(NULLIF(availability, ''), '(sin color)') level,
                             100.0 * SUM(sold) / SUM(seats) sold_pct, COUNT(*) n

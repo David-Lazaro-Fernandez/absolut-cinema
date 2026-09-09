@@ -1,5 +1,5 @@
 [Unit]
-Description=absolut-cinema: precios por cine, formato y tipo de día
+Description=absolut-cinema: precios de boleto por cine, formato y tipo de día, y menú de dulcería de Cinépolis
 After=network-online.target
 Wants=network-online.target
 # Escribe en data/snapshots.db (SQLite en WAL, un escritor a la vez): si coincide con el scraper, sqlite3
@@ -10,7 +10,7 @@ Type=oneshot
 User=absolut
 WorkingDirectory=/opt/absolut-cinema
 EnvironmentFile=-/etc/absolut-cinema.env
-ExecStart=/usr/bin/python3 -m scraper.sample --prices
+ExecStart=/usr/bin/make -C /opt/absolut-cinema -k prices concessions
 TimeoutStartSec=60min
 Nice=10
 StandardOutput=append:/opt/absolut-cinema/data/logs/systemd.out

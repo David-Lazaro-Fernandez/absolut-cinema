@@ -30,6 +30,13 @@ el producto de inteligencia competitiva (Cinemex vs Cinépolis). Fecha: 2026-09-
   con paleta nueva (rojo `#E31837`, tinta `#191A1E`, fuente Archivo) y `analytics/findings.py`, que redacta los
   hallazgos a partir de umbrales sobre datos reales (ver "Dashboard ejecutivo").
 
+- Quinta fase (2026-09-09): correcciones del cliente. **Filtro global de franja horaria** (hora de inicio de la
+  función, alineado a las franjas de `labels.SLOTS`), **Resumen general** en el formato del reporte diario del cliente
+  con los cortes "Todo el día" y "Después de las 6 PM" lado a lado, **historial por función y cartelera "tal como
+  estaba"** (evento `expired` en el scraper + `analytics/history.py`), **tres capturas al día**, dulcería de Cinépolis
+  por complejo y dulcería a domicilio en Rappi y DiDi Food (ver secciones "Dulcería", "Programación de tareas" y
+  "Dashboard ejecutivo").
+
 ## Cómo se encontró
 
 1. `curl` a `https://cinepolis.com/mx?cinema=plaza-acambaro` devolvió un HTML de
@@ -367,6 +374,40 @@ Qué expone cada API para pasar de funciones a **butacas** (aforo, ocupación) y
 5. Logs en `data/logs/sample.log`. Cubeta de formato: `normalize.format_bucket` (misma regla que el
    `CASE` de `analytics/queries.py`). El muestreo de precios excluye eventos y matinés.
 
+## Dulcería (2026-09-08/09)
+
+Petición del cliente tras la primera revisión: entender los precios de dulcería de Cinépolis.
+
+- **Cinépolis: resuelto.** La página `/mx/solo-alimentos?cinema=…` carga un microfrontend aparte
+  (`foods-menu-mf.cinepolis.com`, module federation; el bundle principal solo trae `HasConcessions`). Ese MF consulta
+  `https://api-g.cinepolis.com/v1/fab-struct-concession/graphql` con la misma `x-apikey`, query `MenuByType(country,
+  cinema, menuType, userSession)`: `cinema` es el **vistaId**, `menuType` no cambia la respuesta (probado con seis valores)
+  y `userSession` acepta cualquier UUID. Devuelve categorías → productos con `price` en centavos, `productStructure`
+  (`simple`, `compound` con tamaños como modificadores, `combo`) y `promotionType`. Endpoints hermanos vistos en el MF:
+  `v1/fab-struct-product/graphql` (`BatchProducts`, `ProductsBatch`: detalle y modificadores) y `v1/fab-promotion/graphql`
+  (`ValidVoucher`). Introspección deshabilitada en todos.
+- Pase `scraper.sample --concessions` (tabla `concession_price`, un menú completo por cine cada 7 días; corre en `daily.sh`
+  y en `prices.service`). Primera pasada 2026-09-09: 74 cines, 10,942 referencias, 340 productos distintos, 92 s.
+- **Hallazgo:** Cinépolis fija el precio **por complejo**: palomitas base de 86 a 107 (7 precios distintos en 74 cines),
+  refresco 79–110, Combo Clásico 222–322, Maxicombo Nachos 342–472; los VIP arriba. `analytics/concessions.py` expone la
+  canasta comparable (`BASKET`, nombres exactos de Clásicos/Combos), el precio de un producto por complejo, la canasta
+  pivotada por complejo y las categorías; apéndice "Dulcería de Cinépolis: precio por complejo" en el dashboard.
+- **Cinemex: no expuesto.** `GET candybar/catalog?cinema_id=|session_id=` existe pero devuelve `catalog: []` porque el flag
+  `candybar` es `false` en los 278 cines de `cinemas/` (venta en línea apagada). El cliente entregará sus precios. Fuentes alternativas
+  investigadas el 2026-09-09 en `docs/dulceria-cinemex-fuentes.md`: Cinemex vende dulcería en Uber Eats, Rappi y DiDi
+  Food con ~20 SKUs a **precio nacional** (idéntico en 15 sucursales; Combo Tradicional 150, Mega Palomitas 104, Hot Dog
+  58, lata 29), catálogo "para llevar" que no refleja el tablero de sala; Uber Eats prohíbe scraping en sus términos,
+  DiDi Food es la opción de menor riesgo. No hay fuente pública del tablero de sala por cine.
+- **Delivery capturado (2026-09-09):** `scraper/delivery.py` (`make delivery`, diario 15:00 con las tiendas abiertas, cada
+  tienda renovada a los 7 días; tabla `delivery_price`) lee Rappi (`__NEXT_DATA__`; tiendas por marca:
+  Cinemex 51760, Cinépolis Tradicional 96681; el sitio redirige con 308 al slug canónico, que `http.py` sigue) y
+  DiDi Food (HTML estático; las tiendas de cines están en la categoría `pasaboca`, paginada). Descubiertas 229
+  tiendas en CDMX: Rappi 35 Cinemex y 70 Cinépolis, DiDi 36 Cinemex y 77 Cinépolis. `analytics/delivery.py`
+  compara por cubetas de producto (`DELIVERY_BUCKETS`) porque los nombres difieren entre cadenas; apéndice
+  "Dulcería a domicilio" en el dashboard. Lectura del 2026-09-09: Cinemex precio único nacional (95 % de los
+  productos con un solo precio); combo básico 150 vs 208 en Cinépolis, nachos 65 vs 120, refresco 29 (lata) vs
+  44 (600 ml).
+
 ## Archivos
 
 - `cinepolis_mx_cines.yaml`: 154 ciudades y 499 cines de MX, ordenados
@@ -375,7 +416,7 @@ Qué expone cada API para pasar de funciones a **butacas** (aforo, ocupación) y
   `scripts/add_latlng_yaml.py`.
 - `scraper/`: scraper de snapshots de la plaza piloto (CDMX) para ambas cadenas. Ver
   "Scraper de snapshots" abajo.
-- `analytics/`: consultas de negocio sobre `data/snapshots.db`. Funciones puras que reciben una
+- `analytics/`: consultas de negocio sobre `data/snapshots.db` (`concessions.py`: dulcería). Funciones puras que reciben una
   conexión de solo lectura y una **ventana de fechas** `(d0, d1)` y devuelven listas de dicts; sin
   dependencias. `queries.py` (`kpis`, `showtimes_by_slot`, `heatmap_day_slot`, `movies_by_chain`,
   `mix`, `concentration`, `coverage`, `recent_events`, `events_by_kind`, `snapshot_health`,
@@ -384,22 +425,25 @@ Qué expone cada API para pasar de funciones a **butacas** (aforo, ocupación) y
   en pp), `headlines.py` (frases ejecutivas por tema, versión previa; la app ya no lo usa pero sigue exportado)
   y `labels.py` (todo texto de cara al usuario: franjas, cubetas de formato, tipos de cambio, colores). Toda la lógica de negocio va
   aquí para que un API (FastAPI) pueda exponer lo mismo después sin reescribir.
-- `app.py`: dashboard Streamlit para directivos, en la raíz del repo para que Streamlit recargue
+- `app.py`: entrada del dashboard Streamlit (configuración, CSS, `st.navigation` con las páginas `views/cartelera.py`
+  y `views/dulceria.py`; helpers compartidos en `ui/common.py`, 2026-09-09), en la raíz del repo para que Streamlit recargue
   también `analytics/` al editarlo. Dependencias en `requirements-dashboard.txt` (venv `.venv/`,
   Python 3.12; gráficas con Altair, que viene con Streamlit; `watchdog` para que la recarga en
   caliente detecte cambios en módulos importados). Si aparece un `ImportError` de un nombre que sí
   existe en `analytics/`, es el proceso viejo con módulos en memoria: reiniciar Streamlit.
   `analytics/seats.py` cubre aforo, butacas ofertadas, ocupación muestreada, calibración del
   semáforo y precios.
-- `deploy/`: units de systemd (scraper cada 15 min, dashboard, respaldo diario), `backup.sh`,
+- `deploy/`: units de systemd (cartelera 3/día, planos cada 15 min, diarios, dashboard, respaldo), `backup.sh`,
   `Caddyfile` e `install.sh` para un droplet o EC2. Ver `deploy/README.md`.
+- `ARCHITECTURE.md`: diagramas Mermaid del flujo de datos, la programación de servicios y el catálogo de
+  servicios con su cadencia y sus tablas.
 - `project.md`: este documento.
 
 ## Scraper de snapshots (piloto CDMX)
 
 Sin dependencias fuera de la librería estándar. Se ejecuta con `/usr/bin/python3 -m scraper.run`
-(opciones `--chain cinepolis|cinemex`, `--no-raw`) y lo lanza launchd cada 15 minutos con
-`scraper/com.absolut-cinema.scraper.plist` → `scraper/schedule.sh`. El plist lleva rutas absolutas;
+(opciones `--chain cinepolis|cinemex`, `--no-raw`) y lo lanza launchd tres veces al día con
+`scraper/com.absolut-cinema.scraper.plist` (`make snapshot`). El plist lleva rutas absolutas;
 el repo vive en `~/absolut-cinema` porque launchd no puede leer `~/Documents` (protección de
 privacidad de macOS, "Operation not permitted"). Si el repo se mueve, regenerar el plist y
 recargarlo con `launchctl bootout` + `launchctl bootstrap`.
@@ -422,13 +466,15 @@ recargarlo con `launchctl bootout` + `launchctl bootstrap`.
   comprimido en `data/raw/{chain}/{fecha}/{HHMMSS}Z.json.gz`.
 - `scraper/http.py`: reintenta 429, 408 (Cinépolis: "downstream duration timeout" del gateway, visto
   el 2026-09-08) y 5xx con espera progresiva.
-- `scraper/schedule.sh`: corre `scraper.run`, `scraper.sample --occupancy` y `scraper.sample --post-start`;
-  el unit de systemd hace lo mismo con tres `ExecStart`. `scraper/daily.sh` (launchd 06:00) corre
-  `scraper.health` y `scraper.sample --prices`. Ver "Programación de tareas".
-- `scraper/diff.py`: compara por `show_id`: `added`, `removed` (solo si faltaban >30 min para
-  empezar; si no, expiró), `moved` (hora o sala, misma fecha), `changed` (idioma/formato/película),
-  `availability`. Un mismo id que reaparece en otra fecha cuenta como `added`, porque Vista
-  recicla ids de sesión.
+- Programación: los plists de `scraper/` y los units de `deploy/` ejecutan targets de `make`
+  (`snapshot`, `seats`, `daily`, `delivery`). Ver "Programación de tareas".
+- `scraper/diff.py`: compara por `show_id`: `added`, `removed` (solo si faltaban >30 min para empezar),
+  `expired` (desapareció porque ya empezó o estaba por empezar; desde el 2026-09-09 deja evento con la fila
+  completa y su `first_seen`, para poder reconstruir la cartelera de un día pasado: sin él las funciones
+  concluidas no dejaban rastro fuera del crudo), `moved` (hora o sala, misma fecha), `changed`
+  (idioma/formato/película), `availability`. Un mismo id que reaparece en otra fecha cierra la anterior y
+  cuenta como `added`, porque Vista recicla ids de sesión. `expired` no aparece como cambio en el dashboard.
+  Volumen: ~6–7 mil eventos al día (~4 MB).
 - Identidad de la función: en Cinemex `sessions[].id` es único a nivel nacional (0 colisiones en
   10,941 funciones). En Cinépolis `sessionId` **solo es único dentro de cada cine** (914 ids
   repetidos entre cines de CDMX en un snapshot), así que `show_id` es `slug-del-cine:sessionId`.
@@ -457,26 +503,35 @@ FROM event WHERE kind <> 'availability' ORDER BY id DESC LIMIT 50;
 
 ## Programación de tareas (2026-09-08)
 
-Todo trabajo programado tiene un target en el `Makefile` con el mismo comando que lanzan launchd (Mac) y
-los timers de systemd (servidor, `deploy/`), así cualquiera se corre a mano igual (`make help`). Se descartó
-Grunt: es un task runner de Node para builds de JavaScript y el proyecto es Python sin front end compilado.
+Cada unidad de launchd (Mac) y de systemd (servidor, `deploy/`) ejecuta **un target de `make`**, así cualquier
+cosa automática se reproduce a mano igual (`make help`). Se descartó Grunt: es un task runner de Node para builds
+de JavaScript y el proyecto es Python sin front end compilado.
 
-| Trabajo | Cadencia | Mac (launchd) | Servidor (systemd) |
+**Decisión del cliente (2026-09-08, aplicada 2026-09-09): la cartelera se captura tres veces al día**, a las
+07:30, 13:30 y 20:30 CDMX (`config.SNAPSHOT_HOURS`); los planos de asientos siguen cada 15 min porque dependen
+de la hora de cada función. Costos aceptados: una cancelación entre capturas de una función que ya habría empezado
+en la siguiente se registra como `expired`, no `removed`; el semáforo de Cinemex se refresca tres veces al día; la
+publicación de la semana siguiente se detecta con hasta 6 h de retraso. Una cuarta captura a las 23:30 reduciría lo
+primero si hiciera falta.
+
+| Trabajo (`make …`) | Cadencia | Mac (launchd) | Servidor (systemd) |
 | --- | --- | --- | --- |
-| Snapshot + planos T−60 + planos post-inicio (`make tick`) | cada 15 min | `com.absolut-cinema.scraper` → `schedule.sh` | `absolut-cinema-scraper.timer` |
-| Salud + precios (`make daily`) | diario 06:00 | `com.absolut-cinema.daily` → `daily.sh` | `health.timer` 08:07 y `prices.timer` 06:07 |
-| Aforo Cinépolis `--refresh` | mensual | a mano | `capacity.timer` día 1 04:07 |
-| Calibración semáforo Cinemex | diario 19:07 | a mano (`!`) | `calibrate-cinemex.timer`, enlazado pero apagado (abre órdenes de checkout; tope 60 por corrida) |
-| Respaldo | diario 05:07 | no aplica | `backup.timer` |
+| `snapshot`: captura de cartelera | 07:30, 13:30, 20:30 | `com.absolut-cinema.scraper` | `absolut-cinema-scraper.timer` |
+| `seats`: planos T−60 y post-inicio | cada 15 min | `com.absolut-cinema.seats` | `absolut-cinema-seats.timer` |
+| `daily`: salud + precios + dulcería Cinépolis | diario 06:00 | `com.absolut-cinema.daily` | `health.timer` 08:07 y `prices.timer` 06:07 |
+| `delivery`: dulcería a domicilio (Rappi, DiDi Food) | diario 15:00 (tiendas abiertas) | `com.absolut-cinema.delivery` | `delivery.timer` 15:07 |
+| `capacity REFRESH=1`: aforo Cinépolis | mensual | a mano | `capacity.timer` día 1 04:07 |
+| `calibrate-cinemex` | diario 19:07 | a mano (`!`) | `calibrate-cinemex.timer`, enlazado pero apagado (abre órdenes de checkout; tope 60 por corrida) |
+| `backup` | diario 05:07 | no aplica | `backup.timer` |
 | Pipeline `geo/` (arquetipos de zona) | trimestral | a mano | no aplica |
 
-`scraper/health.py` (`make health`) revisa por cadena la edad y el resultado de la última captura, snapshots
-obtenidos vs esperados (96 al día), capturas fallidas, huecos > 30 min, muestras de ocupación T−60 y
-post-inicio y precios de 7 días; imprime el detalle, escribe una línea en `data/logs/health.log` y sale con 1
-si hay problemas (así el timer queda como fallido en `systemctl list-timers`). Primera corrida 2026-09-08:
-28 de 96 snapshots en 24 h, con huecos de 508 min (noche), 214 min (mañana) y 40 min, todos por la Mac
-dormida; confirma la urgencia de desplegar. Los timers que escriben van a :07 y `store.connect` tiene
-`timeout=60` para convivir con un snapshot en curso (SQLite en WAL, un escritor a la vez).
+`scraper/health.py` (`make health`) revisa por cadena la edad de la última captura (umbral 12 h: el hueco nocturno
+normal es de 11 h), que cada captura programada de la ventana tenga un snapshot bueno a ±30 min, capturas
+fallidas, muestras de ocupación T−60 y post-inicio, precios de 7 días y que los pases semanales de dulcería no
+lleven más de 8 días sin renovarse; escribe una línea en `data/logs/health.log` y sale con 1 si hay problemas
+(así el timer queda como fallido en `systemctl list-timers`). Los timers diarios van a :07 y `store.connect` tiene
+`timeout=60` para convivir con una captura en curso (SQLite en WAL, un escritor a la vez). Hay pruebas unitarias
+para la lógica pura (`tests/`, pytest en el venv, `requirements-dev.txt`).
 
 ## Front end y hosting (decisión 2026-09-07)
 
@@ -511,6 +566,7 @@ de soporte). Se evalúan en este orden y entran solo si cruzan su umbral:
 | --- | --- | --- |
 | Título por butacas | ≥ 1.5 pp entre Δ funciones y Δ butacas | el título compartido donde la apuesta por sala cuenta otra historia que la apuesta por funciones (cuatro redacciones: invertida, amplificada, diluida, en cada dirección) |
 | Concentración | ≥ 3 pp en el peso del Top 3 | quién concentra la parrilla y cuántos títulos exclusivos cubre el otro |
+| Dulcería | ≥ 10 % de brecha mediana en la canasta comparable a domicilio | quién cobra más a domicilio y el modelo de precio en sala (por complejo vs lista única); va tercero porque es información de valor directo para el cliente |
 | Franjas | ≥ 1 pp en la franja con mayor Δ | dónde nos ganan o ganamos, con el pico de cada cadena y, si el periodo tiene dos días, el Δ por día |
 | Formato | ≥ 5 pp en Premium/VIP, Gran formato o 3D-4D | la diferencia estructural de sala, más quién subtitula más |
 | Exclusivas | ≥ 3 títulos de Cinépolis con ≥ 20 funciones | qué exhiben que no tenemos |
@@ -519,17 +575,38 @@ Si ninguna diferencia cruza su umbral, la capa lo dice. Con el periodo "resto de
 salieron: Coyote (apuesta amplificada en butacas, +7.8 pp), concentración (47 % vs 40 % del Top 3) y la noche
 (Cinépolis pone 2.6 pp más después de las 9 PM).
 
+### Filtro global de franja horaria (2026-09-09)
+
+En la barra lateral, bajo el periodo: presets "Todo el día", "Después de las 6 PM", "Matiné, antes de las 12 PM" o
+un rango libre que solo corta en los límites de las franjas (`labels.HOUR_MARKS`, para no partir ninguna). Entra por
+`hours=(h0, h1)` (h1 exclusiva) en `queries._window`, el único punto donde se filtra por fecha, y lo heredan las nueve
+consultas de ventana, `findings` y `conclusions`. Con `hours=None` o `(0, 24)` la SQL es idéntica a la de antes.
+Semántica: las participaciones se calculan **dentro** de la franja; por eso con filtro activo se omite el hallazgo de
+franjas, la fila prime/evening de los indicadores y el mapa de calor solo muestra las franjas incluidas. El encabezado
+y el pie dicen qué franja está activa. El Resumen general no obedece este filtro: muestra sus dos cortes lado a lado.
+
 ### Capa 2 · Evidencia por pregunta
 
-Tres secciones blancas; cada una abre con la conclusión (`analytics.conclusions`) y cierra con "Cómo leerla"
+Cuatro secciones blancas; cada una abre con la conclusión (`analytics.conclusions`) y cierra con "Cómo leerla"
 colapsado:
 
+0. **¿Cómo se reparte la programación de la semana?** (2026-09-09) La tabla del reporte diario del cliente
+   (`analytics/summary.py::general_summary`): Top 11 películas + Resto + Total, por cadena cines, funciones y % de la
+   programación, Δ funciones (Cinemex − Cinépolis), Δ pp y la razón Cinépolis/Cinemex, en dos pestañas "Todo el día"
+   y "Después de las 6 PM". Alcance CDMX y semana de cine, así que no coincide con la tabla nacional por semana ISO
+   del cliente; se dice en "Cómo leerla". Las diferencias van en tinta, no en rojo/verde (el rojo es Cinemex).
 1. **¿A qué películas les damos más pantalla?** Dumbbell de share por película con Δ pp; muestra las 8 de mayor
    diferencia entre las 15 más programadas y un interruptor para ver las 15.
 2. **¿Estamos en el horario donde vive la taquilla?** Mapa de calor día × franja con Δ pp (rojo: Cinemex pone
    más; tinta: Cinépolis), sin leyenda de color porque el número va en la celda.
 3. **¿Con qué formatos e idiomas competimos?** Barras al 100 % de formato (Premium/VIP, Gran formato, 3D o 4D,
    Tradicional) e idioma.
+4. **¿Cómo compite nuestra dulcería con la de Cinépolis?** (2026-09-09, a petición de David: la dulcería es un módulo
+   propio, no un apéndice, porque es información de valor para el cliente; vive en la página "Dulcería".) Barras pareadas Cinemex vs Cinépolis por
+   tipo de producto a domicilio (Rappi, DiDi Food, misma plataforma) con selector de plataforma; barras del precio en
+   sala de Cinépolis por complejo con selector de producto (muestra los niveles de precio); detalle colapsado con la
+   canasta por complejo, el catálogo y las tiendas. Hallazgo de Capa 1 `dulceria` si la brecha mediana de la canasta
+   comparable a domicilio cruza `CONCESSION_MIN_PCT` (10 %); conclusión `dulceria` en `analytics.conclusions`.
 
 ### Capa 3 · Detalle y apéndice
 
@@ -542,6 +619,14 @@ Expanders con una línea de resumen en gris al lado del título, para que no hag
 | Precio del boleto por formato y tipo de día | rango de sobreprecio de Cinépolis y dos pares clave | tabla mediana Cinemex / Cinépolis / Δ % y detalle de muestras |
 | Salas y butacas por complejo | salas, butacas y sala típica de cada cadena | tabla por cadena, selector de cadena, funciones vs butacas por película y tabla por complejo |
 | Ocupación muestreada a 60 min | muestras, % vendido, estado de la calibración | calibración por color (Cinépolis), semáforo de Cinemex y últimas muestras |
+| Historial de una función y cartelera tal como estaba | historia desde la primera captura | cadena → cine → fecha → sala → función; línea de tiempo (publicada, cambios, cierre) y slider de capturas que reconstruye la cartelera de la sala (`analytics/history.py`) |
+
+**Historia (2026-09-09).** `analytics/history.py`: `functions_on` (vigentes ∪ cerradas por `removed`/`expired`),
+`showtime_timeline` (eventos con los campos cambiados; el primer elemento es la publicación, `first_seen`),
+`board_as_of` (replay inverso desde `current_showtime`: quita altas posteriores, restaura cierres, revierte cambios) y
+`snapshot_times`. Verificado el 2026-09-09 contra el crudo gz de dos capturas: 23,651 y 23,607 funciones de Cinépolis,
+0 discrepancias. Es exacta desde que existe el evento `expired`; para fechas anteriores las funciones concluidas no
+están (p. ej. el 8 de septiembre en Ajusco aparece vacío).
 
 Cierra el bloque oscuro **"Qué se desbloquea con tus datos"**: taquilla por título → abrir/mantener/recortar;
 preventa batch → curva vs comparables; taquilla por función → ingreso real vs potencial; pasada manual →
@@ -550,7 +635,12 @@ automático 5 oct → tendencia de 4 semanas; captura → geografía por alcald�
 
 ### Implementación
 
-`app.py` pinta HTML propio (`st.markdown(unsafe_allow_html=True)`) para encabezado, rótulos de capa, tarjetas
+**Páginas (2026-09-09, a petición de David):** `st.navigation(position="top")` con "Cartelera" (tres capas y los
+filtros de periodo y franja en la barra lateral) y "Dulcería" (página propia: hallazgo, precio en sala por complejo y
+comparación a domicilio; no depende del periodo). En celular el CSS fija la barra de navegación abajo. La Capa 1 de la
+cartelera enlaza a la página de dulcería cuando su hallazgo cruza el umbral.
+
+`ui/common.py` pinta HTML propio (`st.markdown(unsafe_allow_html=True)`) para encabezado, rótulos de capa, tarjetas
 de hallazgo, conclusiones, tablas compactas y el bloque de desbloqueo; los gráficos son Altair con el estilo
 común de `chart()`; secciones y apéndices son contenedores con `key` (`sec-*`, `apendice-*`, `leerla-*`) que
 el CSS estiliza. Cuidados aprendidos: no forzar `font-family` sobre `[class*="st-"]` (rompe los iconos
@@ -568,7 +658,9 @@ LED; 3D o 4D = formato 3D o 4DX / v4d; el resto Tradicional. Idioma: subtitulada
 1. Desplegar en el servidor con `deploy/install.sh`, copiar `data/` desde la Mac y apagar el launchd
    local (ver `deploy/README.md`). Revisar `data/logs/run.log` a diario; en especial el
    miércoles/jueves, cuando ambas cadenas publican la semana siguiente.
-2. Cinemex, a mano (la sesión de Claude Code no ejecuta llamadas al checkout): calibración del
+2. Con historia acumulada: comparar la línea de tiempo entre cadenas (quién cancela más, quién mueve horarios) y
+   patrones de hora de publicación con las tres capturas diarias.
+3. Cinemex, a mano (la sesión de Claude Code no ejecuta llamadas al checkout): calibración del
    semáforo por la tarde, hacia las 7 P.M.,
    `--occupancy --chain cinemex --per-level 100 --lead 60 --tolerance 45`. Con eso se enciende la
    ocupación estimada de Cinemex en el dashboard (el aforo ya está).

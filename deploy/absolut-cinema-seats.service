@@ -1,0 +1,17 @@
+[Unit]
+Description=absolut-cinema: planos de asientos de Cinépolis, T−60 (preventa) y post-inicio (asistencia)
+After=network-online.target
+Wants=network-online.target
+# Escribe en data/snapshots.db (SQLite en WAL, un escritor a la vez): si coincide con una captura, sqlite3
+# espera el `timeout` de store.connect().
+
+[Service]
+Type=oneshot
+User=absolut
+WorkingDirectory=/opt/absolut-cinema
+EnvironmentFile=-/etc/absolut-cinema.env
+ExecStart=/usr/bin/make -C /opt/absolut-cinema -k seats
+TimeoutStartSec=8min
+Nice=5
+StandardOutput=append:/opt/absolut-cinema/data/logs/systemd.out
+StandardError=append:/opt/absolut-cinema/data/logs/systemd.out

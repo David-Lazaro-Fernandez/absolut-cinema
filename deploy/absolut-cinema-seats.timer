@@ -1,0 +1,11 @@
+[Unit]
+Description=absolut-cinema: planos de asientos cada 15 minutos
+
+[Timer]
+OnCalendar=*:0/15
+OnBootSec=1min
+Persistent=true
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

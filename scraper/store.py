@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS event (
   id INTEGER PRIMARY KEY,
   chain TEXT NOT NULL,
   show_id TEXT NOT NULL,
-  kind TEXT NOT NULL,          -- added | removed | moved | changed | availability
+  kind TEXT NOT NULL,          -- added | removed | expired | moved | changed | availability
   detected_at TEXT NOT NULL,
   snapshot_id INTEGER NOT NULL,
   prev_snapshot_id INTEGER,
@@ -44,6 +44,8 @@ CREATE TABLE IF NOT EXISTS event (
 );
 CREATE INDEX IF NOT EXISTS idx_event_detected ON event (chain, detected_at);
 CREATE INDEX IF NOT EXISTS idx_event_show ON event (chain, show_id);
+-- Reconstrucción de la cartelera de un cine y un día en un momento dado (analytics/history.py).
+CREATE INDEX IF NOT EXISTS idx_event_board ON event (chain, cinema_id, date, id);
 CREATE INDEX IF NOT EXISTS idx_current_cinema ON current_showtime (chain, cinema_id, date);
 -- Aforo por sala (Cinépolis desde el plano de asientos; Cinemex llegará del cliente).
 CREATE TABLE IF NOT EXISTS auditorium (
@@ -68,6 +70,22 @@ CREATE TABLE IF NOT EXISTS price_sample (
   general_cents INTEGER, min_cents INTEGER, max_cents INTEGER, fee_cents INTEGER, tickets_json TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_price_key ON price_sample (chain, cinema_id, format_bucket, day_type, date);
+-- Dulcería: menú completo por cine (Cinépolis vía fab-struct-concession; Cinemex llegará del cliente).
+CREATE TABLE IF NOT EXISTS concession_price (
+  id INTEGER PRIMARY KEY,
+  chain TEXT NOT NULL, cinema_id TEXT NOT NULL, sampled_at TEXT NOT NULL,
+  category TEXT, sub_category TEXT, product_id TEXT, product_name TEXT, price_cents INTEGER,
+  product_structure TEXT, promotion_type TEXT, active INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_conc_cinema ON concession_price (chain, cinema_id, sampled_at);
+-- Dulcería a domicilio (Rappi, DiDi Food): catálogo por tienda; ver scraper/delivery.py.
+CREATE TABLE IF NOT EXISTS delivery_price (
+  id INTEGER PRIMARY KEY,
+  platform TEXT NOT NULL, chain TEXT NOT NULL, store_id TEXT NOT NULL, store_slug TEXT, store_name TEXT, address TEXT,
+  lat REAL, lng REAL, status TEXT, available INTEGER, sampled_at TEXT NOT NULL,
+  category TEXT, product_id TEXT, product_name TEXT, price_cents INTEGER, description TEXT, in_stock INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_delivery_store ON delivery_price (platform, store_id, sampled_at);
 """ % ",\n  ".join(f"{c} TEXT" if c not in ("lat", "lng", "duration_min") else f"{c} REAL" for c in COLUMNS if c not in ("chain", "show_id"))
 
 ROW_COLUMNS = [c for c in COLUMNS if c not in ("chain", "show_id")]

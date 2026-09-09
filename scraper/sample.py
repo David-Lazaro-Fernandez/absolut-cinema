@@ -8,6 +8,7 @@ Uso:
   python3 -m scraper.sample --occupancy --chain cinemex --per-level 100 --lead 60 --tolerance 45
                                                            # Cinemex: calibración del semáforo, N por nivel, una vez
   python3 -m scraper.sample --prices [--limit N]           # boletos de una función por cine, formato y tipo de día
+  python3 -m scraper.sample --concessions [--limit N]      # Cinépolis: menú de dulcería con precios por cine (cada 7 días)
                                                            # (weekday lun/jue, promo mar/mié, weekend vie–dom)
   opciones: --lead 60 --tolerance 15 --after 20 --refresh --dry-run --limit N
 
@@ -29,7 +30,14 @@ from .http import ApiError, request_json
 from .normalize import format_bucket
 
 TZ = ZoneInfo(config.PILOT_TIMEZONE)
-TICKET_URL = "https://api-g.cinepolis.com/v1/ticket/graphql"
+# Dulcería (config.CINEPOLIS_CONCESSIONS_URL): `cinema` es el vistaId; `menuType` no cambia la respuesta
+# (probado con seis valores el 2026-09-08) y `userSession` acepta cualquier UUID.
+MENU_QUERY = """query MenuByType($country: String!, $cinema: String!, $menuType: String!, $userSession: String!) {
+  menuByType(country: $country, cinema: $cinema, menuType: $menuType, userSession: $userSession) {
+    categories { name
+      products { productName product active price productStructure productType tag promotionType qtyAvailable }
+      subCategories { name
+        products { productName product active price productStructure productType tag promotionType qtyAvailable } } } } }"""
 
 SEATS_QUERY = """query Seats($countryId: String!, $sessionId: String!, $cinemaVistaId: String!) {
   seats(countryId: $countryId, sessionId: $sessionId, cinemaVistaId: $cinemaVistaId) {
@@ -71,7 +79,7 @@ def seat_layout(session_id, vista_id, stats=None, attempts=3):
     """Plano de una función de Cinépolis: {seats, sold, broken, areas} o None si la API no lo tiene."""
     for i in range(attempts):
         try:
-            data = cinepolis.gql(TICKET_URL, SEATS_QUERY,
+            data = cinepolis.gql(config.CINEPOLIS_TICKET_URL, SEATS_QUERY,
                                  {"countryId": config.CINEPOLIS_COUNTRY, "sessionId": str(session_id), "cinemaVistaId": vista_id}, stats)
             break
         except ApiError as e:
@@ -96,8 +104,25 @@ def seat_layout(session_id, vista_id, stats=None, attempts=3):
     return {"seats": total - broken, "sold": sold, "broken": broken, "areas": by_area}
 
 
+def cinepolis_menu(vista_id, stats=None):
+    """Menú de dulcería de un cine de Cinépolis: lista plana de productos con categoría y precio en centavos."""
+    import uuid
+    data = cinepolis.gql(config.CINEPOLIS_CONCESSIONS_URL, MENU_QUERY, {"country": config.CINEPOLIS_COUNTRY, "cinema": str(vista_id),
+                                                       "menuType": "SOLO_ALIMENTOS", "userSession": str(uuid.uuid4())}, stats)
+    out = []
+    for cat in (data.get("menuByType") or {}).get("categories") or []:
+        groups = [("", cat.get("products") or [])] + [(sc.get("name") or "", sc.get("products") or []) for sc in cat.get("subCategories") or []]
+        for sub, prods in groups:
+            for p in prods:
+                out.append({"category": (cat.get("name") or "").strip(), "sub_category": sub.strip(), "product_id": str(p.get("product") or ""),
+                            "product_name": (p.get("productName") or "").strip(), "price_cents": p.get("price"),
+                            "product_structure": p.get("productStructure"), "promotion_type": p.get("promotionType"),
+                            "active": 1 if p.get("active") else 0})
+    return out
+
+
 def cinepolis_tickets(session_id, vista_id, stats=None):
-    data = cinepolis.gql(TICKET_URL, TICKETS_QUERY,
+    data = cinepolis.gql(config.CINEPOLIS_TICKET_URL, TICKETS_QUERY,
                          {"countryId": config.CINEPOLIS_COUNTRY, "sessionId": str(session_id), "cinemaVistaId": vista_id}, stats)
     out = []
     for area in data.get("tickets") or []:
@@ -369,12 +394,47 @@ def price_pass(conn, days=7, limit=None, dry_run=False):
     return fail == 0
 
 
+def concessions_pass(conn, chain="cinepolis", days=config.CONCESSIONS_REFRESH_DAYS, limit=None, dry_run=False):
+    """Menú de dulcería completo por cine, renovado cada `days` días. Solo Cinépolis: Cinemex tiene la venta en
+    línea apagada (`candybar=false` en sus 278 cines el 2026-09-08) y sus precios llegarán del cliente."""
+    if chain != "cinepolis":
+        log(f"concessions: {chain} no expone dulcería por API"); return True
+    stats = {"calls": 0}
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="seconds")
+    recent = {r[0] for r in conn.execute("SELECT DISTINCT cinema_id FROM concession_price WHERE chain = ? AND sampled_at >= ?", (chain, since))}
+    vids = vista_ids(stats)
+    todo = [(slug, vid) for slug, vid in sorted(vids.items()) if slug not in recent]
+    if limit:
+        todo = todo[:limit]
+    log(f"concessions {chain}: {len(todo)} cines pendientes de {len(vids)}{' (dry-run)' if dry_run else ''}")
+    if dry_run or not todo:
+        return True
+    ok = fail = 0
+    for slug, vid in todo:
+        try:
+            items = cinepolis_menu(vid, stats)
+        except ApiError as e:
+            fail += 1; log(f"concessions FAIL {slug}: {e}"[:300]); time.sleep(config.SAMPLE_BACKOFF); continue
+        time.sleep(config.SAMPLE_PAUSE)
+        if not items:
+            log(f"concessions skip {slug}: menú vacío"); continue
+        ts = utc_now()
+        conn.executemany("""INSERT INTO concession_price (chain, cinema_id, sampled_at, category, sub_category, product_id, product_name,
+                                price_cents, product_structure, promotion_type, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                         [(chain, slug, ts, i["category"], i["sub_category"], i["product_id"], i["product_name"], i["price_cents"],
+                           i["product_structure"], i["promotion_type"], i["active"]) for i in items])
+        conn.commit(); ok += 1
+    log(f"concessions {chain} ok={ok} fail={fail} calls={stats['calls']}")
+    return fail == 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--capacity", action="store_true")
     ap.add_argument("--occupancy", action="store_true")
     ap.add_argument("--post-start", action="store_true", help="planos de funciones ya iniciadas (asistencia final)")
     ap.add_argument("--prices", action="store_true")
+    ap.add_argument("--concessions", action="store_true", help="menú de dulcería con precios por cine (Cinépolis)")
     ap.add_argument("--chain", choices=["cinepolis", "cinemex"], default="cinepolis",
                     help="cadena para --capacity / --occupancy (los precios siempre son de ambas)")
     ap.add_argument("--per-level", type=int, help="occupancy: calibración, máximo N funciones por nivel del semáforo")
@@ -385,8 +445,8 @@ def main(argv=None):
     ap.add_argument("--limit", type=int)
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args(argv)
-    if not (a.capacity or a.occupancy or a.post_start or a.prices):
-        ap.error("indica --capacity, --occupancy, --post-start y/o --prices")
+    if not (a.capacity or a.occupancy or a.post_start or a.prices or a.concessions):
+        ap.error("indica --capacity, --occupancy, --post-start, --prices y/o --concessions")
     conn = store.connect()
     ok = True
     t0 = time.time()
@@ -399,6 +459,8 @@ def main(argv=None):
         ok &= post_start_pass(conn, chain=a.chain, after=a.after, tolerance=a.tolerance or 10, dry_run=a.dry_run, limit=a.limit)
     if a.prices:
         ok &= price_pass(conn, limit=a.limit, dry_run=a.dry_run)
+    if a.concessions:
+        ok &= concessions_pass(conn, chain=a.chain, limit=a.limit, dry_run=a.dry_run)
     conn.close()
     log(f"done in {time.time() - t0:.0f}s ok={ok}")
     return 0 if ok else 1

@@ -1,10 +1,9 @@
 [Unit]
-Description=absolut-cinema: correr el scraper cada 15 minutos
+Description=absolut-cinema: captura de cartelera tres veces al día (07:30, 13:30, 20:30 CDMX)
 
 [Timer]
-OnCalendar=*:0/15
-# Arranca 1 min después del boot aunque se haya perdido una ejecución.
-OnBootSec=1min
+OnCalendar=*-*-* 07,13,20:30:00
+# Si el servidor estaba apagado a la hora programada, corre al arrancar.
 Persistent=true
 AccuracySec=30s
 

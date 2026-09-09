@@ -7,7 +7,7 @@ Inteligencia competitiva de cartelera: Cinemex vs Cinépolis (México).
 - `scraper/`: snapshots de cartelera de la plaza piloto (CDMX) cada 15 min, con diff de cambios en SQLite;
   `scraper/sample.py` muestrea aforo, ocupación (planos de asientos de Cinépolis) y precios de ambas cadenas.
 - `analytics/`: consultas de negocio sobre la base (funciones puras, sin dependencias).
-- `app.py`: dashboard Streamlit que solo pinta lo que devuelve `analytics/`.
+- `app.py` + `ui/` + `views/`: dashboard Streamlit con dos páginas (cartelera y dulcería) que solo pintan lo que devuelve `analytics/`.
 - `deploy/`: systemd, respaldo y Caddy para correr todo en un servidor. Ver `deploy/README.md`.
 
 ```sh

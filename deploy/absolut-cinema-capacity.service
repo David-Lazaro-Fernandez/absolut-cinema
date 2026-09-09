@@ -10,7 +10,7 @@ Type=oneshot
 User=absolut
 WorkingDirectory=/opt/absolut-cinema
 EnvironmentFile=-/etc/absolut-cinema.env
-ExecStart=/usr/bin/python3 -m scraper.sample --capacity --refresh
+ExecStart=/usr/bin/make -C /opt/absolut-cinema capacity REFRESH=1
 TimeoutStartSec=90min
 Nice=10
 StandardOutput=append:/opt/absolut-cinema/data/logs/systemd.out

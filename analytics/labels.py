@@ -36,7 +36,11 @@ SLOTS = [
 SLOT_LABEL = {k: label for k, _, _, label in SLOTS}
 SLOT_SHORT = {"antes_10": "Antes de 10 A.M.", "de_10_a_12": "10 A.M. – 12 P.M.", "de_12_a_15": "12 – 3 P.M.",
               "de_15_a_18": "3 – 6 P.M.", "de_18_a_21": "6 – 9 P.M.", "despues_21": "Después de 9 P.M."}
-PRIME_START_HOUR = 18            # horario prime: vie–dom de 6:00 P.M. en adelante
+PRIME_START_HOUR = 18
+# Filtro global de franja: solo se puede cortar en los límites de SLOTS, así ninguna franja queda partida.
+HOUR_MARKS = sorted({lo for _, lo, _, _ in SLOTS} | {hi for _, _, hi, _ in SLOTS})
+FULL_DAY = (0, 24)
+HOUR_PRESETS = {"Todo el día": FULL_DAY, "Después de las 6 PM": (PRIME_START_HOUR, 24), "Matiné, antes de las 12 PM": (0, 12)}            # horario prime: vie–dom de 6:00 P.M. en adelante
 PRIME_LABEL = "viernes a domingo, de 6:00 P.M. en adelante"
 
 WEEKDAY_LABEL = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
@@ -45,11 +49,15 @@ WEEKDAY_LABEL = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"
 FORMAT_BUCKETS = ["premium", "large", "3d4d", "traditional"]
 FORMAT_LABEL = {"premium": "Premium / VIP", "large": "Gran formato", "3d4d": "3D o 4D", "traditional": "Tradicional"}
 LANGUAGE_LABEL = {"spanish": "Español", "subtitled": "Subtitulada", "original": "Español", "other": "Otro"}
+PLATFORM_LABEL = {"rappi": "Rappi", "didi": "DiDi Food"}
+CINEMA_TYPE_LABEL = {"vip": "VIP", "traditional": "Tradicional"}
+
 LANGUAGE_BUCKETS = ["spanish", "subtitled"]
 
 KIND_LABEL = {
     "added": "Función nueva",
     "removed": "Función cancelada",
+    "expired": "Función concluida",
     "moved": "Cambio de horario o sala",
     "changed": "Cambio de idioma o formato",
     "availability": "Cambio de ocupación",
@@ -57,19 +65,34 @@ KIND_LABEL = {
 KIND_PLURAL = {
     "added": "funciones nuevas",
     "removed": "funciones canceladas",
+    "expired": "funciones concluidas",
     "moved": "cambios de horario o sala",
     "changed": "cambios de idioma o formato",
     "availability": "cambios de ocupación",
 }
+# Línea de tiempo por función.
+KIND_LABEL["first_seen"] = "Publicada"
+FIELD_LABEL = {"datetime_local": "Hora", "screen": "Sala", "language": "Idioma", "format": "Formato", "experience": "Experiencia",
+               "premium_tier": "Tipo de sala", "movie_id": "Película", "availability": "Ocupación"}
+STATUS_LABEL = {"current": "Vigente", "removed": "Cancelada", "expired": "Concluida"}
+VS_NOW_LABEL = {"same": "Igual que hoy", "changed": "Cambió después", "gone": "Ya no está publicada"}
+
 KIND_HELP = {
     "added": "Apareció una función que no estaba en la cartelera publicada.",
     "removed": "Una función publicada desapareció cuando faltaban más de 30 minutos para empezar.",
+    "expired": "La función empezó y salió de la cartelera publicada; se guarda solo para reconstruir la historia.",
     "moved": "La misma función cambió de hora o de sala.",
     "changed": "La misma función cambió de idioma (doblada/subtitulada), formato o experiencia.",
     "availability": "Cambió el nivel de ocupación reportado por la cadena.",
 }
 
 COLUMN_LABEL = {
+    "status": "Estado", "first_seen": "Publicada", "vs_now": "Frente a hoy", "changes": "Cambios", "detected_at": "Detectado",
+    "platform": "Plataforma", "store_name": "Tienda", "stores": "Tiendas", "address": "Dirección", "status": "Estado",
+    "description": "Descripción", "pct_single_price": "% productos con precio único", "last_sampled": "Última lectura",
+    "product_name": "Producto", "category": "Categoría", "products": "Productos", "listings": "Referencias",
+    "median_price": "Mediana", "min_price": "Mínimo", "max_price": "Máximo", "avg_price": "Precio promedio",
+    "spread_pct": "Máx. vs mín. %", "distinct_prices": "Precios distintos", "price": "Precio", "categories": "Categorías",
     "chain": "Cadena", "cinemas": "Cines", "shows": "Funciones", "movies": "Películas",
     "pct_subtitled": "% subtituladas", "shows_per_cinema": "Funciones por cine",
     "pct_prime": "% en horario prime", "pct_evening": "% de 6:00 P.M. en adelante",
@@ -103,6 +126,23 @@ def hour_12(hour, minute=0):
     suffix = "A.M." if hour < 12 else "P.M."
     h = hour % 12 or 12
     return f"{h}:{minute:02d} {suffix}"
+
+
+def hour_mark(hour):
+    """Etiqueta de una marca del filtro de franja: 18 -> '6:00 P.M.', 24 -> 'medianoche', 0 -> 'apertura'."""
+    return "apertura" if hour == 0 else "medianoche" if hour == 24 else hour_12(hour)
+
+
+def hours_label(hours):
+    """'Todo el día', 'de 6:00 P.M. en adelante', 'antes de 12:00 P.M.' o 'de 10:00 A.M. a 3:00 P.M.'."""
+    h0, h1 = hours or FULL_DAY
+    if (h0, h1) == FULL_DAY:
+        return "Todo el día"
+    if h1 == 24:
+        return f"de {hour_12(h0)} en adelante"
+    if h0 == 0:
+        return f"antes de {hour_12(h1)}"
+    return f"de {hour_12(h0)} a {hour_12(h1)}"
 
 
 def time_12(hhmm):

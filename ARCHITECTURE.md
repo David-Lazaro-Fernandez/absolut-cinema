@@ -1,0 +1,147 @@
+# Arquitectura y servicios
+
+Mapa de todo lo que corre en el proyecto: de dónde salen los datos, qué proceso los toca, dónde se guardan y
+qué los programa. Detalle técnico de cada pieza en `project.md`; operación del servidor en `deploy/README.md`;
+comandos en `make help`.
+
+## 1. Flujo de datos
+
+```mermaid
+flowchart LR
+    subgraph fuentes["Fuentes externas (APIs públicas con clave embebida)"]
+        CPL["Cinépolis GraphQL<br/>api-g.cinepolis.com<br/>locations · billboards v2 · ticket (Seats, Tickets)"]
+        CMX["Cinemex REST<br/>api.cinemex.com/rest/v2.37.2<br/>cinemas · movies por área · sessions/{id} · buy/selectTickets"]
+        CPF["Cinépolis dulcería<br/>fab-struct-concession/graphql (MenuByType)"]
+        DEL["Rappi · DiDi Food<br/>HTML del lado del servidor"]
+    end
+
+    subgraph scraper["scraper/ (solo stdlib, /usr/bin/python3)"]
+        RUN["scraper.run · make snapshot<br/>captura de cartelera 3/día<br/>cinepolis.py · cinemex.py → normalize → diff"]
+        OCC["scraper.sample --occupancy<br/>plano a T−60 (preventa)"]
+        POST["scraper.sample --post-start<br/>plano a +10…30 min (asistencia final)"]
+        PRICE["scraper.sample --prices<br/>boletos por cine, formato y tipo de día"]
+        CAP["scraper.sample --capacity<br/>aforo por sala"]
+        CAL["scraper.sample --occupancy --chain cinemex --per-level<br/>calibración del semáforo (checkout, a mano)"]
+        CONC["scraper.sample --concessions<br/>menú de dulcería por cine (Cinépolis)"]
+        DLV["scraper.delivery<br/>dulcería a domicilio en Rappi y DiDi Food"]
+        HEALTH["scraper.health<br/>salud de la captura"]
+    end
+
+    subgraph datos["data/ (fuera de git)"]
+        DB[("snapshots.db (SQLite WAL)<br/>snapshot · current_showtime · event (incl. expired)<br/>auditorium · occupancy_sample · price_sample<br/>concession_price · delivery_price")]
+        RAW["raw/{chain}/{fecha}/*.json.gz"]
+        LOGS["logs/ run.log · sample.log · health.log"]
+    end
+
+    subgraph producto["Producto"]
+        AN["analytics/ (funciones puras, sin dependencias)<br/>queries · findings · summary · history · seats · concessions · delivery · labels"]
+        APP["app.py · Streamlit (.venv) · st.navigation<br/>views/cartelera.py: 3 capas + filtros de periodo y franja<br/>views/dulceria.py · ui/common.py helpers"]
+        CADDY["Caddy · HTTPS + basic auth"]
+    end
+
+    CPL --> RUN
+    CMX --> RUN
+    CPL --> OCC & POST & PRICE & CAP
+    CMX --> PRICE & CAP & CAL
+    CPF --> CONC
+    DEL --> DLV
+    RUN --> DB & RAW
+    OCC & POST & PRICE & CAP & CAL & CONC & DLV --> DB
+    DB -. lee .-> HEALTH
+    HEALTH --> LOGS
+    RUN & OCC & POST & PRICE & CAP --> LOGS
+    DB -. solo lectura .-> AN --> APP --> CADDY
+
+    subgraph futuro["Siguiente fase (fuera del servidor)"]
+        GEO["geo/ · pipeline batch en la Mac<br/>INEGI Censo AGEB · CONAPO · DENUE · Metro · isócronas ORS"]
+        GEODB[("geo.db<br/>cinema_geo · cinema_features · cinema_archetype")]
+    end
+    GEO --> GEODB -. solo lectura .-> AN
+```
+
+Reglas que sostiene el diagrama:
+
+- **Un solo escritor** sobre `snapshots.db`: todo lo que escribe corre en serie desde el mismo timer o en minutos
+  distintos (:07); si coincide, SQLite espera hasta 60 s.
+- **El dashboard nunca escribe.** Abre la base en modo lectura y toda la lógica de negocio vive en `analytics/`,
+  para envolverla después en un API sin reescribir.
+- **El scraper no tiene dependencias**; solo el dashboard usa el venv. El futuro `geo/` tendrá su propio venv y
+  no corre en el servidor.
+
+## 2. Programación: qué dispara cada servicio
+
+```mermaid
+flowchart TB
+    subgraph mac["Mac (launchd, hasta desplegar)"]
+        L3["com.absolut-cinema.scraper<br/>07:30 · 13:30 · 20:30"]
+        L15["com.absolut-cinema.seats<br/>cada 15 min"]
+        LD["com.absolut-cinema.daily<br/>06:00"]
+        LDL["com.absolut-cinema.delivery<br/>15:00"]
+    end
+
+    subgraph srv["Servidor (systemd, /opt/absolut-cinema, TZ America/Mexico_City)"]
+        T3["scraper.timer<br/>07:30 · 13:30 · 20:30"]
+        T15["seats.timer<br/>:00 :15 :30 :45"]
+        TPR["prices.timer<br/>06:07 diario"]
+        TDL["delivery.timer<br/>15:07 diario"]
+        THE["health.timer<br/>08:07 diario"]
+        TCA["capacity.timer<br/>día 1, 04:07"]
+        TBK["backup.timer<br/>05:07 diario"]
+        TCX["calibrate-cinemex.timer<br/>19:07 diario · APAGADO por defecto"]
+        SDASH["dashboard.service<br/>Streamlit 127.0.0.1:8501 · siempre"]
+    end
+
+    subgraph cmd["Target de make (cada unidad ejecuta uno)"]
+        MS["make snapshot<br/>scraper.run"]
+        MT["make -k seats<br/>--occupancy → --post-start"]
+        MP["make -k prices concessions<br/>boletos y menú de dulcería Cinépolis"]
+        MD["make delivery<br/>Rappi y DiDi Food"]
+        MH["make health<br/>sale con 1 si hay huecos o fallos"]
+        MC["make capacity REFRESH=1"]
+        MB["make backup<br/>backup.sh → bucket S3/Spaces"]
+        MX["make calibrate-cinemex<br/>abre órdenes de checkout · tope 60 por corrida"]
+        MK["make capacity-cinemex<br/>solo a mano"]
+    end
+
+    L3 --> MS
+    L15 --> MT
+    LD --> MH & MP
+    LDL --> MD
+    T3 --> MS
+    T15 --> MT
+    TPR --> MP
+    TDL --> MD
+    THE --> MH
+    TCA --> MC
+    TBK --> MB
+    TCX -. opt-in .-> MX
+    MANUAL["David, con ! en la sesión"] -. a mano .-> MX & MK
+```
+
+## 3. Catálogo de servicios
+
+| Servicio | Tipo | Cadencia | Escribe en | Quién lo lanza |
+| --- | --- | --- | --- | --- |
+| `scraper.run` (`make snapshot`) | captura de cartelera, ambas cadenas | 07:30, 13:30, 20:30 | `snapshot`, `current_showtime`, `event` (incl. `expired`), crudo | `scraper` (launchd) / `scraper.timer` |
+| `sample --occupancy` (`make seats`) | plano a T−60, Cinépolis | cada 15 min | `occupancy_sample` (`minutes_to_start` ≥ 0) | `seats` (launchd) / `seats.timer` |
+| `sample --post-start` (`make seats`) | plano a +10…30 min, Cinépolis | cada 15 min | `occupancy_sample` (`minutes_to_start` < 0) | idem |
+| `sample --prices` (`make prices`) | boletos por cine, formato, tipo de día | diario | `price_sample` | `daily` (launchd) / `prices.timer` |
+| `sample --concessions` (`make concessions`) | menú de dulcería con precio, Cinépolis | diario; cada cine se renueva a los 7 días | `concession_price` | idem |
+| `scraper.delivery` (`make delivery`) | dulcería a domicilio, ambas cadenas, Rappi y DiDi Food | diario 15:00; cada tienda a los 7 días | `delivery_price` | `delivery` (launchd) / `delivery.timer` |
+| `sample --capacity` | aforo por sala, Cinépolis | mensual | `auditorium` | `capacity.timer`; Cinemex a mano |
+| `sample --occupancy --chain cinemex --per-level` | calibración del semáforo | diario 19:07, opt-in | `occupancy_sample` | timer apagado o a mano |
+| `scraper.health` (`make health`) | salud de la captura: capturas programadas, fallos, muestreos | diario | `logs/health.log` | `daily` (launchd) / `health.timer` |
+| `backup.sh` | copia de la base y sync del crudo | diario 05:07 | bucket | `backup.timer` |
+| `app.py` (+ `ui/`, `views/`) | dashboard Streamlit, páginas Cartelera y Dulcería | siempre | nada (solo lectura) | `dashboard.service`, detrás de Caddy |
+| `geo/` (futuro) | features de zona y arquetipos | trimestral | `geo.db` | a mano en la Mac |
+
+## 4. Identidades y llaves que cruzan todo
+
+- **Cine**: Cinépolis por `slug` (`cinepolis-universidad-cdmx`), Cinemex por id numérico. Ambos con lat/lng.
+- **Función**: `show_id`. En Cinemex es el id nacional de sesión; en Cinépolis `slug-del-cine:sessionId`,
+  porque el `sessionId` de Vista solo es único por cine.
+- **Sala**: `(chain, cinema_id, screen)`, llave de `auditorium`.
+- **Muestra de ocupación**: una fila por lectura; el signo de `minutes_to_start` distingue preventa (T−60) de
+  asistencia (post-inicio). El par de una misma función se une por `show_id`.
+- **Evento**: `(chain, show_id, kind, detected_at)` con la fila completa antes y después; `expired` cierra la vida
+  normal de una función y permite reconstruir la cartelera de un día pasado (`analytics/history.py`: `functions_on`, `showtime_timeline`, `board_as_of`).

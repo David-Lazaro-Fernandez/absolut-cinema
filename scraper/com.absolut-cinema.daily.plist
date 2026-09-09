@@ -5,13 +5,18 @@
   <key>Label</key><string>com.absolut-cinema.daily</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/bin/zsh</string>
-    <string>/Users/david.fernandez/absolut-cinema/scraper/daily.sh</string>
+    <string>/usr/bin/make</string>
+    <string>-C</string>
+    <string>/Users/david.fernandez/absolut-cinema</string>
+    <string>-k</string>
+    <string>daily</string>
   </array>
   <key>StartCalendarInterval</key>
-  <dict><key>Hour</key><integer>6</integer><key>Minute</key><integer>0</integer></dict>
+  <array>
+    <dict><key>Hour</key><integer>6</integer><key>Minute</key><integer>0</integer></dict>
+  </array>
   <key>WorkingDirectory</key><string>/Users/david.fernandez/absolut-cinema</string>
-  <key>StandardOutPath</key><string>/Users/david.fernandez/absolut-cinema/data/logs/launchd.stdout</string>
-  <key>StandardErrorPath</key><string>/Users/david.fernandez/absolut-cinema/data/logs/launchd.stderr</string>
+  <key>StandardOutPath</key><string>/Users/david.fernandez/absolut-cinema/data/logs/launchd.out</string>
+  <key>StandardErrorPath</key><string>/Users/david.fernandez/absolut-cinema/data/logs/launchd.out</string>
 </dict>
 </plist>

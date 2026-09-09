@@ -1,5 +1,5 @@
 [Unit]
-Description=absolut-cinema: snapshot de cartelera CDMX (Cinemex + Cinépolis)
+Description=absolut-cinema: dulcería a domicilio de ambas cadenas en Rappi y DiDi Food
 After=network-online.target
 Wants=network-online.target
 
@@ -8,9 +8,8 @@ Type=oneshot
 User=absolut
 WorkingDirectory=/opt/absolut-cinema
 EnvironmentFile=-/etc/absolut-cinema.env
-ExecStart=/usr/bin/make -C /opt/absolut-cinema snapshot
-# Una captura tarda 2–7 min.
-TimeoutStartSec=12min
-Nice=5
+ExecStart=/usr/bin/make -C /opt/absolut-cinema delivery
+TimeoutStartSec=60min
+Nice=10
 StandardOutput=append:/opt/absolut-cinema/data/logs/systemd.out
 StandardError=append:/opt/absolut-cinema/data/logs/systemd.out

@@ -19,15 +19,18 @@ mostraría un aviso de "aún no hay datos"), enlaza los units de systemd y los h
 
 | Unit | Cadencia | Qué hace (equivalente en `make`) |
 | --- | --- | --- |
-| `absolut-cinema-scraper.timer` | :00, :15, :30, :45 | snapshot de cartelera + planos a T−60 + planos post-inicio (`make tick`) |
-| `absolut-cinema-prices.timer` | diario 06:07 | muestreo de precios (`make prices`) |
+| `absolut-cinema-scraper.timer` | 07:30, 13:30, 20:30 | captura de cartelera de ambas cadenas (`make snapshot`) |
+| `absolut-cinema-seats.timer` | :00, :15, :30, :45 | planos de asientos de Cinépolis a T−60 y post-inicio (`make -k seats`) |
+| `absolut-cinema-prices.timer` | diario 06:07 | precios de boleto y menú de dulcería de Cinépolis, este renovado cada 7 días (`make -k prices concessions`) |
+| `absolut-cinema-delivery.timer` | diario 15:07 | dulcería a domicilio en Rappi y DiDi Food, con las tiendas ya abiertas; renovada cada 7 días (`make delivery`) |
 | `absolut-cinema-health.timer` | diario 08:07 | reporte de salud en `data/logs/health.log`; falla si hay huecos o errores (`make health`) |
 | `absolut-cinema-capacity.timer` | día 1, 04:07 | refresco mensual del aforo de Cinépolis (`make capacity REFRESH=1`) |
 | `absolut-cinema-backup.timer` | diario 05:07 | `backup.sh`: copia de la base y sync del crudo al bucket (`make backup`) |
 | `absolut-cinema-calibrate-cinemex.timer` | diario 19:07, **apagado** | calibración del semáforo de Cinemex, 60 funciones por corrida; abre órdenes de checkout, por eso `install.sh` lo enlaza pero no lo habilita (`make calibrate-cinemex`) |
 | `absolut-cinema-dashboard.service` | siempre | Streamlit en `127.0.0.1:8501` |
 
-Los timers que escriben van a :07 para no coincidir con el arranque de un snapshot; si coinciden, SQLite
+Cada unidad ejecuta un target de `make`, así que todo lo automático se reproduce a mano igual. Los timers diarios van
+a :07 para no coincidir con el tick de planos; si coinciden, SQLite
 espera hasta 60 s (`timeout` de `store.connect`). Aforo y calibración de Cinemex se lanzan a mano
 (`make capacity-cinemex`, `make calibrate-cinemex`) o encendiendo el timer:
 `systemctl enable --now absolut-cinema-calibrate-cinemex.timer`.
@@ -49,14 +52,14 @@ Después de instalar:
 systemctl list-timers 'absolut-cinema-*'            # próximas ejecuciones
 tail -f /opt/absolut-cinema/data/logs/run.log      # una línea por cadena y snapshot
 journalctl -u absolut-cinema-dashboard -f          # logs de Streamlit
-systemctl start absolut-cinema-scraper.service     # forzar un snapshot ahora
+systemctl start absolut-cinema-scraper.service     # forzar una captura de cartelera ahora
 systemctl start absolut-cinema-backup.service      # forzar un respaldo ahora
 systemctl start absolut-cinema-health.service      # reporte de salud ahora (también: make health)
 cat /opt/absolut-cinema/data/logs/health.log       # una línea por día
 ```
 
 Actualizar código: `cd /opt/absolut-cinema && sudo -u absolut git pull && systemctl restart absolut-cinema-dashboard`.
-El scraper toma el código nuevo en la siguiente ejecución del timer.
+Los timers toman el código nuevo en su siguiente ejecución.
 
 ## Restaurar
 

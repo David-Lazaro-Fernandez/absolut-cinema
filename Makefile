@@ -4,16 +4,18 @@
 PY ?= /usr/bin/python3
 VENV ?= .venv/bin
 
-.PHONY: help tick snapshot occupancy post-start daily health prices capacity capacity-cinemex \
+.PHONY: help tick snapshot seats occupancy post-start daily health prices concessions delivery capacity capacity-cinemex \
         calibrate-cinemex dashboard backup launchd-load launchd-unload
 
 help:               ## lista los targets
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-20s %s\n", $$1, $$2}'
 
-tick: snapshot occupancy post-start   ## lo que corre cada 15 min (snapshot + dos pases de planos)
+tick: snapshot seats   ## atajo manual: una captura de cartelera y los dos pases de planos
 
-snapshot:           ## snapshot de cartelera de ambas cadenas
+snapshot:           ## captura de cartelera de ambas cadenas (programada a las 07:30, 13:30 y 20:30)
 	$(PY) -m scraper.run
+
+seats: occupancy post-start   ## lo que corre cada 15 min: planos T−60 y post-inicio (usar con -k)
 
 occupancy:          ## planos de Cinépolis a ~60 min de empezar (preventa)
 	$(PY) -m scraper.sample --occupancy
@@ -21,13 +23,19 @@ occupancy:          ## planos de Cinépolis a ~60 min de empezar (preventa)
 post-start:         ## planos de Cinépolis 10–30 min después de empezar (asistencia final)
 	$(PY) -m scraper.sample --post-start
 
-daily: health prices   ## lo que corre una vez al día
+daily: health prices concessions   ## lo que corre una vez al día a las 06:00 (usar con -k)
 
 health:             ## reporte de salud de la captura (sale con 1 si hay problemas)
 	$(PY) -m scraper.health
 
 prices:             ## precios: una función por cine, formato y tipo de día (7 días)
 	$(PY) -m scraper.sample --prices
+
+concessions:        ## menú de dulcería de Cinépolis con precio por complejo (se renueva cada 7 días)
+	$(PY) -m scraper.sample --concessions
+
+delivery:           ## dulcería a domicilio en Rappi y DiDi Food, a las 15:00 con las tiendas abiertas (renovadas cada 7 días)
+	$(PY) -m scraper.delivery
 
 capacity:           ## aforo por sala de Cinépolis; con REFRESH=1 vuelve a medir las conocidas
 	$(PY) -m scraper.sample --capacity $(if $(REFRESH),--refresh,)
@@ -44,10 +52,8 @@ dashboard:          ## Streamlit local
 backup:             ## respaldo (requiere BACKUP_BUCKET en el entorno)
 	bash deploy/backup.sh
 
-launchd-load:       ## Mac: cargar los dos agentes (cada 15 min y diario)
-	launchctl bootstrap gui/$$(id -u) scraper/com.absolut-cinema.scraper.plist
-	launchctl bootstrap gui/$$(id -u) scraper/com.absolut-cinema.daily.plist
+launchd-load:       ## Mac: cargar los cuatro agentes (cartelera 3/día, planos cada 15 min, diario, delivery)
+	for a in scraper seats daily delivery; do launchctl bootstrap gui/$$(id -u) scraper/com.absolut-cinema.$$a.plist; done
 
 launchd-unload:     ## Mac: descargar los agentes (antes de mover el scraper al servidor)
-	-launchctl bootout gui/$$(id -u)/com.absolut-cinema.scraper
-	-launchctl bootout gui/$$(id -u)/com.absolut-cinema.daily
+	-for a in scraper seats daily delivery; do launchctl bootout gui/$$(id -u)/com.absolut-cinema.$$a; done

@@ -7,10 +7,13 @@ aquí: si el dato no existe, el hallazgo no aparece. Hablamos en primera persona
 `findings()` devuelve hasta `top` dicts {title, body, action, support: [{label, value, cmx}]}.
 `conclusions()` devuelve {peliculas, peliculas_note, franjas, formatos}: la frase que abre cada
 sección de evidencia."""
-from .labels import CHAIN_LABEL, FORMAT_LABEL, SLOT_SHORT, SLOTS, THEM, US, WEEKDAY_LABEL
-from .queries import (concentration, heatmap_day_slot, kpis, mix, movies_by_chain, showtimes_by_slot,
+from .labels import CHAIN_LABEL, FORMAT_LABEL, FULL_DAY, SLOT_SHORT, SLOTS, THEM, US, WEEKDAY_LABEL
+from .queries import (concentration, heatmap_day_slot, is_full_day, kpis, mix, movies_by_chain, showtimes_by_slot,
                       today)
 from .seats import offered_by_title
+from .summary import general_summary
+from .concessions import concession_basket
+from .delivery import delivery_compare, delivery_summary
 
 THEM_NAME = CHAIN_LABEL[THEM]
 
@@ -23,6 +26,7 @@ SLOT_MIN_PP = 1.0
 FORMAT_MIN_PP = 5.0
 EXCLUSIVE_MIN_TITLES = 3
 EXCLUSIVE_MIN_SHOWS = 20
+CONCESSION_MIN_PCT = 10.0       # brecha mediana de precio en la canasta comparable de dulcería a domicilio
 
 
 def _pp(v):
@@ -52,10 +56,10 @@ def _slot_name(key):
     return SLOT_SHORT[key].replace("P.M.", "PM").replace("A.M.", "AM")
 
 
-def _title_finding(conn, d0, d1):
+def _title_finding(conn, d0, d1, hours=None):
     """¿Dónde la apuesta por sala (butacas) cuenta otra historia que la apuesta por funciones?"""
-    movies = movies_by_chain(conn, d0, d1, limit=60)
-    seats = {c: {r["title_norm"]: r for r in offered_by_title(conn, d0, d1, limit=60, chain=c)} for c in (US, THEM)}
+    movies = movies_by_chain(conn, d0, d1, limit=60, hours=hours)
+    seats = {c: {r["title_norm"]: r for r in offered_by_title(conn, d0, d1, limit=60, chain=c, hours=hours)} for c in (US, THEM)}
     if not seats[US] or not seats[THEM]:
         return None
     best, score = None, 0
@@ -116,8 +120,8 @@ def _title_finding(conn, d0, d1):
     return {"topic": "titulo", "title": title, "body": body, "action": action, "support": support[:4] + support[4:6]}
 
 
-def _concentration_finding(conn, d0, d1, movies):
-    cc = {r["chain"]: r for r in concentration(conn, d0, d1)}
+def _concentration_finding(conn, d0, d1, movies, hours=None):
+    cc = {r["chain"]: r for r in concentration(conn, d0, d1, hours=hours)}
     if US not in cc or THEM not in cc:
         return None
     cu, ct = cc[US], cc[THEM]
@@ -148,7 +152,9 @@ def _concentration_finding(conn, d0, d1, movies):
     ]}
 
 
-def _slot_finding(conn, d0, d1):
+def _slot_finding(conn, d0, d1, hours=None):
+    if not is_full_day(hours):
+        return None   # con la franja recortada, la "franja ganadora" pierde el sentido comparativo
     slots = {r["chain"]: r for r in showtimes_by_slot(conn, d0, d1)}
     if US not in slots or THEM not in slots or not slots[US]["total"] or not slots[THEM]["total"]:
         return None
@@ -192,8 +198,8 @@ def _slot_finding(conn, d0, d1):
     return {"topic": "franjas", "title": title, "body": body, "action": action, "support": support[:4]}
 
 
-def _format_finding(conn, d0, d1, kp):
-    mx = {(r["dimension"], r["chain"], r["bucket"]): r["share"] for r in mix(conn, d0, d1)}
+def _format_finding(conn, d0, d1, kp, hours=None):
+    mx = {(r["dimension"], r["chain"], r["bucket"]): r["share"] for r in mix(conn, d0, d1, hours=hours)}
     gaps = [(mx.get(("format", US, b), 0) - mx.get(("format", THEM, b), 0), b) for b in FORMAT_LABEL if b != "traditional"]
     g, b = max(gaps, key=lambda x: abs(x[0]))
     if abs(g) < FORMAT_MIN_PP:
@@ -219,6 +225,42 @@ def _format_finding(conn, d0, d1, kp):
     ]}
 
 
+def _concession_gap(conn):
+    """Brecha mediana (%) Cinépolis vs Cinemex en las cubetas comparables de dulcería a domicilio, y las cubetas."""
+    cmp_ = [r for r in delivery_compare(conn) if r["delta_pct"] is not None]
+    if not cmp_:
+        return None, []
+    gaps = sorted(r["delta_pct"] for r in cmp_)
+    return gaps[len(gaps) // 2], cmp_
+
+
+def _concession_finding(conn):
+    gap, cmp_ = _concession_gap(conn)
+    if gap is None or abs(gap) < CONCESSION_MIN_PCT:
+        return None
+    basket = {r["product_name"]: r for r in concession_basket(conn)}
+    pop = basket.get("Palomitas")
+    single = [r["pct_single_price"] for r in delivery_summary(conn) if r["chain"] == US and r["pct_single_price"] is not None]
+    by = {r["bucket"]: r for r in cmp_}
+    if gap > 0:
+        title = f"{THEM_NAME} cobra {gap:.0f} % más que nosotros en la dulcería a domicilio, y en sala fija el precio por complejo."
+        action = "Decisión: ¿sostener el precio único como argumento de valor o probar precio por zona en la canasta básica?"
+    else:
+        title = f"Nuestra dulcería a domicilio es {abs(gap):.0f} % más cara que la de {THEM_NAME}."
+        action = "Decisión: revisar la canasta básica frente a la suya antes de la siguiente campaña."
+    body = (f"Nuestra lista es una sola en toda la ciudad" + (f" ({single[0]:.0f} % de los productos con un solo precio)" if single else "") + "; "
+            + (f"{THEM_NAME} mueve la canasta por complejo: palomitas de ${pop['min_price']:,.0f} a ${pop['max_price']:,.0f} en "
+               f"{int(pop['distinct_prices'])} niveles de precio." if pop else f"{THEM_NAME} fija precio por complejo."))
+    support = []
+    for key, label in (("combo_basico", "Combo básico"), ("combo_nachos", "Combo nachos"), ("nachos", "Nachos"), ("refresco", "Refresco")):
+        r = by.get(key)
+        if r and r["cinemex_median"] and r["cinepolis_median"]:
+            support.append({"label": label, "value": f"${r['cinemex_median']:,.0f} vs ${r['cinepolis_median']:,.0f}", "cmx": r["cinemex_median"] <= r["cinepolis_median"]})
+    if pop:
+        support.append({"label": f"Niveles de precio {THEM_NAME}", "value": f"{int(pop['distinct_prices'])} en {int(pop['cinemas'])} complejos", "cmx": False})
+    return {"topic": "dulceria", "title": title, "body": body, "action": action, "support": support[:5]}
+
+
 def _exclusive_finding(movies):
     only_them = [m for m in movies if not m["shows_cinemex"] and m["shows_cinepolis"] >= EXCLUSIVE_MIN_SHOWS]
     only_us = [m for m in movies if not m["shows_cinepolis"] and m["shows_cinemex"] >= EXCLUSIVE_MIN_SHOWS]
@@ -235,20 +277,21 @@ def _exclusive_finding(movies):
                        [{"label": _short(m["title"], 22), "value": _pct(m["share_cinepolis"]), "cmx": False} for m in only_them[:2]]}
 
 
-def findings(conn, d0=None, d1=None, top=3):
-    """Hasta `top` hallazgos, en orden de prioridad: título por butacas, concentración, franjas,
-    formato, exclusivas. Cada uno solo entra si cruza su umbral."""
+def findings(conn, d0=None, d1=None, top=3, hours=None):
+    """Hasta `top` hallazgos, en orden de prioridad: título por butacas, concentración, dulcería (información de
+    valor directo para el cliente), franjas, formato, exclusivas. Cada uno solo entra si cruza su umbral."""
     d0 = d0 or today()
     d1 = d1 or d0
-    kp = {r["chain"]: r for r in kpis(conn, d0, d1)}
+    kp = {r["chain"]: r for r in kpis(conn, d0, d1, hours=hours)}
     if US not in kp or THEM not in kp:
         return []
-    movies = movies_by_chain(conn, d0, d1, limit=200)
+    movies = movies_by_chain(conn, d0, d1, limit=200, hours=hours)
     out = []
-    for fn in (lambda: _title_finding(conn, d0, d1),
-               lambda: _concentration_finding(conn, d0, d1, movies),
-               lambda: _slot_finding(conn, d0, d1),
-               lambda: _format_finding(conn, d0, d1, kp),
+    for fn in (lambda: _title_finding(conn, d0, d1, hours=hours),
+               lambda: _concentration_finding(conn, d0, d1, movies, hours=hours),
+               lambda: _concession_finding(conn),
+               lambda: _slot_finding(conn, d0, d1, hours=hours),
+               lambda: _format_finding(conn, d0, d1, kp, hours=hours),
                lambda: _exclusive_finding(movies)):
         f = fn()
         if f:
@@ -258,18 +301,28 @@ def findings(conn, d0=None, d1=None, top=3):
     return out
 
 
-def conclusions(conn, d0=None, d1=None, shown=8, total=15):
+def conclusions(conn, d0=None, d1=None, shown=8, total=15, hours=None):
     """Frase de apertura de cada sección de evidencia (Capa 2)."""
     d0 = d0 or today()
     d1 = d1 or d0
     out = {}
-    kp = {r["chain"]: r for r in kpis(conn, d0, d1)}
+    kp = {r["chain"]: r for r in kpis(conn, d0, d1, hours=hours)}
     us, them = kp.get(US), kp.get(THEM)
     if not us or not them:
         return out
 
+    # Resumen general: volumen total y cuánto concentra el Top del reporte del cliente.
+    summary = general_summary(conn, d0, d1, hours=hours)
+    titles = [r for r in summary if r["kind"] == "title"]
+    tot = summary[-1]
+    top_us, top_them = sum(r["share_cinemex"] for r in titles), sum(r["share_cinepolis"] for r in titles)
+    ratio = f"{tot['ratio']:.2f}" if tot["ratio"] else "—"
+    out["resumen"] = (f"Publicamos {tot['shows_cinemex']:,} funciones frente a {tot['shows_cinepolis']:,} de {THEM_NAME} "
+                      f"({ratio} funciones suyas por cada una nuestra); las {len(titles)} películas con más funciones concentran "
+                      f"{_pct(top_us)} de nuestra parrilla y {_pct(top_them)} de la suya.")
+
     # Películas: sobre-indexamos / ellos apuestan más / exclusivas, sobre las `total` con más funciones.
-    top_movies = movies_by_chain(conn, d0, d1, limit=total)
+    top_movies = movies_by_chain(conn, d0, d1, limit=total, hours=hours)
     shared = [m for m in top_movies if m["shows_cinemex"] and m["shows_cinepolis"]]
     more = sorted([m for m in shared if m["gap_pp"] >= 1], key=lambda m: -m["gap_pp"])[:2]
     less = sorted([m for m in shared if m["gap_pp"] <= -1], key=lambda m: m["gap_pp"])[:2]
@@ -293,9 +346,11 @@ def conclusions(conn, d0=None, d1=None, shown=8, total=15):
     out["peliculas_note"] = f"Mostrando las {shown} con mayor diferencia; el resto no mueve decisiones."
 
     # Franjas: dónde ganamos y dónde perdemos.
-    slots = {r["chain"]: r for r in showtimes_by_slot(conn, d0, d1)}
+    slots = {r["chain"]: r for r in showtimes_by_slot(conn, d0, d1, hours=hours)}
     su, st_ = slots[US], slots[THEM]
-    gaps = {k: 100.0 * su[k] / su["total"] - 100.0 * st_[k] / st_["total"] for k, *_ in SLOTS if su[k] or st_[k]}
+    h0, h1 = hours or FULL_DAY
+    gaps = {k: 100.0 * su[k] / su["total"] - 100.0 * st_[k] / st_["total"] for k, lo, hi, _ in SLOTS
+            if lo >= h0 and hi <= h1 and (su[k] or st_[k])}
     win = sorted([k for k in gaps if gaps[k] >= 0.5], key=lambda k: -gaps[k])
     lose = sorted([k for k in gaps if gaps[k] <= -0.5], key=lambda k: gaps[k])
     txt = []
@@ -309,7 +364,7 @@ def conclusions(conn, d0=None, d1=None, shown=8, total=15):
     out["franjas"] = out["franjas"][0].upper() + out["franjas"][1:]
 
     # Formatos e idioma.
-    mx = {(r["dimension"], r["chain"], r["bucket"]): r["share"] for r in mix(conn, d0, d1)}
+    mx = {(r["dimension"], r["chain"], r["bucket"]): r["share"] for r in mix(conn, d0, d1, hours=hours)}
     fg = [(mx.get(("format", US, b), 0) - mx.get(("format", THEM, b), 0), b) for b in FORMAT_LABEL if b != "traditional"]
     g, b = max(fg, key=lambda x: abs(x[0]))
     u, t = mx.get(("format", US, b), 0), mx.get(("format", THEM, b), 0)
@@ -325,4 +380,17 @@ def conclusions(conn, d0=None, d1=None, shown=8, total=15):
     elif ds >= 1:
         fmt += f" Nosotros subtitulamos más ({us['pct_subtitled']:.0f} % vs {them['pct_subtitled']:.0f} %)."
     out["formatos"] = fmt
+
+    # Dulcería: brecha a domicilio (misma plataforma) y modelo de precio en sala.
+    gap, cmp_ = _concession_gap(conn)
+    basket = {r["product_name"]: r for r in concession_basket(conn)}
+    pop = basket.get("Palomitas")
+    if gap is not None:
+        who = (f"{THEM_NAME} cobra {gap:.0f} % más que nosotros" if gap > 0 else f"cobramos {abs(gap):.0f} % más que {THEM_NAME}")
+        out["dulceria"] = (f"En la dulcería a domicilio {who} en la canasta comparable ({len(cmp_)} tipos de producto)"
+                           + (f"; en sala, {THEM_NAME} fija precio por complejo (palomitas de ${pop['min_price']:,.0f} a "
+                              f"${pop['max_price']:,.0f}) y nosotros una lista única." if pop else "."))
+    elif pop:
+        out["dulceria"] = (f"{THEM_NAME} fija el precio de dulcería por complejo: palomitas de ${pop['min_price']:,.0f} a "
+                           f"${pop['max_price']:,.0f} en {int(pop['distinct_prices'])} niveles. Nuestra lista llegará con tus datos.")
     return out

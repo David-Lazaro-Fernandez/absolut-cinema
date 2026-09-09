@@ -119,11 +119,18 @@ Compactas, sin fondo en el encabezado: cabecera en gris con borde inferior 1.5 p
   pesos de encabezado. Fondo de página `#F6F6F4`, fondo secundario blanco (tarjetas, barra lateral).
 - **Constantes de color.** Viven en `analytics/labels.py`: `RED`, `RED_DARK`, `RED_SOFT`, `INK`, `GRAY`, `GRAY_DARK`,
   `GRAY_LIGHT`, `LINE`, `PAPER`, `NEUTRAL`, `GRID`, `CHAIN_COLOR`, `RED_RAMP`, `DIVERGING`. Ningún hex se escribe
-  directo en `app.py` salvo tonos internos del bloque oscuro de desbloqueo.
-- **CSS complementario.** `app.py` inyecta la fuente variable Archivo desde Google Fonts, el ancho de lectura
+  directo en la presentación salvo tonos internos del bloque oscuro de desbloqueo.
+- **CSS complementario.** `ui/common.py` (`inject_css`, llamado desde `app.py`) inyecta la fuente variable Archivo desde Google Fonts, el ancho de lectura
   (1120 px) y los componentes del mockup: `.enc`, `.capa-tag`, `.hallazgo`, `.pregunta`, `.conclusion`, `table.mk`,
   `.desbloqueo`; y estiliza los expanders según su contenedor (`st-key-apendice-*`, `st-key-leerla-*`) y las
   secciones (`st-key-sec-*`).
 - **Textos.** Los hallazgos y las conclusiones salen de `analytics/findings.py`; las etiquetas de `analytics/labels.py`.
 
 Para un color nuevo, agregarlo a `analytics/labels.py` y documentarlo aquí antes de usarlo.
+
+### Navegación entre páginas
+
+`st.navigation(position="top")`: pestañas "Cartelera" y "Dulcería" en la barra superior en escritorio. En pantallas de
+768 px o menos, una regla `@media` fija la barra al pie de la pantalla (fondo papel, borde superior, sombra suave) y
+deja 84 px de aire al final del contenido, para que quede al alcance del pulgar. No probado en dispositivo real
+(Streamlit colapsa los enlaces en un desplegable si no caben).

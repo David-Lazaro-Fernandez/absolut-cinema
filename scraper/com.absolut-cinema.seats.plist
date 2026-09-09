@@ -2,21 +2,16 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>Label</key><string>com.absolut-cinema.scraper</string>
+  <key>Label</key><string>com.absolut-cinema.seats</string>
   <key>ProgramArguments</key>
   <array>
     <string>/usr/bin/make</string>
     <string>-C</string>
     <string>/Users/david.fernandez/absolut-cinema</string>
     <string>-k</string>
-    <string>snapshot</string>
+    <string>seats</string>
   </array>
-  <key>StartCalendarInterval</key>
-  <array>
-    <dict><key>Hour</key><integer>7</integer><key>Minute</key><integer>30</integer></dict>
-    <dict><key>Hour</key><integer>13</integer><key>Minute</key><integer>30</integer></dict>
-    <dict><key>Hour</key><integer>20</integer><key>Minute</key><integer>30</integer></dict>
-  </array>
+  <key>StartInterval</key><integer>900</integer>
   <key>RunAtLoad</key><true/>
   <key>WorkingDirectory</key><string>/Users/david.fernandez/absolut-cinema</string>
   <key>StandardOutPath</key><string>/Users/david.fernandez/absolut-cinema/data/logs/launchd.out</string>

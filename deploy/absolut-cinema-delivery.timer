@@ -1,0 +1,11 @@
+[Unit]
+Description=absolut-cinema: dulcería a domicilio, diario a las 15:07 (las tiendas abren a las 13:00)
+
+[Timer]
+# Hora de America/Mexico_City (zona del servidor, ver install.sh).
+OnCalendar=*-*-* 15:07:00
+Persistent=true
+RandomizedDelaySec=2min
+
+[Install]
+WantedBy=timers.target
