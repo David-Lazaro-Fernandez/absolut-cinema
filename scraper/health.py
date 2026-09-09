@@ -18,7 +18,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from . import config, store
+from . import config, sample, store
 
 MAX_AGE_MIN = 12 * 60        # tres capturas al día: el hueco normal más largo (20:30 → 07:30) es de 11 h
 SLOT_TOLERANCE_MIN = 30      # una captura programada cuenta si hay snapshot bueno a ±30 min
@@ -89,6 +89,10 @@ def check(conn, hours=24, now=None):
             report["problems"].append("cinepolis: el menú de dulcería lleva más de 8 días sin renovarse")
         if not c["delivery_stores_8d"] and conn.execute("SELECT 1 FROM delivery_price WHERE chain = ? LIMIT 1", (chain,)).fetchone():
             report["problems"].append(f"{chain}: dulcería a domicilio sin lectura en 8 días")
+        if chain == "cinemex":
+            # Calibración del semáforo: se hace por chunks (make calibrate-cinemex); aquí el avance por nivel.
+            have = sample.calibration_progress(conn, chain)
+            c["calibration"] = {lvl: have.get(lvl, 0) for lvl in sample.CALIBRATION_LEVELS}
         report["chains"][chain] = c
     # el muestreo de planos hoy solo corre para Cinépolis; si no hay ninguna muestra en la ventana, algo se detuvo
     cp = report["chains"].get("cinepolis", {})
@@ -106,7 +110,8 @@ def format_report(r):
         lines.append(f"  {chain}: última {c['last_at']} ({c['last_age_min']} min, {'ok' if c['last_ok'] else 'FALLÓ'}, {c['last_shows']} funciones); "
                      f"capturas {c['snapshots']} (programadas {c['expected']}, faltan {len(c['missing'])}), fallidas {c['failed']}; "
                      f"ocupación T−60 {c['occupancy_t60']}, post-inicio {c['occupancy_post_start']}; precios 7d {c['prices_7d']}; "
-                     f"dulcería 8d: {c['concession_cinemas_8d']} cines, {c['delivery_stores_8d']} tiendas a domicilio")
+                     f"dulcería 8d: {c['concession_cinemas_8d']} cines, {c['delivery_stores_8d']} tiendas a domicilio"
+                     + (f"; calibración semáforo {c['calibration']} de 100 por nivel" if "calibration" in c else ""))
     for p in r["problems"]:
         lines.append(f"  ! {p}")
     return "\n".join(lines)

@@ -249,6 +249,15 @@ def capacity_pass(conn, chain="cinepolis", refresh=False, dry_run=False, limit=N
     return fail == 0
 
 
+CALIBRATION_LEVELS = ("high", "mid", "low")   # semáforo de Cinemex
+
+
+def calibration_progress(conn, chain="cinemex"):
+    """Muestras de ocupación por nivel del semáforo ya guardadas para la cadena: el estado de la calibración."""
+    return Counter(r[0] for r in conn.execute(
+        "SELECT COALESCE(availability, '') FROM occupancy_sample WHERE chain = ?", (chain,)))
+
+
 def occupancy_pass(conn, chain="cinepolis", lead=60, tolerance=15, dry_run=False, limit=None, per_level=None):
     """Plano de cada función que empieza en [lead−tol, lead+tol] minutos y aún no se muestreó en esa ventana.
     Con `per_level` toma como mucho N funciones por nivel de `availability` (calibración del semáforo)."""
@@ -263,14 +272,17 @@ def occupancy_pass(conn, chain="cinepolis", lead=60, tolerance=15, dry_run=False
         ORDER BY s.datetime_local""", (chain, lo.strftime("%Y-%m-%dT%H:%M:%S"), hi.strftime("%Y-%m-%dT%H:%M:%S"),
                                         lead - tolerance - 5, lead + tolerance + 5)).fetchall()
     if per_level:
-        have = Counter(r[0] for r in conn.execute(
-            "SELECT COALESCE(availability, '') FROM occupancy_sample WHERE chain = ?", (chain,)))
+        have = calibration_progress(conn, chain)
         picked, count = [], Counter()
         for r in rows:
             lvl = r["availability"] or ""
             if have[lvl] + count[lvl] < per_level:
                 picked.append(r); count[lvl] += 1
         rows = picked
+        # Estado de la calibración antes de este chunk: cada plano se guarda con su propio commit, así que si la
+        # corrida se cae, la siguiente parte de aquí.
+        log(f"calibración {chain}: muestras por nivel {dict(have)} de {per_level}; faltan "
+            f"{ {lvl: max(per_level - have[lvl], 0) for lvl in CALIBRATION_LEVELS} }")
     if limit:
         rows = rows[:limit]
     levels = f" por nivel {dict(Counter(r['availability'] or '' for r in rows))}" if per_level else ""

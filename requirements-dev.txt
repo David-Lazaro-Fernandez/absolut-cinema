@@ -1,2 +1,3 @@
-# Solo para desarrollo: pruebas.
+# Solo para desarrollo: pruebas y diagramas.
 pytest>=8
+diagrams>=0.24
