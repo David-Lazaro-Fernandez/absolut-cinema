@@ -96,8 +96,8 @@ def check(conn, hours=24, now=None):
         report["chains"][chain] = c
     # el muestreo de planos hoy solo corre para Cinépolis; si no hay ninguna muestra en la ventana, algo se detuvo
     cp = report["chains"].get("cinepolis", {})
-    if cp and cp.get("snapshots") and not cp.get("occupancy_t60") and not cp.get("occupancy_post_start"):
-        report["problems"].append("cinepolis: cero muestras de ocupación en la ventana (¿se cayó el pase de planos?)")
+    if cp and cp.get("snapshots") and not cp.get("occupancy_post_start"):
+        report["problems"].append("cinepolis: cero planos post-inicio en la ventana (¿se cayó el pase de butacas?)")
     report["ok"] = not report["problems"]
     return report
 

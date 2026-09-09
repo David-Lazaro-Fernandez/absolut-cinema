@@ -1,0 +1,13 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "absolut-cinema (local)",
+      "Group": "Servers",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "absolut_cinema",
+      "Username": "absolut",
+      "SSLMode": "prefer"
+    }
+  }
+}

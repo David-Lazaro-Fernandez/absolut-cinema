@@ -2,8 +2,8 @@
 
 Uso:
   python3 -m scraper.sample --capacity [--chain cinemex]   # aforo por sala; una pasada, repetir al mes
-  python3 -m scraper.sample --occupancy                    # Cinépolis: planos a 45–75 min de empezar (cada 15 min)
-  python3 -m scraper.sample --post-start                   # Cinépolis: planos 10–30 min después de empezar (cada 15 min);
+  python3 -m scraper.sample --occupancy                    # Cinépolis: planos a 45–75 min de empezar (preventa; a mano)
+  python3 -m scraper.sample --post-start                   # Cinépolis: planos 15–75 min después de empezar (cada hora);
                                                            # es la asistencia final y el target del modelo de consumo
   python3 -m scraper.sample --occupancy --chain cinemex --per-level 100 --lead 60 --tolerance 45
                                                            # Cinemex: calibración del semáforo, N por nivel, una vez
@@ -292,7 +292,7 @@ def occupancy_pass(conn, chain="cinepolis", lead=60, tolerance=15, dry_run=False
     return _take_layouts(conn, chain, rows, stats, "occupancy")
 
 
-def post_start_pass(conn, chain="cinepolis", after=20, tolerance=10, dry_run=False, limit=None):
+def post_start_pass(conn, chain="cinepolis", after=config.POST_START_AFTER_MIN, tolerance=config.POST_START_TOLERANCE_MIN, dry_run=False, limit=None):
     """Plano de cada función que empezó hace [after−tol, after+tol] minutos y aún no tiene muestra post-inicio.
 
     Es la asistencia final (la venta sigue creciendo después del arranque: prueba del 2026-09-08, de 2 a 6
@@ -451,8 +451,8 @@ def main(argv=None):
                     help="cadena para --capacity / --occupancy (los precios siempre son de ambas)")
     ap.add_argument("--per-level", type=int, help="occupancy: calibración, máximo N funciones por nivel del semáforo")
     ap.add_argument("--lead", type=int, default=60, help="minutos antes de la función (ocupación)")
-    ap.add_argument("--tolerance", type=int, default=None, help="ocupación: ±min (15 con --lead, 10 con --after)")
-    ap.add_argument("--after", type=int, default=20, help="post-start: minutos después del inicio")
+    ap.add_argument("--tolerance", type=int, default=None, help="ocupación: ±min (15 con --lead, config.POST_START_TOLERANCE_MIN con --after)")
+    ap.add_argument("--after", type=int, default=config.POST_START_AFTER_MIN, help="post-start: minutos después del inicio (ventana ±tolerance)")
     ap.add_argument("--refresh", action="store_true", help="capacity: volver a medir salas ya conocidas")
     ap.add_argument("--limit", type=int)
     ap.add_argument("--dry-run", action="store_true")
@@ -468,7 +468,7 @@ def main(argv=None):
         ok &= occupancy_pass(conn, chain=a.chain, lead=a.lead, tolerance=a.tolerance or 15, dry_run=a.dry_run,
                              limit=a.limit, per_level=a.per_level)
     if a.post_start:
-        ok &= post_start_pass(conn, chain=a.chain, after=a.after, tolerance=a.tolerance or 10, dry_run=a.dry_run, limit=a.limit)
+        ok &= post_start_pass(conn, chain=a.chain, after=a.after, tolerance=a.tolerance or config.POST_START_TOLERANCE_MIN, dry_run=a.dry_run, limit=a.limit)
     if a.prices:
         ok &= price_pass(conn, limit=a.limit, dry_run=a.dry_run)
     if a.concessions:

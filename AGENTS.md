@@ -181,7 +181,7 @@ el timer lo note. Si añades un flujo de captura, añade su cobertura ahí.
 - Nada de secretos en el repo. Van en `deploy/absolut-cinema.env` (con `.example` versionado).
 - Cada unidad de systemd/launchd nueva ejecuta **un target de `make`**, no un comando inline. Así
   cualquier cosa que corre en automático se puede reproducir a mano igual.
-- Los servicios de escritura corren en `:07` para no chocar con el tick de `:00 :15 :30 :45`.
+- Los servicios de escritura diarios corren en `:07`, las capturas de cartelera en `:30` y el pase de butacas en `:50`, para no chocar entre sí.
 
 ## 8. Verificar un cambio
 

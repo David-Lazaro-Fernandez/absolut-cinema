@@ -20,7 +20,7 @@ mostraría un aviso de "aún no hay datos"), enlaza los units de systemd y los h
 | Unit | Cadencia | Qué hace (equivalente en `make`) |
 | --- | --- | --- |
 | `absolut-cinema-scraper.timer` | 07:30, 13:30, 20:30 | captura de cartelera de ambas cadenas (`make snapshot`) |
-| `absolut-cinema-seats.timer` | :00, :15, :30, :45 | planos de asientos de Cinépolis a T−60 y post-inicio (`make -k seats`) |
+| `absolut-cinema-seats.timer` | cada hora, :50 | planos de asientos de Cinépolis tras el inicio de cada función, asistencia final (`make -k seats`) |
 | `absolut-cinema-prices.timer` | diario 06:07 | precios de boleto y menú de dulcería de Cinépolis, este renovado cada 7 días (`make -k prices concessions`) |
 | `absolut-cinema-delivery.timer` | diario 15:07 | dulcería a domicilio en Rappi y DiDi Food, con las tiendas ya abiertas; renovada cada 7 días (`make delivery`) |
 | `absolut-cinema-health.timer` | diario 08:07 | reporte de salud en `data/logs/health.log`; falla si hay huecos o errores (`make health`) |

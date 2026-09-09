@@ -11,8 +11,8 @@
     <string>-k</string>
     <string>seats</string>
   </array>
-  <key>StartInterval</key><integer>900</integer>
-  <key>RunAtLoad</key><true/>
+  <key>StartCalendarInterval</key>
+  <dict><key>Minute</key><integer>50</integer></dict>
   <key>WorkingDirectory</key><string>/Users/david.fernandez/absolut-cinema</string>
   <key>StandardOutPath</key><string>/Users/david.fernandez/absolut-cinema/data/logs/launchd.out</string>
   <key>StandardErrorPath</key><string>/Users/david.fernandez/absolut-cinema/data/logs/launchd.out</string>

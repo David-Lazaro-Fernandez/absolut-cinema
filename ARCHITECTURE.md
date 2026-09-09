@@ -17,7 +17,7 @@ flowchart LR
 
     subgraph scraper["scraper/ (solo stdlib, /usr/bin/python3)"]
         RUN["scraper.run · make snapshot<br/>captura de cartelera 3/día<br/>cinepolis.py · cinemex.py → normalize → diff"]
-        OCC["scraper.sample --occupancy<br/>plano a T−60 (preventa)"]
+        OCC["scraper.sample --occupancy<br/>plano a T−60 (preventa, solo a mano)"]
         POST["scraper.sample --post-start<br/>plano a +10…30 min (asistencia final)"]
         PRICE["scraper.sample --prices<br/>boletos por cine, formato y tipo de día"]
         CAP["scraper.sample --capacity<br/>aforo por sala"]
@@ -74,14 +74,14 @@ Reglas que sostiene el diagrama:
 flowchart TB
     subgraph mac["Mac (launchd, hasta desplegar)"]
         L3["com.absolut-cinema.scraper<br/>07:30 · 13:30 · 20:30"]
-        L15["com.absolut-cinema.seats<br/>cada 15 min"]
+        L15["com.absolut-cinema.seats<br/>cada hora (:50)"]
         LD["com.absolut-cinema.daily<br/>06:00"]
         LDL["com.absolut-cinema.delivery<br/>15:00"]
     end
 
     subgraph srv["Servidor (systemd, /opt/absolut-cinema, TZ America/Mexico_City)"]
         T3["scraper.timer<br/>07:30 · 13:30 · 20:30"]
-        T15["seats.timer<br/>:00 :15 :30 :45"]
+        T15["seats.timer<br/>cada hora (:50)"]
         TPR["prices.timer<br/>06:07 diario"]
         TDL["delivery.timer<br/>15:07 diario"]
         THE["health.timer<br/>08:07 diario"]
@@ -93,7 +93,7 @@ flowchart TB
 
     subgraph cmd["Target de make (cada unidad ejecuta uno)"]
         MS["make snapshot<br/>scraper.run"]
-        MT["make -k seats<br/>--occupancy → --post-start"]
+        MT["make -k seats<br/>--post-start (15–75 min tras el inicio)"]
         MP["make -k prices concessions<br/>boletos y menú de dulcería Cinépolis"]
         MD["make delivery<br/>Rappi y DiDi Food"]
         MH["make health<br/>sale con 1 si hay huecos o fallos"]
@@ -123,8 +123,8 @@ flowchart TB
 | Servicio | Tipo | Cadencia | Escribe en | Quién lo lanza |
 | --- | --- | --- | --- | --- |
 | `scraper.run` (`make snapshot`) | captura de cartelera, ambas cadenas | 07:30, 13:30, 20:30 | `snapshot`, `current_showtime`, `event` (incl. `expired`), crudo | `scraper` (launchd) / `scraper.timer` |
-| `sample --occupancy` (`make seats`) | plano a T−60, Cinépolis | cada 15 min | `occupancy_sample` (`minutes_to_start` ≥ 0) | `seats` (launchd) / `seats.timer` |
-| `sample --post-start` (`make seats`) | plano a +10…30 min, Cinépolis | cada 15 min | `occupancy_sample` (`minutes_to_start` < 0) | idem |
+| `sample --occupancy` (`make occupancy`) | plano a T−60 (preventa), Cinépolis | a mano | `occupancy_sample` (`minutes_to_start` ≥ 0) | manual |
+| `sample --post-start` (`make seats`) | plano 15–75 min tras el inicio, Cinépolis (asistencia final) | cada hora | `occupancy_sample` (`minutes_to_start` < 0) | `seats` (launchd) / `seats.timer` |
 | `sample --prices` (`make prices`) | boletos por cine, formato, tipo de día | diario | `price_sample` | `daily` (launchd) / `prices.timer` |
 | `sample --concessions` (`make concessions`) | menú de dulcería con precio, Cinépolis | diario; cada cine se renueva a los 7 días | `concession_price` | idem |
 | `scraper.delivery` (`make delivery`) | dulcería a domicilio, ambas cadenas, Rappi y DiDi Food | diario 15:00; cada tienda a los 7 días | `delivery_price` | `delivery` (launchd) / `delivery.timer` |

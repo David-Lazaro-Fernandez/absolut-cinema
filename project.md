@@ -433,10 +433,13 @@ Petición del cliente tras la primera revisión: entender los precios de dulcer�
   existe en `analytics/`, es el proceso viejo con módulos en memoria: reiniciar Streamlit.
   `analytics/seats.py` cubre aforo, butacas ofertadas, ocupación muestreada, calibración del
   semáforo y precios.
-- `deploy/`: units de systemd (cartelera 3/día, planos cada 15 min, diarios, dashboard, respaldo), `backup.sh`,
+- `deploy/`: units de systemd (cartelera 3/día, planos cada hora, diarios, dashboard, respaldo), `backup.sh`,
   `Caddyfile` e `install.sh` para un droplet o EC2. Ver `deploy/README.md`.
 - `ARCHITECTURE.md`: diagramas Mermaid del flujo de datos, la programación de servicios y el catálogo de
   servicios con su cadencia y sus tablas.
+- `docs/postgres-esquema.md`: diseño de tablas de PostgreSQL para el archivo histórico (etapa 1, propuesta 2026-09-09):
+  identidad de la función separada de sus versiones de estado, eventos, muestreos, trabajo `sync` y tamaño estimado.
+  `docs/arquitectura_aws.py` genera el diagrama de despliegue (`arquitectura-aws.png`) con la librería `diagrams`.
 - `project.md`: este documento.
 
 ## Scraper de snapshots (piloto CDMX)
@@ -508,8 +511,11 @@ cosa automática se reproduce a mano igual (`make help`). Se descartó Grunt: es
 de JavaScript y el proyecto es Python sin front end compilado.
 
 **Decisión del cliente (2026-09-08, aplicada 2026-09-09): la cartelera se captura tres veces al día**, a las
-07:30, 13:30 y 20:30 CDMX (`config.SNAPSHOT_HOURS`); los planos de asientos siguen cada 15 min porque dependen
-de la hora de cada función. Costos aceptados: una cancelación entre capturas de una función que ya habría empezado
+07:30, 13:30 y 20:30 CDMX (`config.SNAPSHOT_HOURS`). **Los planos de asientos van cada hora y solo post-inicio**
+(decisión 2026-09-09): el plano existe ~2.5 h tras el inicio, así que una corrida por hora con ventana de 15 a 75 min cubre
+todas las funciones; la lectura de preventa a T−60 se dejó de programar porque el 59 % de sus lecturas era cero y la
+asistencia final es lo que vale (target del modelo de consumo). Los cambios del competidor se leen como comportamiento
+semanal, no como alerta: el apéndice de cambios muestra 7 días y ya no cuenta la ocupación como cambio. Costos aceptados: una cancelación entre capturas de una función que ya habría empezado
 en la siguiente se registra como `expired`, no `removed`; el semáforo de Cinemex se refresca tres veces al día; la
 publicación de la semana siguiente se detecta con hasta 6 h de retraso. Una cuarta captura a las 23:30 reduciría lo
 primero si hiciera falta.
@@ -517,7 +523,7 @@ primero si hiciera falta.
 | Trabajo (`make …`) | Cadencia | Mac (launchd) | Servidor (systemd) |
 | --- | --- | --- | --- |
 | `snapshot`: captura de cartelera | 07:30, 13:30, 20:30 | `com.absolut-cinema.scraper` | `absolut-cinema-scraper.timer` |
-| `seats`: planos T−60 y post-inicio | cada 15 min | `com.absolut-cinema.seats` | `absolut-cinema-seats.timer` |
+| `seats`: planos post-inicio (asistencia final) | cada hora, :50 | `com.absolut-cinema.seats` | `absolut-cinema-seats.timer` |
 | `daily`: salud + precios + dulcería Cinépolis | diario 06:00 | `com.absolut-cinema.daily` | `health.timer` 08:07 y `prices.timer` 06:07 |
 | `delivery`: dulcería a domicilio (Rappi, DiDi Food) | diario 15:00 (tiendas abiertas) | `com.absolut-cinema.delivery` | `delivery.timer` 15:07 |
 | `capacity REFRESH=1`: aforo Cinépolis | mensual | a mano | `capacity.timer` día 1 04:07 |
@@ -615,10 +621,10 @@ Expanders con una línea de resumen en gris al lado del título, para que no hag
 | Apéndice | Resumen visible | Contenido |
 | --- | --- | --- |
 | Indicadores del periodo | funciones por cine y día, butacas ofertadas | el antiguo KPI strip como tabla Cinemex / Cinépolis / Δ, más HHI, Top 3 y títulos por complejo |
-| ¿Qué cambió en la cartelera ya publicada? | nuevas y canceladas por cadena en 24 h | tabla por tipo de cambio, glosario de tipos y registro por función con filtro |
+| ¿Cómo ha movido Cinépolis su cartelera esta semana? | canceladas y cambios de horario por cadena en 7 días | comportamiento semanal del competidor: tabla por tipo de cambio (sin ocupación), glosario y registro por función |
 | Precio del boleto por formato y tipo de día | rango de sobreprecio de Cinépolis y dos pares clave | tabla mediana Cinemex / Cinépolis / Δ % y detalle de muestras |
 | Salas y butacas por complejo | salas, butacas y sala típica de cada cadena | tabla por cadena, selector de cadena, funciones vs butacas por película y tabla por complejo |
-| Ocupación muestreada a 60 min | muestras, % vendido, estado de la calibración | calibración por color (Cinépolis), semáforo de Cinemex y últimas muestras |
+| Ocupación medida tras el inicio | funciones medidas, % vendido, estado de la calibración | calibración por color (Cinépolis), semáforo de Cinemex y últimas muestras |
 | Historial de una función y cartelera tal como estaba | historia desde la primera captura | cadena → cine → fecha → sala → función; línea de tiempo (publicada, cambios, cierre) y slider de capturas que reconstruye la cartelera de la sala (`analytics/history.py`) |
 
 **Historia (2026-09-09).** `analytics/history.py`: `functions_on` (vigentes ∪ cerradas por `removed`/`expired`),

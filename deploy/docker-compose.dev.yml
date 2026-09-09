@@ -1,0 +1,44 @@
+# Postgres local para probar el esquema del archivo histórico (docs/postgres-esquema.md). Solo desarrollo:
+# misma versión mayor que RDS (16), datos en un volumen que se borra con `make pg-down`.
+#   make pg-up      levanta el contenedor
+#   make pg-schema  aplica deploy/postgres/schema.sql
+#   make pg-psql    consola psql
+#   make pg-admin   pgAdmin en http://localhost:5050 (perfil opcional)
+#   make pg-down    apaga y borra los datos
+services:
+  postgres:
+    image: postgres:16
+    container_name: absolut-cinema-pg
+    environment:
+      POSTGRES_DB: absolut_cinema
+      POSTGRES_USER: absolut
+      POSTGRES_PASSWORD: absolut-dev        # solo local; en RDS la contraseña va en deploy/absolut-cinema.env
+      TZ: America/Mexico_City
+      PGTZ: America/Mexico_City
+    ports:
+      - "5433:5432"                          # 5433 en la Mac para no chocar con otro Postgres local
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U absolut -d absolut_cinema"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  pgadmin:                                 # interfaz web opcional: `make pg-admin`, luego http://localhost:5050
+    image: dpage/pgadmin4
+    container_name: absolut-cinema-pgadmin
+    profiles: ["admin"]
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@local.dev
+      PGADMIN_DEFAULT_PASSWORD: absolut-dev   # solo local
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "5050:80"
+    volumes:
+      - ./postgres/pgadmin-servers.json:/pgadmin4/servers.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+volumes:
+  pgdata:

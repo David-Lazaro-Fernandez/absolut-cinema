@@ -56,23 +56,29 @@ def offered_by_title(conn, d0=None, d1=None, from_now=True, limit=15, chain="cin
         FROM base GROUP BY title_norm ORDER BY seats DESC LIMIT ?""", params + [chain, limit])
 
 
-def occupancy_summary(conn, chain="cinepolis"):
-    """Muestras de ocupación acumuladas: cuántas, ocupación media y por color del semáforo."""
-    return rows(conn, """
+# Fase de la muestra: "post" = tras el inicio (asistencia final, lo que se mide cada hora); "pre" = preventa a T−60.
+_PHASE = {"post": "minutes_to_start < 0", "pre": "minutes_to_start >= 0", "all": "1 = 1"}
+
+
+def occupancy_summary(conn, chain="cinepolis", phase="post"):
+    """Muestras de ocupación acumuladas por color del semáforo: cuántas, % vendido medio, mínimo y máximo.
+    `phase`: post (asistencia final, por defecto), pre (preventa a T−60) o all."""
+    return rows(conn, f"""
         SELECT COALESCE(NULLIF(availability, ''), '(sin color)') availability, COUNT(*) samples,
                ROUND(AVG(sold_pct), 1) avg_sold_pct, MIN(sold_pct) min_sold_pct, MAX(sold_pct) max_sold_pct,
                SUM(sold) sold, SUM(seats) seats
-        FROM occupancy_sample WHERE chain = ? GROUP BY 1 ORDER BY avg_sold_pct DESC""", (chain,))
+        FROM occupancy_sample WHERE chain = ? AND {_PHASE[phase]} GROUP BY 1 ORDER BY avg_sold_pct DESC""", (chain,))
 
 
-def occupancy_recent(conn, limit=50, chain="cinepolis"):
-    return rows(conn, """
+def occupancy_recent(conn, limit=50, chain="cinepolis", phase="post"):
+    """Últimas muestras de ocupación de la cadena, con cine, función y % vendido."""
+    return rows(conn, f"""
         SELECT o.sampled_at, COALESCE(c.cinema_name, o.cinema_id) cinema_name, o.screen, o.movie_title, o.datetime_local,
                o.minutes_to_start, o.seats, o.sold, o.sold_pct, o.availability
         FROM occupancy_sample o
         LEFT JOIN (SELECT chain, cinema_id, MAX(cinema_name) cinema_name FROM current_showtime GROUP BY chain, cinema_id) c
                ON c.chain = o.chain AND c.cinema_id = o.cinema_id
-        WHERE o.chain = ? ORDER BY o.id DESC LIMIT ?""", (chain, limit))
+        WHERE o.chain = ? AND {_PHASE[phase]} ORDER BY o.id DESC LIMIT ?""", (chain, limit))
 
 
 def prices(conn, days=14):

@@ -344,20 +344,23 @@ with apendice("kpis", "Indicadores del periodo", resumen):
        'HHI: suma de los cuadrados del share de cada título; por debajo de 1,500 la parrilla está repartida, por encima de 2,500 concentrada.</p>')
 
 # --- Cambios en la cartelera publicada -----------------------------------------------------------------
-by_kind = load("events_by_kind", since_hours=24)
+# Los cambios del competidor valen como comportamiento semanal, no como alerta: Cinemex programa por semana de cine.
+CARTELERA_KINDS = [k for k in KINDS if k != "availability"]   # la ocupación es una medida, no un cambio de cartelera
+by_kind = load("events_by_kind", since_hours=24 * 7)
 ev = {(r.chain, r.kind): int(r.n) for r in by_kind.itertuples()} if not by_kind.empty else {}
 g = lambda c, k: ev.get((c, k), 0)  # noqa: E731
-resumen = (f"Últimas 24 h: {g('cinemex', 'added'):,} funciones nuevas nuestras vs {g('cinepolis', 'added'):,} de Cinépolis · "
-           f"{g('cinemex', 'removed'):,} vs {g('cinepolis', 'removed'):,} canceladas") if ev else "Sin cambios en las últimas 24 h"
-with apendice("cambios", "¿Qué cambió en la cartelera ya publicada?", resumen):
+resumen = (f"7 días: {g('cinemex', 'removed'):,} canceladas nuestras vs {g('cinepolis', 'removed'):,} de Cinépolis · "
+           f"{g('cinemex', 'moved'):,} vs {g('cinepolis', 'moved'):,} cambios de horario o sala") if ev else "Sin cambios en los últimos 7 días"
+with apendice("cambios", "¿Cómo ha movido Cinépolis su cartelera esta semana?", resumen):
     if ev:
-        table(["Cadena", "Nuevas", "Canceladas", "Horario/sala", "Idioma/formato", "Ocupación"],
-              [[(CHAIN_LABEL[c], "cmx" if c == "cinemex" else "cnp")] + [f"{g(c, k):,}" for k in KINDS] for c in CHAINS],
-              num_cols=(1, 2, 3, 4, 5))
-    md('<p class="nota">' + " ".join(f"<b>{KIND_LABEL[k]}.</b> {KIND_HELP[k]}" for k in KINDS) +
+        table(["Cadena", "Nuevas", "Canceladas", "Horario/sala", "Idioma/formato"],
+              [[(CHAIN_LABEL[c], "cmx" if c == "cinemex" else "cnp")] + [f"{g(c, k):,}" for k in CARTELERA_KINDS] for c in CHAINS],
+              num_cols=(1, 2, 3, 4))
+    md('<p class="nota">Últimos 7 días. ' + " ".join(f"<b>{KIND_LABEL[k]}.</b> {KIND_HELP[k]}" for k in CARTELERA_KINDS) +
        " Cuando una cadena publica la semana siguiente (miércoles o jueves) aparecen miles de funciones nuevas de golpe; "
-       "eso es publicación, no cambios sobre lo ya anunciado.</p>")
-    kinds = st.multiselect("Registro por función", KINDS, default=KINDS[:4], format_func=lambda k: KIND_LABEL[k])
+       "eso es publicación, no cambios sobre lo ya anunciado. Se lee como comportamiento semanal del competidor (cuánto cancela, "
+       "de qué títulos, cuándo publica), no como alerta: la programación se decide por semana de cine.</p>")
+    kinds = st.multiselect("Registro por función", CARTELERA_KINDS, default=CARTELERA_KINDS, format_func=lambda k: KIND_LABEL[k])
     events = load("recent_events", limit=300, kinds=kinds or None)
     if events.empty:
         st.info("Sin cambios de ese tipo.")
@@ -503,15 +506,16 @@ cal = load("semaphore_calibration", chain="cinemex")
 n_samples = int(occ.samples.sum()) if not occ.empty else 0
 weighted = 100.0 * occ.sold.sum() / occ.seats.sum() if n_samples and occ.seats.sum() else 0.0
 levels = int((occ.availability != "(sin color)").sum()) if n_samples else 0
-resumen = (f"{n_samples} muestras Cinépolis · {weighted:.1f} % vendido en promedio · "
+resumen = (f"{n_samples} funciones medidas de Cinépolis · {weighted:.1f} % de butacas vendidas en promedio · "
            + (f"{levels} niveles de color para calibrar" if levels else "aún sin semáforos de color para calibrar")
            + (" · semáforo de Cinemex calibrado" if not cal.empty else " · semáforo de Cinemex sin calibrar"))
-with apendice("ocupacion", "Ocupación muestreada a 60 min de la función", resumen):
+with apendice("ocupacion", "Ocupación medida tras el inicio de cada función", resumen):
     if n_samples == 0:
-        st.info("Aún no hay muestras. El muestreo corre cada 15 minutos sobre las funciones de Cinépolis que empiezan en una hora.")
+        st.info("Aún no hay medidas. El pase corre cada hora y lee el plano de las funciones de Cinépolis que empezaron hace 15 a 75 minutos.")
     else:
-        st.markdown(f"**Cinépolis.** {n_samples} funciones muestreadas; {weighted:.1f} % de las butacas vendidas a una hora de empezar. "
-                    "La tabla cruza el color del semáforo del sitio con el porcentaje real vendido, para calibrar qué significa cada color.")
+        st.markdown(f"**Cinépolis.** {n_samples} funciones medidas después de empezar; {weighted:.1f} % de las butacas vendidas. Es la "
+                    "asistencia final de cada función y la base del modelo de consumo. La tabla cruza el color del semáforo del sitio con "
+                    "el porcentaje real vendido, para calibrar qué significa cada color.")
         st.dataframe(pretty(occ[["availability", "samples", "avg_sold_pct", "min_sold_pct", "max_sold_pct"]]), width="stretch", hide_index=True)
     if cal.empty:
         st.markdown("**Cinemex.** Publica alta, media o baja disponibilidad por función. Al calibrar cada nivel contra planos reales "
@@ -527,7 +531,7 @@ with apendice("ocupacion", "Ocupación muestreada a 60 min de la función", resu
         st.dataframe(pretty(cal.rename(columns={"level": "availability"})[["availability", "samples", "sold_pct", "min_sold_pct", "max_sold_pct"]]),
                      width="stretch", hide_index=True)
     if n_samples:
-        st.markdown("**Últimas muestras (Cinépolis)**")
+        st.markdown("**Últimas funciones medidas (Cinépolis)**")
         st.dataframe(pretty(load("occupancy_recent", limit=30)), width="stretch", hide_index=True, height=300)
     md('<p class="nota">Se promueve a Capa 2 cuando la tabla de calibración tenga niveles de color con muestras suficientes. '
        'Mientras tanto no compite por atención.</p>')
@@ -567,6 +571,6 @@ md('<div class="desbloqueo"><h3>Qué se desbloquea con tus datos</h3>'
    + "</div></div>")
 
 md(f'<p class="pie">Fuentes: cartelera pública de Cinemex y Cinépolis, capturada tres veces al día para los cines de la Ciudad de México '
-   f'y área metropolitana; aforo por sala de ambas cadenas leído de los planos de asientos; ocupación muestreada a 60 minutos de cada '
+   f'y área metropolitana; aforo por sala de ambas cadenas leído de los planos de asientos; ocupación medida tras el inicio de cada '
    f'función en Cinépolis; precios de lista muestreados por cine, formato y tipo de día; menú de dulcería de Cinépolis con precio por complejo; catálogo de dulcería a domicilio de ambas cadenas en Rappi y DiDi Food. Las películas se emparejan por título hasta '
    f'contar con la tabla de equivalencias entre cadenas.{"" if full_day else f" Filtro activo: solo funciones que empiezan {esc(hours_label(hours))}."} Historia desde el {esc(date_es(FIRST_SNAPSHOT.isoformat()))}.</p>')

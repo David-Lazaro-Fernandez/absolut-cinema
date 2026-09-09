@@ -54,6 +54,12 @@ SAMPLE_BACKOFF = 5        # segundos tras un error
 # Los planos de asientos siguen cada 15 min porque dependen de la hora de cada función.
 SNAPSHOT_HOURS = tuple(os.environ.get("AC_SNAPSHOT_HOURS", "07:30,13:30,20:30").split(","))
 
+# Planos post-inicio (sample --post-start): la asistencia final de cada función. El plano existe ~2.5 h después
+# del inicio, así que una corrida por hora con ventana de 15 a 75 min cubre todas las funciones (decisión 2026-09-09:
+# solo post-inicio, sin la lectura de preventa a T−60, que aportaba poco).
+POST_START_AFTER_MIN = 45
+POST_START_TOLERANCE_MIN = 30
+
 # Dulcería de Cinépolis (sample --concessions): un menú completo por cine, renovado cada tantos días.
 CONCESSIONS_REFRESH_DAYS = 7
 

@@ -1,11 +1,11 @@
 [Unit]
-Description=absolut-cinema: planos de asientos cada 15 minutos
+Description=absolut-cinema: planos de asientos post-inicio, cada hora
 
 [Timer]
-OnCalendar=*:0/15
-OnBootSec=1min
+# Al minuto 50: no coincide con las capturas de cartelera (:30) ni con los trabajos diarios (:07).
+OnCalendar=*:50:00
 Persistent=true
-AccuracySec=30s
+AccuracySec=1min
 
 [Install]
 WantedBy=timers.target
