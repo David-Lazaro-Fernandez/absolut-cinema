@@ -1,4 +1,8 @@
+
 # absolut-cinema
+
+<img width="1194" height="584" alt="Frame 1 (2)" src="https://github.com/user-attachments/assets/526e5100-e278-410e-b0ee-3f6844c5b9ad" />
+
 
 Inteligencia competitiva de cartelera: Cinemex vs Cinépolis (México).
 
