@@ -68,6 +68,25 @@ cat /opt/absolut-cinema/data/logs/health.log       # una línea por día
 Actualizar código: `cd /opt/absolut-cinema && sudo -u absolut git pull && systemctl restart absolut-cinema-dashboard`.
 Los timers toman el código nuevo en su siguiente ejecución.
 
+## Salida por Cloudflare WARP para Cinépolis
+
+`api-g.cinepolis.com` está detrás de Cloudflare y su WAF bloquea los rangos de AWS por ASN (verificado 2026-09-10:
+403 "Attention Required" directo desde EC2, 200 saliendo por WARP; Cinemex, Rappi y DiDi no lo necesitan). `install.sh`
+instala el cliente `cloudflare-warp` en modo proxy (SOCKS5 en `127.0.0.1:40000`, registro gratuito, sin cuenta ni
+relación con el WARP de ninguna empresa) y `privoxy` como puente HTTP (`127.0.0.1:8118`, `deploy/privoxy.config`).
+El scraper manda por ahí solo los hosts de `AC_EGRESS_PROXY_HOSTS`; el resto sale directo.
+
+```sh
+warp-cli status                                    # debe decir Connected
+systemctl status warp-svc privoxy                  # ambos activos
+curl -s -x http://127.0.0.1:8118 https://ipinfo.io/json | grep -E '"org"|"country"'   # AS13335 Cloudflare
+warp-cli --accept-tos connect                      # reconectar si se cayó
+```
+
+Si el túnel cae, el snapshot de Cinépolis falla con `Blocked` (403 con HTML) o con `URLError … (vía proxy …)` si
+Privoxy no responde; `make health` lo reporta como captura fallida. Para volver a salir directo, vaciar
+`AC_EGRESS_PROXY` en `/etc/absolut-cinema.env`.
+
 ## Restaurar
 
 ```sh

@@ -13,7 +13,7 @@ from collections import Counter
 from datetime import datetime, timezone
 
 from . import cinemex, cinepolis, config, diff, normalize, store
-from .http import AuthError
+from .http import AuthError, Blocked
 
 SNAPSHOTTERS = {"cinepolis": cinepolis.snapshot, "cinemex": cinemex.snapshot}
 
@@ -50,7 +50,11 @@ def run_chain(conn, chain, save_raw=True):
         log(summary)
         return True
     except Exception as e:  # noqa: BLE001 - queremos registrar cualquier fallo y seguir con la otra cadena
-        hint = " (¿rotó la clave? ver project.md > Consideraciones)" if isinstance(e, AuthError) else ""
+        hint = ""
+        if isinstance(e, Blocked):
+            hint = " (la IP de salida está bloqueada por el WAF, no es la clave; ver project.md > Consideraciones)"
+        elif isinstance(e, AuthError):
+            hint = " (¿rotó la clave? ver project.md > Consideraciones)"
         store.finish_snapshot(conn, snapshot_id, ok=0, duration_s=round(time.time() - t0, 1),
                               error=f"{type(e).__name__}: {e}"[:2000])
         log(f"{chain} FAIL snapshot={snapshot_id} {type(e).__name__}: {e}{hint}")

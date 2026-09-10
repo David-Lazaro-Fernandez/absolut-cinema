@@ -1,6 +1,6 @@
 [Unit]
 Description=absolut-cinema: planos de asientos de Cinépolis tras el inicio de cada función (asistencia final)
-After=network-online.target
+After=network-online.target warp-svc.service privoxy.service
 Wants=network-online.target
 # Escribe en data/snapshots.db (SQLite en WAL, un escritor a la vez): si coincide con una captura, sqlite3
 # espera el `timeout` de store.connect().

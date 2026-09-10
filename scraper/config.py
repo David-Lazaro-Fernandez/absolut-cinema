@@ -16,6 +16,14 @@ REQUEST_TIMEOUT = 60      # segundos por petición
 RETRIES = 3               # reintentos ante 5xx / 429 / red
 PAUSE_BETWEEN_CALLS = 0.15
 
+# Salida por proxy para los hosts que rechazan la IP del servidor. El WAF de Cloudflare de api-g.cinepolis.com
+# bloquea los rangos de AWS por ASN (verificado 2026-09-10 desde EC2 en us-east-1: 403 directo, 200 saliendo por
+# Cloudflare WARP). En el servidor AC_EGRESS_PROXY apunta al proxy HTTP local que reenvía al SOCKS5 de WARP
+# (deploy/README.md); vacío = todo sale directo, como en la Mac. Solo los hosts listados pasan por el proxy.
+EGRESS_PROXY = os.environ.get("AC_EGRESS_PROXY", "")
+EGRESS_PROXY_HOSTS = tuple(h.strip() for h in os.environ.get("AC_EGRESS_PROXY_HOSTS", "api-g.cinepolis.com").split(",")
+                           if h.strip())
+
 # Plaza piloto: CDMX. Ambas cadenas operan en America/Mexico_City.
 PILOT_TIMEZONE = "America/Mexico_City"
 

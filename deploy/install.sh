@@ -15,6 +15,24 @@ if ! command -v caddy >/dev/null; then
   apt-get update -qq && apt-get install -y -qq caddy
 fi
 
+# Salida por Cloudflare WARP para Cinépolis: su WAF bloquea los rangos de AWS por ASN (verificado 2026-09-10).
+# WARP en modo proxy abre un SOCKS5 local sin tocar la red de la instancia; Privoxy lo convierte en proxy HTTP
+# para urllib. El scraper lo usa solo con los hosts de AC_EGRESS_PROXY_HOSTS (ver deploy/README.md).
+if ! command -v warp-cli >/dev/null; then
+  curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | gpg --yes --dearmor -o /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
+  echo "deb [signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] https://pkg.cloudflareclient.com/ $(lsb_release -cs) main" > /etc/apt/sources.list.d/cloudflare-client.list
+  apt-get update -qq && apt-get install -y -qq cloudflare-warp
+fi
+apt-get install -y -qq privoxy
+systemctl enable --now warp-svc
+warp-cli --accept-tos registration show >/dev/null 2>&1 || warp-cli --accept-tos registration new
+warp-cli --accept-tos mode proxy
+warp-cli --accept-tos proxy port 40000
+warp-cli --accept-tos connect
+cp deploy/privoxy.config /etc/privoxy/config
+systemctl enable --now privoxy
+systemctl restart privoxy
+
 id -u absolut >/dev/null 2>&1 || useradd --system --create-home --shell /usr/sbin/nologin absolut
 mkdir -p data/logs data/raw data/backups
 chown -R absolut:absolut "$APP"

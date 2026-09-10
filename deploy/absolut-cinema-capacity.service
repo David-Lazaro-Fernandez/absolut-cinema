@@ -1,6 +1,6 @@
 [Unit]
 Description=absolut-cinema: aforo por sala de Cinépolis, refresco mensual
-After=network-online.target
+After=network-online.target warp-svc.service privoxy.service
 Wants=network-online.target
 # Escribe en data/snapshots.db (SQLite en WAL, un escritor a la vez): si coincide con el scraper, sqlite3
 # espera el `timeout` de store.connect(); por eso los timers van a :07 y no a :00.

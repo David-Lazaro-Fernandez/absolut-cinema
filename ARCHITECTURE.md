@@ -15,6 +15,8 @@ flowchart LR
         DEL["Rappi · DiDi Food<br/>HTML del lado del servidor"]
     end
 
+    WARP["Solo servidor: Cloudflare WARP (SOCKS5) + Privoxy (HTTP :8118)<br/>AC_EGRESS_PROXY · solo hosts de AC_EGRESS_PROXY_HOSTS<br/>el WAF de Cinépolis bloquea las IPs de AWS"]
+
     subgraph scraper["scraper/ (solo stdlib, /usr/bin/python3)"]
         RUN["scraper.run · make snapshot<br/>captura de cartelera 3/día<br/>cinepolis.py · cinemex.py → normalize → diff"]
         OCC["scraper.sample --occupancy<br/>plano a T−60 (preventa, solo a mano)"]
@@ -44,6 +46,8 @@ flowchart LR
         CADDY["Caddy · HTTPS + basic auth"]
     end
 
+    CPL -. en el servidor, vía .-> WARP
+    CPF -. en el servidor, vía .-> WARP
     CPL --> RUN
     CMX --> RUN
     CPL --> OCC & POST & PRICE & CAP
@@ -76,6 +80,11 @@ Reglas que sostiene el diagrama:
   para envolverla después en un API sin reescribir.
 - **El scraper no tiene dependencias**; el dashboard y el `sync` usan el venv. El futuro `geo/` tendrá su propio venv y
   no corre en el servidor.
+- **Cinépolis se alcanza por Cloudflare WARP desde el servidor.** `api-g.cinepolis.com` (cartelera, planos, boletos y
+  dulcería) está detrás de Cloudflare y su WAF bloquea los rangos de AWS por ASN (verificado 2026-09-10). En el servidor
+  el cliente WARP corre en modo proxy (SOCKS5 local, registro gratuito, sin cuenta) y Privoxy lo convierte en proxy HTTP;
+  `scraper/http.py` manda por ahí solo los hosts de `AC_EGRESS_PROXY_HOSTS`. Cinemex, Rappi y DiDi salen directo. En la Mac
+  no hace falta: `AC_EGRESS_PROXY` vacío. Operación en `deploy/README.md`.
 - **Postgres es archivo, no fuente del dashboard (etapa 1).** El `sync` lee SQLite en solo lectura y el crudo, y escribe
   en Postgres por marca de agua; nada más escribe ahí. La historia de cada función se reconstruye desde el crudo, así
   que si cambia la normalización se trunca y se vuelve a cargar.
@@ -103,6 +112,7 @@ flowchart TB
         TBK["backup.timer<br/>05:07 diario"]
         TCX["calibrate-cinemex.timer<br/>19:07 diario · APAGADO por defecto"]
         SDASH["dashboard.service<br/>Streamlit 127.0.0.1:8501 · siempre"]
+        SWARP["warp-svc + privoxy<br/>salida por Cloudflare para Cinépolis · siempre"]
     end
 
     subgraph cmd["Target de make (cada unidad ejecuta uno)"]
@@ -151,6 +161,7 @@ flowchart TB
 | `scraper.health` (`make health`) | salud de la captura: capturas programadas, fallos, muestreos | diario | `logs/health.log` | `daily` (launchd) / `health.timer` |
 | `backup.sh` | copia de la base y sync del crudo | diario 05:07 | bucket | `backup.timer` |
 | `app.py` (+ `ui/`, `views/`) | dashboard Streamlit, páginas Cartelera y Dulcería | siempre | nada (solo lectura) | `dashboard.service`, detrás de Caddy |
+| `warp-svc` + `privoxy` (solo servidor) | salida por Cloudflare WARP para `api-g.cinepolis.com`, cuyo WAF bloquea AWS; `http.py` la usa vía `AC_EGRESS_PROXY` | siempre | nada | systemd, instalados por `install.sh` |
 | `geo/` (futuro) | features de zona y arquetipos | trimestral | `geo.db` | a mano en la Mac |
 
 ## 4. Identidades y llaves que cruzan todo

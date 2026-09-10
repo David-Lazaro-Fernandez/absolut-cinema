@@ -551,7 +551,11 @@ para la lógica pura (`tests/`, pytest en el venv, `requirements-dev.txt`).
   envolver cada función en un endpoint.
 - **Servidor: EC2 en la cuenta de AWS de Cinemex** (decisión de David, 2026-09-09; queda descartado el
   droplet de DigitalOcean). Instancia `t4g.medium` (ARM Graviton2, 2 vCPU, 4 GB) con 30 GB de EBS gp3,
-  ~29–32 USD al mes con el respaldo en S3. Con el archivo histórico en RDS (plan 2) la instancia puede
+  ~29–32 USD al mes con el respaldo en S3. **Cinépolis no acepta la IP de AWS** (su WAF de Cloudflare bloquea el ASN,
+  descubierto en el primer despliegue el 2026-09-10): las llamadas a `api-g.cinepolis.com` salen por el cliente WARP de
+  Cloudflare instalado en la instancia, en modo proxy y con Privoxy como puente HTTP; Cinemex y el resto salen directo.
+  Es un servicio más del host, lo instala `install.sh` y no cambia la instancia ni la red de AWS (no hace falta NAT ni
+  IP elástica para esto). Ver "Consideraciones" y `deploy/README.md`. Con el archivo histórico en RDS (plan 2) la instancia puede
   bajar a `t4g.small`, porque deja de llevar el WAL de SQLite. Dimensionamiento en `docs/ec2-sizing.md`
   y provisión paso a paso en `docs/aws-setup.md`.
   Lo urgente es salir de la Mac: launchd deja huecos en la serie cada vez
@@ -687,7 +691,7 @@ LED; 3D o 4D = formato 3D o 4DX / v4d; el resto Tradicional. Idioma: subtitulada
 
 ## Estado al 2026-09-09 y siguiente fase
 
-**Qué corre hoy (Mac, launchd; listo para el servidor con `deploy/`):** captura de cartelera de CDMX tres veces al día
+**Qué corre hoy (Mac, launchd; en el servidor EC2 desde el 2026-09-10 con `deploy/`, Cinépolis vía WARP):** captura de cartelera de CDMX tres veces al día
 (07:30, 13:30, 20:30), planos de asientos post-inicio de Cinépolis cada hora, precios de boleto y menú de dulcería de
 Cinépolis a diario, dulcería a domicilio (Rappi, DiDi Food) a diario, salud de la captura a diario. Todo escribe solo en
 `data/snapshots.db`; el dashboard (dos páginas: cartelera y dulcería) la lee en modo solo lectura.
@@ -724,7 +728,8 @@ y mover el destino a RDS cuando el cliente confirme la cuenta.
 
 ### Pendientes que no dependen del plan 2
 
-- Desplegar en el servidor con `deploy/install.sh`, copiar `data/` y apagar los agentes de launchd (`make launchd-unload`).
+- Terminar el paso al servidor (EC2 levantado el 2026-09-10; WARP + Privoxy para Cinépolis): copiar `data/`, dejar un solo
+  `sync` apuntando a Postgres y apagar los agentes de launchd (`make launchd-unload`).
 - Cinemex, a mano (`make calibrate-cinemex`, hacia las 7 P.M., por chunks de 60): calibración del semáforo; enciende la
   ocupación estimada de Cinemex en el dashboard.
 - Con historia: ocupación por película, franja y complejo desde `occupancy_sample` post-inicio; escala de los colores
@@ -748,6 +753,16 @@ y mover el destino a RDS cuando el cliente confirme la cuenta.
 - La key es pública pero puede rotar con cada despliegue del sitio. Si la API
   devuelve 401, volver a extraerla de los chunks de `/_next/static/chunks/`
   buscando `API_KEY:"`.
+- **`api-g.cinepolis.com` está detrás de Cloudflare y su WAF bloquea la IP de salida de AWS** (verificado
+  2026-09-10 desde EC2 en us-east-1: `403 Attention Required! | Cloudflare`, error 1020, con la misma clave y
+  cabeceras que funcionan desde la Mac; `Origin`/`Referer` no cambian nada; `cinepolis.com` sí responde 200).
+  Cinemex no está detrás de Cloudflare y funciona desde EC2. La Mac pasa porque sale por Cloudflare WARP con IP
+  mexicana (`cf-ray …-QRO`); el único 403 registrado en la Mac (2026-09-08 18:46 CDMX) coincide con un corte de red.
+  El scraper lo reporta como `http.Blocked`, no como clave rotada. **La regla es por ASN de centro de datos, no por
+  país**: la misma llamada desde EC2 saliendo por Cloudflare WARP (IP de Cloudflare en EE. UU.) respondió 200 el
+  2026-09-10. Solución en el servidor: cliente WARP gratuito en modo proxy (SOCKS5 local) + Privoxy como puente HTTP,
+  y `AC_EGRESS_PROXY` en `scraper/config.py` que `http.py` aplica solo a los hosts de `AC_EGRESS_PROXY_HOSTS`
+  (`api-g.cinepolis.com`); Cinemex, Rappi y DiDi salen directo. Operación en `deploy/README.md`.
 - Los endpoints de billboards no permiten introspección; si un campo falla,
   quitarlo de la query en vez de adivinar alternativas.
 - Mantener un ritmo razonable de peticiones. Toda la lista de cines se obtuvo

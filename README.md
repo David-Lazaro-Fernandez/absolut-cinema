@@ -15,8 +15,9 @@ Inteligencia competitiva de cartelera: Cinemex vs Cinépolis (México).
 - `app.py` + `ui/` + `views/`: dashboard Streamlit con dos páginas (cartelera y dulcería) que solo pintan lo que devuelve `analytics/`.
 - `sync/`: archivo histórico en PostgreSQL: copia lo nuevo de SQLite y reconstruye la historia de cada función desde el
   crudo (`make sync`, cada 30 min). Postgres local con `make pg-up pg-schema`; el esquema en `deploy/postgres/schema.sql`.
-- `deploy/`: systemd, respaldo y Caddy para correr todo en un servidor (`deploy/README.md`); `deploy/docker-compose.dev.yml`
-  levanta Postgres 16 y pgAdmin para desarrollo.
+- `deploy/`: systemd, respaldo, Caddy y la salida por Cloudflare WARP hacia Cinépolis (su WAF bloquea las IPs de AWS)
+  para correr todo en un servidor (`deploy/README.md`); `deploy/docker-compose.dev.yml` levanta Postgres 16 y pgAdmin
+  para desarrollo.
 - `docs/`: diseño del archivo histórico (`postgres-esquema.md`), diagrama de despliegue (`arquitectura_aws.py`) e investigación.
 - `ARCHITECTURE.md`: qué proceso toca qué dato y qué lo programa. `AGENTS.md`: convenciones del repo. `make help`: comandos.
 

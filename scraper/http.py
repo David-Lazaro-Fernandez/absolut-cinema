@@ -15,7 +15,13 @@ class ApiError(Exception):
 
 
 class AuthError(ApiError):
-    """401/403: casi siempre significa que la clave embebida rotó. Ver project.md."""
+    """401, o 403 con respuesta JSON de la API: casi siempre la clave embebida rotó. Ver project.md."""
+
+
+class Blocked(ApiError):
+    """403 con una página HTML en vez de JSON: el borde (Cloudflare) rechazó la IP de salida, no la clave.
+    Visto el 2026-09-10 con `api-g.cinepolis.com` desde EC2 en us-east-1. No se reintenta: la regla no cambia
+    entre intentos."""
 
 
 class RateLimited(ApiError):
@@ -49,17 +55,44 @@ def request_text(url, *, headers=None, retries=None, pause=None):
 
 
 MAX_REDIRECTS = 3
+_OPENERS = {}
+
+
+def _proxy_for(url):
+    """URL del proxy de salida para `url`, o `None` si va directo (`config.EGRESS_PROXY` y `EGRESS_PROXY_HOSTS`)."""
+    if not config.EGRESS_PROXY:
+        return None
+    host = urllib.parse.urlparse(url).hostname or ""
+    return config.EGRESS_PROXY if host in config.EGRESS_PROXY_HOSTS else None
+
+
+def _open(req, proxy):
+    """`urlopen` directo, o a través de `proxy` (HTTP, con CONNECT para https) con un opener por proxy."""
+    if proxy is None:
+        return urllib.request.urlopen(req, timeout=config.REQUEST_TIMEOUT)
+    if proxy not in _OPENERS:
+        _OPENERS[proxy] = urllib.request.build_opener(urllib.request.ProxyHandler({"http": proxy, "https": proxy}))
+    return _OPENERS[proxy].open(req, timeout=config.REQUEST_TIMEOUT)
+
+
+def _forbidden_error(code, url, snippet):
+    """Distingue un rechazo de la API (JSON, clave inválida) de un bloqueo del borde (página HTML)."""
+    if code == 403 and snippet.lstrip().lower().startswith(("<!doctype", "<html")):
+        return Blocked(f"HTTP 403 en {url}: bloqueo en el borde, el WAF devolvió una página HTML "
+                       "en vez de JSON; la IP de salida no está permitida", code)
+    return AuthError(f"HTTP {code} en {url}: {snippet}", code)
 
 
 def _request(url, *, method, headers, data, retries, pause, redirects=0):
     retries = config.RETRIES if retries is None else retries
     hdrs = {"User-Agent": config.USER_AGENT}
     hdrs.update(headers)
+    proxy = _proxy_for(url)
     last_error = None
     for attempt in range(retries + 1):
         req = urllib.request.Request(url, data=data, headers=hdrs, method=method)
         try:
-            with urllib.request.urlopen(req, timeout=config.REQUEST_TIMEOUT) as resp:
+            with _open(req, proxy) as resp:
                 raw = resp.read()
             time.sleep(pause)
             return raw
@@ -77,7 +110,7 @@ def _request(url, *, method, headers, data, retries, pause, redirects=0):
                 return _request(target, method=method, headers=headers, data=data, retries=retries, pause=pause,
                                 redirects=redirects + 1)
             if e.code in (401, 403):
-                raise AuthError(f"HTTP {e.code} en {url}: {snippet}", e.code)
+                raise _forbidden_error(e.code, url, snippet)
             if e.code == 429:
                 last_error = RateLimited(f"HTTP 429 en {url}", 429)
                 time.sleep(10 * (attempt + 1))
@@ -88,6 +121,7 @@ def _request(url, *, method, headers, data, retries, pause, redirects=0):
             else:
                 raise ApiError(f"HTTP {e.code} en {url}: {snippet}", e.code)
         except (urllib.error.URLError, TimeoutError, OSError) as e:
-            last_error = ApiError(f"{type(e).__name__} en {url}: {e}")
+            via = f" (vía proxy {proxy})" if proxy else ""
+            last_error = ApiError(f"{type(e).__name__} en {url}{via}: {e}")
         time.sleep(min(1.5 * (2 ** attempt), 30))
     raise last_error

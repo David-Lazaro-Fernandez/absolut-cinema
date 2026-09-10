@@ -1,6 +1,6 @@
 [Unit]
 Description=absolut-cinema: snapshot de cartelera CDMX (Cinemex + Cinépolis)
-After=network-online.target
+After=network-online.target warp-svc.service privoxy.service
 Wants=network-online.target
 
 [Service]

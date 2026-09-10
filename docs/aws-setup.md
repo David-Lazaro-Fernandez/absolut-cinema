@@ -22,6 +22,11 @@ VPC: 10.0.0.0/16 (cualquier /16 privado)
   └─ NAT Gateway en subnet pública para salidas (EC2 → APIs externas)
 ```
 
+Salida hacia Cinépolis: su WAF de Cloudflare bloquea los rangos de AWS por ASN, así que ni la IP elástica ni el NAT
+Gateway sirven para `api-g.cinepolis.com` (verificado 2026-09-10). Lo resuelve el cliente WARP de Cloudflare dentro de la
+instancia (modo proxy + Privoxy), que instala `deploy/install.sh`; el security group solo necesita salida 443 y UDP hacia
+Cloudflare (WARP usa MASQUE sobre UDP 443 y cae a TCP si no puede). Cinemex, Rappi y DiDi salen directo.
+
 ### Pasos en AWS Console
 
 1. **VPC → Crear VPC:**
@@ -247,7 +252,8 @@ sudo bash deploy/install.sh
 #   - Systemd units en /etc/systemd/system/
 #   - Timers: scraper.timer, seats.timer, health.timer, etc.
 #   - Caddy (HTTPS + basic auth)
-#   - .env: CINEPOLIS_API_KEY, CINEMEX_CONSUMER_KEY, DATABASE_URL (si plan 2)
+#   - Cloudflare WARP (modo proxy, SOCKS5 :40000) + Privoxy (HTTP :8118) para salir hacia Cinépolis
+#   - .env: AC_EGRESS_PROXY=http://127.0.0.1:8118, CINEPOLIS_API_KEY, CINEMEX_CONSUMER_KEY, AC_PG_DSN (si plan 2)
 ```
 
 ---

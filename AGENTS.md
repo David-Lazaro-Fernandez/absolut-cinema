@@ -133,12 +133,12 @@ mira si extender una existente con un parámetro con nombre cubre el caso.
   transitorios si se les aprieta. No los bajes para "ir más rápido"; si un flujo necesita otro
   ritmo, añade una constante en `config.py` con un comentario que diga qué error evita.
 - **Todo lo configurable pasa por `scraper/config.py`** y admite sobreescritura por variable de
-  entorno (`AC_DATA_DIR`, `CINEPOLIS_API_KEY`, `CINEMEX_BASE_URL`…). Nada de URLs, claves, ids de
+  entorno (`AC_DATA_DIR`, `CINEPOLIS_API_KEY`, `CINEMEX_BASE_URL`, `AC_EGRESS_PROXY`…). Nada de URLs, claves, ids de
   área o rutas escritos dentro de un módulo.
 - **Excepciones**: usa las de `scraper/http.py` en vez de levantar `ValueError`/`RuntimeError`
-  genéricos. `AuthError` (401/403) significa casi siempre que la clave embebida rotó y hay que
-  actualizar `config.py` y `project.md`; `RateLimited` (429) que hay que bajar el ritmo; `ApiError`
-  el resto. Un error nuevo con causa distinta merece su subclase, no un mensaje suelto.
+  genéricos. `AuthError` (401, o 403 con JSON) significa casi siempre que la clave embebida rotó y hay que
+  actualizar `config.py` y `project.md`; `Blocked` (403 con página HTML) que el WAF del borde rechaza la IP de
+  salida y la clave está bien; `RateLimited` (429) que hay que bajar el ritmo; `ApiError` el resto. Un error nuevo con causa distinta merece su subclase, no un mensaje suelto.
 - **Guarda el crudo.** Cada snapshot deja su `raw/{chain}/{fecha}/*.json.gz`. Es lo que permite
   recalcular sin volver a pedir. No añadas un flujo que descarte la respuesta original.
 - **Los cambios de esquema van en `store.py`** con `CREATE TABLE IF NOT EXISTS` y son aditivos: la
