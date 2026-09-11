@@ -2,7 +2,7 @@
 
 Entrada de Streamlit con navegación entre páginas (`views/`). La lista de páginas depende de la sesión: sin cookie
 válida solo existen entrar, olvidé mi contraseña y restablecer; con sesión, la cartelera en tres capas, la dulcería y
-el explorador de datos, y para el rol admin también usuarios. Streamlit resuelve la URL contra esa lista, así que una
+el explorador de datos, y para el rol admin también usuarios y operaciones. Streamlit resuelve la URL contra esa lista, así que una
 ruta que no corresponde al rol cae en la página por defecto. Los helpers compartidos viven en `ui/common.py`, la
 sesión en `ui/session.py`, la lógica de negocio en `analytics/` y `archive/`, las cuentas en `auth/`.
 
@@ -17,7 +17,7 @@ from pathlib import Path
 import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from analytics.labels import AUTH_TEXT  # noqa: E402
+from analytics.labels import AUTH_TEXT, OPS_TEXT  # noqa: E402
 from ui import session  # noqa: E402
 from ui.common import PAGE_TITLE, inject_css  # noqa: E402
 
@@ -40,6 +40,7 @@ else:
     ]
     if user["role"] == "admin":
         pages.append(st.Page("views/usuarios.py", title=AUTH_TEXT["users_title"], icon=":material/group:", url_path="usuarios"))
+        pages.append(st.Page("views/operaciones.py", title=OPS_TEXT["title"], icon=":material/monitor_heart:", url_path="operaciones"))
     # El enlace del correo debe abrir aunque haya una sesión (p. ej. otra persona en el mismo navegador).
     pages.append(st.Page("views/restablecer.py", title=AUTH_TEXT["reset_title"], url_path="restablecer", visibility="hidden"))
     session.account_sidebar(user)

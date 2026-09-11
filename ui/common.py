@@ -53,6 +53,8 @@ from analytics.labels import (  # noqa: E402
     LANGUAGE_LABEL,
     LINE,
     NEUTRAL,
+    OK,
+    OPS_TEXT,
     PAPER,
     PLATFORM_LABEL,
     RED,
@@ -64,6 +66,7 @@ from analytics.labels import (  # noqa: E402
     SLOTS,
     STATUS_LABEL,
     VS_NOW_LABEL,
+    WARN,
     WEEKDAY_LABEL,
     date_es,
     hour_mark,
@@ -72,7 +75,7 @@ from analytics.labels import (  # noqa: E402
     range_short,
     time_12,
 )
-from scraper import config  # noqa: E402
+from scraper import config, health  # noqa: E402  (health: estado de la captura para la página de operaciones)
 from scraper.health import MAX_AGE_MIN  # noqa: E402  (umbral de captura vieja, el mismo que scraper.health)
 
 TTL = 60  # segundos; los planos de asientos escriben cada 15 min y la cartelera tres veces al día
@@ -182,6 +185,12 @@ table.mk td.sum {{ font-weight: 700; border-top: 2px solid {LINE}; background: {
 .cuenta {{ font-size: 13px; color: {GRAY}; line-height: 1.4; margin-bottom: 8px; }}
 .cuenta b {{ color: {INK}; }}
 
+/* operaciones (solo admin): chip de estado, tabla de señales y cola de logs */
+.estado {{ display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 4px; color: #fff; background: {OK}; }}
+.estado.mal {{ background: {WARN}; }}
+table.mk td.mal {{ color: {WARN}; font-weight: 700; }}
+[class*="st-key-sec-"] .stCode pre {{ font-size: 12px; }}
+
 /* controles */
 .stButton > button, [data-testid="stBaseButton-secondary"] {{ font-weight: 600; border: 1.5px solid {INK}; color: {INK}; }}
 .stButton > button:hover {{ background: {RED_SOFT}; border-color: {INK}; color: {INK}; }}
@@ -234,6 +243,32 @@ def load_pg(fn_name, **kwargs):
         conn.close()
 
 
+@st.cache_data(ttl=TTL_PG)
+def load_pg_raw(fn_name, **kwargs):
+    """Como `load_pg`, para funciones de `archive/` que devuelven un dict."""
+    conn = archive.connect()
+    try:
+        return getattr(archive, fn_name)(conn, **kwargs)
+    finally:
+        conn.close()
+
+
+@st.cache_data(ttl=TTL)
+def load_health(fn_name, **kwargs):
+    """Funciones de `scraper.health` que reciben la conexión (`check`, `recent_runs`), sobre SQLite en solo lectura."""
+    conn = analytics.connect()
+    try:
+        return getattr(health, fn_name)(conn, **kwargs)
+    finally:
+        conn.close()
+
+
+@st.cache_data(ttl=TTL)
+def load_ops(fn_name, **kwargs):
+    """Funciones de `scraper.health` que leen `data/` sin base (`log_tail`, `storage`, `deployment`)."""
+    return getattr(health, fn_name)(**kwargs)
+
+
 def load_auth(fn_name, **kwargs):
     """Consultas de cuentas (`auth/`), sin caché: la página de usuarios debe reflejar cada acción al instante."""
     conn = auth.connect()
@@ -272,6 +307,17 @@ def local_time(v):
     return v.strftime("%d/%m %I:%M %p").lstrip("0")
 
 
+def size_h(nbytes):
+    """Tamaño legible en unidades binarias: '85.0 MB'."""
+    if nbytes is None or pd.isna(nbytes):
+        return "—"
+    v = float(nbytes)
+    for unit in ("B", "kB", "MB", "GB", "TB"):
+        if v < 1024 or unit == "TB":
+            return f"{v:,.0f} {unit}" if unit == "B" else f"{v:,.1f} {unit}"
+        v /= 1024
+
+
 def money_config(cols):
     """`column_config` para columnas de precio en pesos, con las etiquetas ya traducidas."""
     return {COLUMN_LABEL.get(c, c): st.column_config.NumberColumn(format="$%.2f") for c in cols}
@@ -300,7 +346,7 @@ def pretty(df, index=None):
         if col in df.columns:
             df[col] = df[col].map(labels).fillna(df[col])
     for col in ("sampled_at", "detected_at", "first_seen", "first_seen_at", "closed_at", "last_seen", "last_login_at",
-                "created_at", "starts_at"):
+                "created_at", "starts_at", "taken_at", "finished_at", "synced_at"):
         if col in df.columns:
             df[col] = df[col].map(lambda s: local_time(s) if isinstance(s, (str, datetime)) else s)
     if "datetime_local" in df.columns:

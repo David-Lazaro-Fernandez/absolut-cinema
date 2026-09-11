@@ -22,6 +22,8 @@ NEUTRAL = "#C9CBD0"        # líneas de referencia (la barra del dumbbell)
 GRID = "#ECEDEF"           # rejilla de gráficas
 RED_RAMP = [RED_DARK, RED, "#F08497", "#F7CDD5"]                 # ordinal de un solo tono para cubetas ordenadas
 DIVERGING = [INK, "#8C8E95", "#EFEFEF", "#F6B7C2", RED]          # Cinépolis (tinta) ↔ centro ↔ Cinemex (rojo)
+WARN = "#B45309"           # ámbar: estado con problema, solo en la página de operaciones (el rojo es Cinemex)
+OK = "#2F6F4E"             # verde apagado: estado sano, solo en la página de operaciones
 
 # Franjas horarias: (clave, hora inicio, hora fin exclusiva, etiqueta). La matiné 10–12 va aparte
 # porque existe en fin de semana y es donde una cadena puede ganar barato.
@@ -308,4 +310,108 @@ COLUMN_LABEL.update({
     "movie_title": "Película", "sampled_at": "Muestreado",
     "email": "Correo", "name": "Nombre", "role": "Rol", "last_login_at": "Último acceso", "created_at": "Creada",
     "pending_invite": "Invitación pendiente", "has_password": "Con contraseña", "id": "Id",
+})
+
+# --- Operaciones (scraper/health.py, archive/status.py, views/operaciones.py; solo admin) ---
+# La página es para ingeniería: los nombres de tablas y logs se muestran tal cual, a diferencia del resto del tablero.
+OPS_TEXT = {
+    "title": "Operaciones",
+    "lead": "Estado de la captura, de la base local, del archivo en PostgreSQL y de los servicios. Solo para quien opera la plataforma.",
+    "window": "Ventana",
+    "hours": "{n} h",
+    "all_ok": "Sin problemas en las últimas {hours} h.",
+    "problems": "{n} problema(s) en las últimas {hours} h:",
+    "checked_at": "Revisado",
+    "ok": "OK",
+    "failed": "Falló",
+    "never": "Nunca",
+    "ago": "hace {minutes} min",
+    "ago_h": "hace {hours} h",
+    # Captura.
+    "capture": "Captura de cartelera",
+    "capture_lead": "Lo mismo que revisa scraper.health cada mañana, en vivo.",
+    "signal": "Señal",
+    "last_at": "Última captura",
+    "last_age": "Antigüedad",
+    "last_result": "Resultado",
+    "last_shows": "Funciones leídas",
+    "captures": "Capturas en la ventana",
+    "expected": "Programadas",
+    "missing": "Programadas sin captura",
+    "failed_runs": "Fallidas",
+    "occ_t60": "Planos T−60",
+    "occ_post": "Planos post-inicio",
+    "prices_7d": "Precios (7 días)",
+    "concessions_8d": "Cines con dulcería (8 días)",
+    "delivery_8d": "Tiendas a domicilio (8 días)",
+    "calibration": "Calibración del semáforo",
+    "no_snapshots": "Sin capturas",
+    "none": "Ninguna",
+    # Corridas.
+    "runs": "Corridas recientes",
+    "runs_lead": "Cada corrida de scraper.run por cadena: resultado, volumen, llamadas a la API y duración. El error literal cuando falló.",
+    "runs_days": "Días",
+    "runs_empty": "No hay corridas en ese rango.",
+    "runs_chart_y": "Duración (s)",
+    "runs_chart_x": "Captura",
+    "runs_failed_legend": "Corrida fallida",
+    # Postgres.
+    "postgres": "Archivo histórico en PostgreSQL",
+    "postgres_lead": "Conexión de solo lectura con el mismo rol que usa el tablero.",
+    "pg_down": "PostgreSQL no responde: {error}",
+    "latency": "Latencia",
+    "server_version": "Versión",
+    "database": "Base",
+    "db_size": "Tamaño",
+    "connections": "Conexiones abiertas",
+    "server_time": "Hora del servidor",
+    "tables": "Tablas del esquema public",
+    "watermarks": "Marcas de agua del sync",
+    # Sync.
+    "sync": "Sincronización SQLite → PostgreSQL",
+    "sync_lead": "Última corrida de sync.run según data/logs/sync_status.json. El rezago es lo que falta por copiar, por tabla.",
+    "sync_missing": "El sync no ha corrido nunca en esta máquina (no existe sync_status.json).",
+    "sync_last": "Última corrida",
+    "sync_result": "Resultado",
+    "sync_duration": "Duración",
+    "sync_error": "Error",
+    "sync_lag": "Rezago por tabla",
+    "sync_counts": "Copiado en la última corrida",
+    "sync_no_lag": "Sin rezago: el archivo está al día.",
+    # Servidor.
+    "server": "Servidor y almacenamiento",
+    "server_lead": "Commit en ejecución, último despliegue y respaldo, y cuánto ocupan la base y el crudo.",
+    "commit": "Commit",
+    "no_git": "Sin información de git",
+    "last_deploy": "Último despliegue",
+    "last_backup": "Último respaldo",
+    "no_line": "Sin registro en esta máquina",
+    "db_file": "snapshots.db",
+    "wal_file": "WAL pendiente",
+    "raw_dir": "Crudo (data/raw)",
+    "backups_dir": "Respaldos locales",
+    "disk_free": "Espacio libre en disco",
+    # Logs.
+    "logs": "Registros",
+    "logs_lead": "La cola de cada log de data/logs. La línea más reciente va al final.",
+    "log": "Log",
+    "lines": "Líneas",
+    "log_empty": "Este log no existe todavía en esta máquina.",
+    "log_meta": "{size} · última escritura {when}",
+    # Pendiente.
+    "pending": "Lo que esta página aún no ve",
+    "pending_lead": "Dos señales que hoy no se registran. Se declaran en vez de estimarse.",
+    "pending_items": [
+        ("Cambio en scraper/store.py", "Fallos por llamada a las APIs",
+         "Los reintentos de scraper/http.py no se guardan; solo queda el resultado final de cada corrida. Contar 429, 403 del WAF "
+         "o timeouts por cadena pide una tabla aditiva en SQLite."),
+        ("Permiso IAM cloudwatch:GetMetricData", "Métricas de la instancia RDS",
+         "CPU, almacenamiento libre y conexiones vienen de CloudWatch. El servidor ya usa boto3 para SES; falta el permiso y "
+         "una consulta cacheada."),
+    ],
+}
+COLUMN_LABEL.update({
+    "taken_at": "Inicio", "finished_at": "Fin", "ok": "OK", "n_shows": "Funciones", "n_cinemas": "Cines", "n_events": "Eventos",
+    "calls": "Llamadas", "duration_s": "Duración (s)", "error": "Error", "table_name": "Tabla", "rows_estimate": "Filas (estimado)",
+    "size_bytes": "Tamaño", "partitions": "Particiones", "source_table": "Tabla origen", "last_id": "Último id", "synced_at": "Sincronizado",
 })

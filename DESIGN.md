@@ -19,6 +19,8 @@ gris `#333333` de la primera versión.
 | `--linea` | `#E4E5E9` | Bordes de tarjetas y divisores de tabla |
 | `--papel` | `#FFFFFF` | Tarjetas y secciones |
 | `--fondo` | `#F6F6F4` | Fondo de página y bloque de conclusión |
+| `--ok` | `#2F6F4E` | Chip de estado sano. **Solo en la página Operaciones** (admin) |
+| `--warn` | `#B45309` | Chip y celdas de estado con problema, corridas fallidas. **Solo en la página Operaciones**; el rojo sigue siendo Cinemex |
 
 ### Reglas de uso
 
@@ -135,7 +137,8 @@ Compactas, sin fondo en el encabezado: cabecera en gris con borde inferior 1.5 p
 - **Tema Streamlit.** El bloque `[theme]` de `.streamlit/config.toml` fija colores, radios, la familia Archivo y los
   pesos de encabezado. Fondo de página `#F6F6F4`, fondo secundario blanco (tarjetas, barra lateral).
 - **Constantes de color.** Viven en `analytics/labels.py`: `RED`, `RED_DARK`, `RED_SOFT`, `INK`, `GRAY`, `GRAY_DARK`,
-  `GRAY_LIGHT`, `LINE`, `PAPER`, `NEUTRAL`, `GRID`, `CHAIN_COLOR`, `RED_RAMP`, `DIVERGING`. Ningún hex se escribe
+  `GRAY_LIGHT`, `LINE`, `PAPER`, `NEUTRAL`, `GRID`, `CHAIN_COLOR`, `RED_RAMP`, `DIVERGING`, y los de estado `OK` y `WARN`
+  (solo Operaciones). Ningún hex se escribe
   directo en la presentación salvo tonos internos del bloque oscuro de desbloqueo.
 - **CSS complementario.** `ui/common.py` (`inject_css`, llamado desde `app.py`) inyecta la fuente variable Archivo desde Google Fonts, el ancho de lectura
   (1120 px) y los componentes del mockup: `.enc`, `.capa-tag`, `.hallazgo`, `.pregunta`, `.conclusion`, `table.mk`,
@@ -145,9 +148,16 @@ Compactas, sin fondo en el encabezado: cabecera en gris con borde inferior 1.5 p
 
 Para un color nuevo, agregarlo a `analytics/labels.py` y documentarlo aquí antes de usarlo.
 
+### Página Operaciones (solo admin)
+
+Tablero de lectura para ingeniería, no para el cliente: reutiliza las secciones (`st-key-sec-*`), `table.mk`, el bloque
+oscuro de pendientes y la cola de logs en `st.code`. Es la única página con nombres internos a la vista (tablas, logs) y
+con los colores de estado `OK`/`WARN` (chip `.estado`, celdas `td.mal`). La gráfica de corridas mantiene las cadenas en
+sus colores y marca las fallidas con una cruz ámbar.
+
 ### Navegación entre páginas
 
-`st.navigation(position="top")`: pestañas "Cartelera", "Dulcería", "Datos" y, para el rol admin, "Usuarios" en la barra
+`st.navigation(position="top")`: pestañas "Cartelera", "Dulcería", "Datos" y, para el rol admin, "Usuarios" y "Operaciones" en la barra
 superior en escritorio. Sin sesión la navegación va oculta (`position="hidden"`) y solo existen las páginas de acceso. En pantallas de
 768 px o menos, una regla `@media` fija la barra al pie de la pantalla (fondo papel, borde superior, sombra suave) y
 deja 84 px de aire al final del contenido, para que quede al alcance del pulgar. No probado en dispositivo real

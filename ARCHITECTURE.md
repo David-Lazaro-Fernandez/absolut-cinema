@@ -43,9 +43,9 @@ flowchart LR
 
     subgraph producto["Producto"]
         AN["analytics/ (funciones puras, sin dependencias)<br/>queries · findings · summary · history · seats · concessions · delivery · labels"]
-        ARCH["archive/ (venv, psycopg, solo lectura)<br/>datasets del explorador: cines y salas · funciones · precios"]
+        ARCH["archive/ (venv, psycopg, solo lectura)<br/>datasets del explorador: cines y salas · funciones · precios<br/>status: latencia, tamaños, marcas de agua"]
         AUTH["auth/ (venv, psycopg, boto3)<br/>cuentas · sesiones · enlaces · correo SES/console · auth.cli"]
-        APP["app.py · Streamlit (.venv) · st.navigation según sesión y rol<br/>views/login · olvide · restablecer<br/>views/cartelera (3 capas) · dulceria · datos · usuarios (admin)<br/>ui/common.py helpers · ui/session.py cookie"]
+        APP["app.py · Streamlit (.venv) · st.navigation según sesión y rol<br/>views/login · olvide · restablecer<br/>views/cartelera (3 capas) · dulceria · datos · usuarios · operaciones (admin)<br/>ui/common.py helpers · ui/session.py cookie"]
         CADDY["Caddy · HTTPS (basic auth opcional hasta tener dominio)"]
     end
 
@@ -177,9 +177,9 @@ flowchart TB
 | `sample --capacity` | aforo por sala, Cinépolis | mensual | `auditorium` | `capacity.timer`; Cinemex a mano |
 | `sample --occupancy --chain cinemex --per-level` | calibración del semáforo | diario 19:07, opt-in | `occupancy_sample` | timer apagado o a mano |
 | `sync.run` (`make sync`) | copia lo nuevo de SQLite a PostgreSQL y reconstruye la historia de funciones desde el crudo (identidad + versiones) | :22 y :52 | Postgres: `snapshot`, `cinema`, `movie`, `showtime`, `showtime_state`, `event`, muestreos, `auditorium`, `sync_watermark`; `logs/sync_status.json` | `sync` (launchd) / `sync.timer` |
-| `scraper.health` (`make health`) | salud de la captura: capturas programadas, fallos, muestreos | diario | `logs/health.log` | `daily` (launchd) / `health.timer` |
+| `scraper.health` (`make health`) | salud de la captura: capturas programadas, fallos, muestreos; las mismas funciones alimentan en vivo la página Operaciones | diario | `logs/health.log` | `daily` (launchd) / `health.timer` |
 | `backup.sh` | copia de la base y sync del crudo | diario 05:07 | bucket | `backup.timer` |
-| `app.py` (+ `ui/`, `views/`) | dashboard Streamlit con login por usuario: Cartelera, Dulcería, Datos (explorador del archivo) y Usuarios (admin) | siempre | Postgres `app.*` vía `auth/` (cuentas, sesiones, enlaces, auditoría); los datos, solo lectura | `dashboard.service`, detrás de Caddy |
+| `app.py` (+ `ui/`, `views/`) | dashboard Streamlit con login por usuario: Cartelera, Dulcería, Datos (explorador del archivo) y, para admin, Usuarios y Operaciones (estado de captura, SQLite, Postgres, sync, servidor y logs; lee `scraper.health` y `archive.status`) | siempre | Postgres `app.*` vía `auth/` (cuentas, sesiones, enlaces, auditoría); los datos, solo lectura | `dashboard.service`, detrás de Caddy |
 | `auth.cli` (`make user-create`, `user-list`, `user-reset`, `user-deactivate`, `user-activate`) | administración de cuentas desde la terminal; así nace el primer admin | a mano | Postgres `app.*`; correo por SES o `data/logs/mail.log` | manual |
 | `auth.cli prune` (`make auth-prune`) | borra sesiones y enlaces vencidos hace más de 90 días | domingos 04:07 | Postgres `app.session`, `app.token` | `auth-prune.timer` |
 | GitHub Actions `tests.yml` | pruebas en cada push a `main`; si pasan, mueve la rama `stable` a ese commit | cada push | rama `stable` del repo | GitHub |

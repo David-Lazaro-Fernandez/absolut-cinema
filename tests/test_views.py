@@ -1,5 +1,5 @@
 """Recorrido de cada pantalla del dashboard con `streamlit.testing.v1.AppTest`: acceso (login, olvidé, restablecer),
-cartelera, dulcería, datos y usuarios, con los roles admin y viewer.
+cartelera, dulcería, datos, usuarios y operaciones, con los roles admin y viewer.
 
 Necesitan datos reales: `data/snapshots.db` para cartelera y dulcería, y el Postgres de desarrollo (esquema `app` y
 archivo) para acceso, usuarios y datos. Donde falte alguno, las pruebas se omiten; en CI hoy no hay bases, así que
@@ -20,7 +20,7 @@ pytest.importorskip("streamlit")
 from streamlit.testing.v1 import AppTest  # noqa: E402
 
 import auth  # noqa: E402
-from analytics.labels import AUTH_TEXT, DATASET_LABEL  # noqa: E402
+from analytics.labels import AUTH_TEXT, DATASET_LABEL, OPS_TEXT  # noqa: E402
 from auth import security, sessions, users  # noqa: E402
 from ui import session  # noqa: E402
 
@@ -229,6 +229,28 @@ def test_viewer_cannot_open_usuarios(monkeypatch, conn, viewer):
     at = _run(monkeypatch, cookie=_cookie(conn, viewer), page="usuarios")
     _clean(at)
     assert AUTH_TEXT["create_and_invite"] not in [b.label for b in at.button]
+    assert len(at.dataframe) > 1                          # cayó en la cartelera
+
+
+@needs_sqlite
+@needs_postgres
+def test_operaciones_for_admin(monkeypatch, conn, admin):
+    at = _run(monkeypatch, cookie=_cookie(conn, admin), page="operaciones")
+    _clean(at)
+    assert at.success or at.warning                       # el veredicto de scraper.health, en un sentido o en otro
+    assert len(at.dataframe) >= 3                         # corridas, tablas de Postgres y marcas de agua
+    assert at.code                                        # la cola del log de corridas
+    at.selectbox(key="log_name").set_value("sync").run()
+    _clean(at)
+    assert at.code or at.info                             # cola del sync, o el aviso de que no existe aquí
+
+
+@needs_sqlite
+@needs_postgres
+def test_viewer_cannot_open_operaciones(monkeypatch, conn, viewer):
+    at = _run(monkeypatch, cookie=_cookie(conn, viewer), page="operaciones")
+    _clean(at)
+    assert OPS_TEXT["title"] not in "".join(m.value for m in at.markdown)
     assert len(at.dataframe) > 1                          # cayó en la cartelera
 
 

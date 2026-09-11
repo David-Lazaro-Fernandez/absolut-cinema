@@ -40,6 +40,10 @@ el producto de inteligencia competitiva (Cinemex vs Cinépolis). Fecha: 2026-09-
   consulta), **página de usuarios** para el admin y **explorador de datos** del archivo en Postgres con tablas curadas
   (cines y salas, funciones de la semana, precios). Paquetes nuevos `auth/` y `archive/`, esquema `app` en Postgres
   (ver "Acceso por usuario y explorador de datos").
+- 2026-09-11: **página Operaciones** (solo admin) con el estado de la plataforma para quien la opera: lo que revisa
+  `scraper.health` en vivo, corridas recientes con su error, Postgres (latencia, tamaños, marcas de agua), sync, servidor
+  (commit, despliegue, respaldo, disco) y la cola de cada log. Lógica en `scraper/health.py` y `archive/status.py`. Declara
+  como pendientes los fallos por llamada a las APIs (no se registran) y las métricas de RDS (CloudWatch).
 
 ## Cómo se encontró
 
@@ -780,9 +784,9 @@ SQL: es parte del valor que se entrega al cliente, sin regalarle la base complet
   no delatar por tiempo) y emite a lo más 3 enlaces por hora. Nadie se desactiva ni se cambia el rol a sí mismo, ni deja
   el sistema sin admin activo (`SelfChange`, `LastAdmin`). Todo queda en `app.audit`.
 - **Navegación** (`app.py`): la lista de páginas depende de la sesión. Sin cookie válida: `login` (raíz), `olvide`,
-  `restablecer` (`?token=`), con navegación oculta. Con sesión: Cartelera, Dulcería, Datos y, para admin, Usuarios; la
+  `restablecer` (`?token=`), con navegación oculta. Con sesión: Cartelera, Dulcería, Datos y, para admin, Usuarios y Operaciones; la
   página `restablecer` queda oculta pero accesible para que el enlace del correo abra aun con sesión. Una URL que no
-  corresponde al rol cae en la página por defecto; `usuarios` además exige admin.
+  corresponde al rol cae en la página por defecto; `usuarios` y `operaciones` además exigen admin.
 - **Correo.** `AC_MAIL_BACKEND=console` (default) escribe el correo en `data/logs/mail.log`; `ses` envía con boto3 y el
   rol de la instancia (IAM `ses:SendEmail`, identidad del dominio con DKIM; la cuenta nace en sandbox, ver
   `docs/aws-setup.md`). Si el correo falla, la cuenta y el enlace ya existen (`MailFailed` trae el enlace para entregarlo

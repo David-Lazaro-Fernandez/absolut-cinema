@@ -12,9 +12,17 @@ Revisa, para cada cadena y la ventana dada:
   - muestras de ocupación a T−60 y post-inicio, precios de 7 días, y que los pases semanales de dulcería
     (menú de Cinépolis, tiendas a domicilio) no lleven más de 8 días sin renovarse;
   - el sync al archivo histórico (config.SYNC_STATUS_PATH): última corrida sin error, reciente y sin capturas pendientes.
+
+Además expone, para la página de operaciones del dashboard (`views/operaciones.py`), lo que un ingeniero mira al
+diagnosticar: las corridas recientes con su resultado (`recent_runs`), la cola de cada log (`log_tail`), el tamaño de
+la base y del crudo con el espacio libre (`storage`) y el commit desplegado con el último despliegue y respaldo
+(`deployment`). Todo solo lectura y solo librería estándar; `check` y `recent_runs` reciben la conexión, el resto lee
+`data/` directamente.
 """
 import argparse
 import json
+import shutil
+import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -24,6 +32,10 @@ from . import config, sample, store
 MAX_AGE_MIN = 12 * 60        # tres capturas al día: el hueco normal más largo (20:30 → 07:30) es de 11 h
 SLOT_TOLERANCE_MIN = 30      # una captura programada cuenta si hay snapshot bueno a ±30 min
 CHAINS = ("cinemex", "cinepolis")
+# Logs que se pueden consultar desde el dashboard: nombre → archivo en config.LOG_DIR. Lista cerrada a propósito, para
+# que la página nunca reciba una ruta arbitraria.
+LOGS = {"run": "run.log", "sample": "sample.log", "sync": "sync.log", "delivery": "delivery.log", "health": "health.log",
+        "deploy": "deploy.log", "backup": "backup.log", "mail": "mail.log", "systemd": "systemd.out"}
 
 
 def _dt(s):
@@ -123,6 +135,78 @@ def sync_status(now):
     fin = s_.get("finished_at")
     age = round((now - _dt(fin)).total_seconds() / 60) if fin else None
     return {"ok": bool(s_.get("ok")), "error": s_.get("error"), "age_min": age, "lag": s_.get("lag") or {}, "finished_at": fin}
+
+
+def recent_runs(conn, days=7):
+    """Corridas de captura de cartelera de los últimos `days` días, la más reciente primero: resultado, funciones y
+    cines leídos, eventos detectados, llamadas a la API, duración y el error literal si falló."""
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="seconds")
+    rows = conn.execute("""SELECT id, chain, taken_at, finished_at, ok, n_shows, n_cinemas, n_events, calls, duration_s, error
+                           FROM snapshot WHERE taken_at >= ? ORDER BY id DESC""", (since,)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def log_tail(name, lines=60):
+    """Últimas `lines` líneas de un log de `LOGS` (la más reciente al final), con su tamaño y última escritura.
+    Un log que aún no existe devuelve la lista vacía, no un error: en un servidor recién instalado faltan varios."""
+    if name not in LOGS:
+        raise KeyError(f"log desconocido: {name}; opciones: {', '.join(LOGS)}")
+    path = config.LOG_DIR / LOGS[name]
+    out = {"name": name, "path": str(path), "lines": [], "size_bytes": 0, "modified_at": None}
+    if not path.exists():
+        return out
+    st = path.stat()
+    out["size_bytes"], out["modified_at"] = st.st_size, datetime.fromtimestamp(st.st_mtime, timezone.utc).isoformat(timespec="seconds")
+    with open(path, "rb") as fh:
+        # Se lee desde el final por bloques: los logs de la Mac pasan de 100 kB y el de systemd crece sin rotar.
+        fh.seek(0, 2)
+        pos, chunk, buf = fh.tell(), 64 * 1024, b""
+        while pos > 0 and buf.count(b"\n") <= lines:
+            step = min(chunk, pos)
+            pos -= step
+            fh.seek(pos)
+            buf = fh.read(step) + buf
+    out["lines"] = buf.decode("utf-8", errors="replace").splitlines()[-lines:]
+    return out
+
+
+def _dir_size(path):
+    total = 0
+    if path.exists():
+        for p in path.rglob("*"):
+            if p.is_file():
+                total += p.stat().st_size
+    return total
+
+
+def storage():
+    """Tamaño de la base (con su WAL), del crudo y del respaldo local, y el espacio libre del disco de `data/`."""
+    db, wal = config.DB_PATH, config.DB_PATH.with_name(config.DB_PATH.name + "-wal")
+    usage = shutil.disk_usage(config.DATA_DIR if config.DATA_DIR.exists() else config.ROOT)
+    return {
+        "db_bytes": db.stat().st_size if db.exists() else 0,
+        "wal_bytes": wal.stat().st_size if wal.exists() else 0,
+        "raw_bytes": _dir_size(config.RAW_DIR),
+        "backups_bytes": _dir_size(config.DATA_DIR / "backups"),
+        "disk_total_bytes": usage.total, "disk_free_bytes": usage.free,
+        "data_dir": str(config.DATA_DIR),
+    }
+
+
+def deployment():
+    """Commit en ejecución (hash corto, fecha y asunto) y la última línea de los logs de despliegue y respaldo.
+    Sin git o fuera de un clon, `commit` es None."""
+    out = {"commit": None, "commit_at": None, "commit_subject": None, "last_deploy": None, "last_backup": None}
+    try:
+        show = subprocess.run(["git", "log", "-1", "--format=%h%x1f%cI%x1f%s"], cwd=config.ROOT, capture_output=True,
+                              text=True, timeout=5, check=True).stdout.strip()
+        out["commit"], out["commit_at"], out["commit_subject"] = show.split("\x1f", 2)
+    except (OSError, subprocess.SubprocessError, ValueError):
+        pass
+    for key, name in (("last_deploy", "deploy"), ("last_backup", "backup")):
+        tail = log_tail(name, lines=1)["lines"]
+        out[key] = tail[-1] if tail else None
+    return out
 
 
 def format_report(r):

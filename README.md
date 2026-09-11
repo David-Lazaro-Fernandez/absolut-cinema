@@ -12,11 +12,13 @@ Inteligencia competitiva de cartelera: Cinemex vs Cinépolis (México).
   `scraper/sample.py` mide aforo, ocupación (planos de asientos de Cinépolis tras el inicio, cada hora), precios y
   dulcería; `scraper/delivery.py` lee la dulcería a domicilio en Rappi y DiDi Food; `scraper/health.py` vigila la captura.
 - `analytics/`: consultas de negocio sobre la base (funciones puras, sin dependencias).
-- `archive/`: consultas de solo lectura sobre el archivo en PostgreSQL (los conjuntos del explorador de datos).
+- `archive/`: consultas de solo lectura sobre el archivo en PostgreSQL (los conjuntos del explorador de datos y el estado de
+  la base para la página de operaciones).
 - `auth/`: cuentas, sesiones y enlaces de acceso del dashboard (esquema `app` de Postgres, correo por SES); `make user-create`
   crea el primer admin.
 - `app.py` + `ui/` + `views/`: dashboard Streamlit con login por usuario (roles admin y consulta) y páginas de cartelera,
-  dulcería, datos (explorador del archivo) y usuarios (admin), que solo pintan lo que devuelve `analytics/`, `archive/` y `auth/`.
+  dulcería, datos (explorador del archivo) y, para admin, usuarios y operaciones (estado de la plataforma), que solo pintan lo
+  que devuelve `analytics/`, `archive/`, `auth/` y `scraper.health`.
 - `sync/`: archivo histórico en PostgreSQL: copia lo nuevo de SQLite y reconstruye la historia de cada función desde el
   crudo (`make sync`, cada 30 min). Postgres local con `make pg-up pg-schema`; el esquema en `deploy/postgres/schema.sql`.
 - `deploy/`: systemd, respaldo, Caddy y la salida por Cloudflare WARP hacia Cinépolis (su WAF bloquea las IPs de AWS)

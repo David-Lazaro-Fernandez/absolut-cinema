@@ -169,9 +169,14 @@ el timer lo note. Si añades un flujo de captura, añade su cobertura ahí.
 
 - Páginas con `st.navigation` (barra superior; en celular el CSS la fija abajo): `views/cartelera.py` (tres
   capas con los filtros de periodo y franja en la barra lateral), `views/dulceria.py`, `views/datos.py` (explorador del
-  archivo en Postgres) y, solo para el rol admin, `views/usuarios.py`. Un módulo que responde una
+  archivo en Postgres) y, solo para el rol admin, `views/usuarios.py` y `views/operaciones.py`. Un módulo que responde una
   pregunta propia del cliente y no depende del periodo va en su página; lo demás, en la cartelera. Las páginas
   hacen `from ui.common import *` a propósito: comparten un espacio de nombres de presentación.
+- **`views/operaciones.py` es la excepción documentada** a "ningún nombre interno llega al usuario": su público es quien
+  opera la plataforma, así que muestra nombres de tablas, logs y módulos tal cual, y usa los colores de estado `OK` y
+  `WARN` de `labels.py` (los únicos que no son rojo ni tinta). Su lógica vive en `scraper/health.py` (SQLite y `data/`,
+  stdlib) y `archive/status.py` (Postgres, solo lectura); entra por `load_health`, `load_ops` y `load_pg_raw`. Nada de
+  esa página escribe ni ejecuta acciones: es un tablero de lectura, no una consola.
 - **La lista de páginas depende de la sesión** (`app.py`): sin cookie válida solo existen `views/login.py`,
   `views/olvide.py` y `views/restablecer.py` (navegación oculta). Streamlit resuelve la URL contra esa lista, así que una
   ruta que no corresponde al rol cae en la página por defecto; `views/usuarios.py` además abre con `require_admin`.
