@@ -50,6 +50,8 @@ for unit in absolut-cinema-scraper.service absolut-cinema-scraper.timer \
             absolut-cinema-health.service absolut-cinema-health.timer \
             absolut-cinema-sync.service absolut-cinema-sync.timer \
             absolut-cinema-capacity.service absolut-cinema-capacity.timer \
+            absolut-cinema-auth-prune.service absolut-cinema-auth-prune.timer \
+            absolut-cinema-deploy.service absolut-cinema-deploy.timer \
             absolut-cinema-calibrate-cinemex.service absolut-cinema-calibrate-cinemex.timer; do
   ln -sf "$APP/deploy/$unit" "/etc/systemd/system/$unit"
 done
@@ -64,7 +66,8 @@ fi
 
 systemctl enable --now absolut-cinema-scraper.timer absolut-cinema-dashboard.service absolut-cinema-backup.timer \
                        absolut-cinema-seats.timer absolut-cinema-prices.timer absolut-cinema-delivery.timer \
-                       absolut-cinema-health.timer absolut-cinema-capacity.timer absolut-cinema-sync.timer
+                       absolut-cinema-health.timer absolut-cinema-capacity.timer absolut-cinema-sync.timer \
+                       absolut-cinema-auth-prune.timer absolut-cinema-deploy.timer
 # La calibración de Cinemex abre órdenes de checkout: queda enlazada pero apagada. Encender a mano cuando se decida:
 #   systemctl enable --now absolut-cinema-calibrate-cinemex.timer
 
@@ -73,4 +76,6 @@ if [ ! -f /etc/caddy/Caddyfile ] || ! grep -q 8501 /etc/caddy/Caddyfile; then
   echo ">> Edita /etc/caddy/Caddyfile (dominio y hash de basic_auth) y luego: systemctl reload caddy"
 fi
 
+echo ">> Acceso por usuario: aplica deploy/postgres/auth.sql y app_role.sql en Postgres, pon AC_AUTH_PG_DSN, AC_BASE_URL y"
+echo ">> el correo (AC_MAIL_*) en /etc/absolut-cinema.env y crea el primer admin: make user-create EMAIL=… NAME=… ROLE=admin"
 echo ">> Listo. Revisa: systemctl list-timers absolut-cinema-*  |  tail -f $APP/data/logs/run.log"

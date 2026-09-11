@@ -7,13 +7,12 @@ aquí: si el dato no existe, el hallazgo no aparece. Hablamos en primera persona
 `findings()` devuelve hasta `top` dicts {title, body, action, support: [{label, value, cmx}]}.
 `conclusions()` devuelve {peliculas, peliculas_note, franjas, formatos}: la frase que abre cada
 sección de evidencia."""
-from .labels import CHAIN_LABEL, FORMAT_LABEL, FULL_DAY, SLOT_SHORT, SLOTS, THEM, US, WEEKDAY_LABEL
-from .queries import (concentration, heatmap_day_slot, is_full_day, kpis, mix, movies_by_chain, showtimes_by_slot,
-                      today)
-from .seats import offered_by_title
-from .summary import general_summary
 from .concessions import concession_basket
 from .delivery import delivery_compare, delivery_summary
+from .labels import CHAIN_LABEL, FORMAT_LABEL, FULL_DAY, SLOT_SHORT, SLOTS, THEM, US, WEEKDAY_LABEL
+from .queries import concentration, heatmap_day_slot, is_full_day, kpis, mix, movies_by_chain, showtimes_by_slot, today
+from .seats import offered_by_title
+from .summary import general_summary
 
 THEM_NAME = CHAIN_LABEL[THEM]
 
@@ -141,7 +140,7 @@ def _concentration_finding(conn, d0, d1, movies, hours=None):
     else:
         title = (f"{THEM_NAME} concentra más que nosotros: sus 3 títulos principales pesan {_pct(ct['top3_pct'])} de su parrilla "
                  f"frente a nuestro {_pct(cu['top3_pct'])}.")
-        body = (f"Cubrimos más ancho" + (f" con {-dt} títulos más" if dt < 0 else "") +
+        body = ("Cubrimos más ancho" + (f" con {-dt} títulos más" if dt < 0 else "") +
                 "; rinde si los títulos medianos venden, y cuesta si la taquilla está en los tres grandes.")
         action = "Decisión: ¿recortar cola larga para reforzar los tres títulos principales?"
     return {"topic": "concentracion", "title": title, "body": body, "action": action, "support": [
@@ -248,7 +247,7 @@ def _concession_finding(conn):
     else:
         title = f"Nuestra dulcería a domicilio es {abs(gap):.0f} % más cara que la de {THEM_NAME}."
         action = "Decisión: revisar la canasta básica frente a la suya antes de la siguiente campaña."
-    body = (f"Nuestra lista es una sola en toda la ciudad" + (f" ({single[0]:.0f} % de los productos con un solo precio)" if single else "") + "; "
+    body = ("Nuestra lista es una sola en toda la ciudad" + (f" ({single[0]:.0f} % de los productos con un solo precio)" if single else "") + "; "
             + (f"{THEM_NAME} mueve la canasta por complejo: palomitas de ${pop['min_price']:,.0f} a ${pop['max_price']:,.0f} en "
                f"{int(pop['distinct_prices'])} niveles de precio." if pop else f"{THEM_NAME} fija precio por complejo."))
     support = []

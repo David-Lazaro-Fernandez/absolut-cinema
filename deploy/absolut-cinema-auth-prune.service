@@ -1,0 +1,15 @@
+[Unit]
+Description=absolut-cinema: borra sesiones y enlaces de acceso vencidos hace más de 90 días
+After=network-online.target
+Wants=network-online.target
+# Escribe solo el esquema `app` de Postgres con el rol absolut_app (AC_AUTH_PG_DSN en /etc/absolut-cinema.env).
+
+[Service]
+Type=oneshot
+User=absolut
+WorkingDirectory=/opt/absolut-cinema
+EnvironmentFile=-/etc/absolut-cinema.env
+ExecStart=/usr/bin/make -C /opt/absolut-cinema auth-prune
+Nice=10
+StandardOutput=append:/opt/absolut-cinema/data/logs/systemd.out
+StandardError=append:/opt/absolut-cinema/data/logs/systemd.out

@@ -1,0 +1,14 @@
+[Unit]
+Description=absolut-cinema: despliega el último commit estable (rama stable) y reinicia el dashboard
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Como root: reinicia servicios y recarga unidades; el código lo trae como el usuario absolut (deploy/update.sh).
+WorkingDirectory=/opt/absolut-cinema
+EnvironmentFile=-/etc/absolut-cinema.env
+ExecStart=/usr/bin/make -C /opt/absolut-cinema deploy
+TimeoutStartSec=10min
+StandardOutput=append:/opt/absolut-cinema/data/logs/systemd.out
+StandardError=append:/opt/absolut-cinema/data/logs/systemd.out

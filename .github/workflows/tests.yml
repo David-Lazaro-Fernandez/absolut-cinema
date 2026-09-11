@@ -1,0 +1,51 @@
+# Pruebas en cada push a main y en cada pull request. Si pasan en main, mueve la rama `stable` a ese commit: es lo que
+# el servidor despliega cada mañana (deploy/update.sh, 07:07). Si fallan, `stable` no se mueve y el commit queda en rojo.
+# La rama `stable` la mueve solo este workflow; no se toca a mano.
+name: pruebas y commit estable
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: write     # para mover la rama stable
+
+concurrency:
+  group: pruebas-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: venv del dashboard y sync
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -q -r requirements-dashboard.txt -r requirements-sync.txt pytest ruff
+
+      - name: lint (ruff, pyproject.toml)
+        run: .venv/bin/ruff check .
+
+      - name: el scraper y analytics siguen sin dependencias externas
+        # Intérprete sin venv: si alguien importó pandas o psycopg en scraper/ o analytics/, falla aquí y no en el servidor.
+        run: |
+          python -m compileall -q scraper analytics
+          python -c "import analytics, scraper.run, scraper.sample, scraper.health, scraper.delivery"
+
+      - name: pruebas unitarias
+        run: .venv/bin/python -m pytest -q tests/
+
+      - name: marcar commit estable
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git push --force origin "${GITHUB_SHA}:refs/heads/stable"
+          echo "stable -> ${GITHUB_SHA}"

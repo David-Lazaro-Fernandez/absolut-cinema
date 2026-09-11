@@ -8,9 +8,10 @@ replay inverso de los eventos posteriores al instante pedido; es exacta desde qu
 """
 import json
 
+from scraper.normalize import TRACKED_FIELDS  # mismos campos que el diff del scraper y el archivo histórico
+
 from .db import rows
 
-from scraper.normalize import TRACKED_FIELDS   # mismos campos que el diff del scraper y el archivo histórico
 CLOSING_KINDS = ("removed", "expired")
 
 

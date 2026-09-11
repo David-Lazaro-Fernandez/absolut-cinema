@@ -8,11 +8,10 @@ transacción y actualiza el estado en memoria, así una corrida procesa muchas c
 """
 import gzip
 import json
-from datetime import timedelta
 
 from scraper import config, normalize
 from scraper.diff import changed_fields, closing_kind
-from scraper.normalize import CHANGE_FIELDS, MOVE_FIELDS, TRACKED_FIELDS
+from scraper.normalize import TRACKED_FIELDS
 
 from . import pg
 

@@ -5,7 +5,8 @@ PY ?= /usr/bin/python3
 VENV ?= .venv/bin
 
 .PHONY: help tick snapshot seats occupancy post-start daily health prices concessions delivery capacity capacity-cinemex \
-        calibrate-cinemex dashboard backup launchd-load launchd-unload pg-up pg-schema pg-psql pg-admin pg-down sync
+        calibrate-cinemex dashboard backup launchd-load launchd-unload pg-up pg-schema pg-psql pg-admin pg-down sync \
+        auth-schema user-create user-list user-reset user-deactivate user-activate auth-prune deploy check lint test hooks
 
 help:               ## lista los targets
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-20s %s\n", $$1, $$2}'
@@ -68,8 +69,47 @@ sync:               ## copia lo nuevo de SQLite al archivo histórico en Postgre
 dashboard:          ## Streamlit local
 	$(VENV)/streamlit run app.py
 
+auth-schema:        ## esquema `app` (cuentas y sesiones) y rol absolut_app en el Postgres local; APP_PASSWORD opcional
+	docker compose -f deploy/docker-compose.dev.yml exec -T postgres psql -v ON_ERROR_STOP=1 -U absolut -d absolut_cinema < deploy/postgres/auth.sql
+	docker compose -f deploy/docker-compose.dev.yml exec -T postgres psql -v ON_ERROR_STOP=1 -v app_password="$(or $(APP_PASSWORD),absolut-dev)" -U absolut -d absolut_cinema < deploy/postgres/app_role.sql
+
+user-create:        ## cuenta nueva con enlace de invitación: EMAIL= NAME= [ROLE=admin|viewer] [NOMAIL=1]
+	$(VENV)/python -m auth.cli create --email "$(EMAIL)" --name "$(NAME)" --role $(or $(ROLE),viewer) $(if $(NOMAIL),--no-mail,)
+
+user-list:          ## todas las cuentas del dashboard
+	$(VENV)/python -m auth.cli list
+
+user-reset:         ## enlace nuevo de invitación o restablecimiento: EMAIL= [NOMAIL=1]
+	$(VENV)/python -m auth.cli reset --email "$(EMAIL)" $(if $(NOMAIL),--no-mail,)
+
+user-deactivate:    ## desactiva una cuenta y cierra sus sesiones: EMAIL=
+	$(VENV)/python -m auth.cli deactivate --email "$(EMAIL)"
+
+user-activate:      ## reactiva una cuenta: EMAIL=
+	$(VENV)/python -m auth.cli activate --email "$(EMAIL)"
+
+auth-prune:         ## borra sesiones y enlaces vencidos hace más de 90 días (programado los domingos 04:07)
+	$(VENV)/python -m auth.cli prune
+
 backup:             ## respaldo (requiere BACKUP_BUCKET en el entorno)
 	bash deploy/backup.sh
+
+deploy:             ## servidor: trae origin/stable (o REF=…), reinstala si cambió requirements y reinicia el dashboard (07:07)
+	bash deploy/update.sh
+
+check: lint test    ## lo que corre el pre-push y CI: lint, imports sin dependencias y pruebas
+
+lint:               ## ruff (pyproject.toml) y comprobación de que scraper/ y analytics/ importan con el Python del sistema
+	$(VENV)/ruff check .
+	$(PY) -m compileall -q scraper analytics
+	$(PY) -c "import analytics, scraper.run, scraper.sample, scraper.health, scraper.delivery"
+
+test:               ## pruebas (las de pantalla se omiten si no hay data/snapshots.db o el Postgres de desarrollo)
+	$(VENV)/python -m pytest -q tests/
+
+hooks:              ## activa los hooks de git del repo (.githooks: pre-push corre make check); una vez por clon
+	git config core.hooksPath .githooks
+	@echo "pre-push activo; para saltarlo en una emergencia: git push --no-verify"
 
 launchd-load:       ## Mac: cargar los cinco agentes (cartelera 3/día, planos cada hora, diario, delivery, sync)
 	for a in scraper seats daily delivery sync; do launchctl bootstrap gui/$$(id -u) scraper/com.absolut-cinema.$$a.plist; done

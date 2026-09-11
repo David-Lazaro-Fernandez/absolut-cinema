@@ -1,0 +1,11 @@
+[Unit]
+Description=absolut-cinema: limpieza de sesiones vencidas, domingos 04:07
+
+[Timer]
+# Los trabajos de escritura diarios van a :07 para no chocar con capturas (:30), planos (:50) ni sync (:22, :52).
+OnCalendar=Sun *-*-* 04:07:00
+Persistent=true
+AccuracySec=5min
+
+[Install]
+WantedBy=timers.target

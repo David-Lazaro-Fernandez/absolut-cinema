@@ -1,0 +1,20 @@
+# Solo configuración de herramientas de desarrollo (ruff, pytest). El proyecto no se instala como paquete.
+[tool.ruff]
+line-length = 120
+target-version = "py39"          # scraper/ y analytics/ deben correr en el Python del sistema (3.9+)
+extend-exclude = [".venv", "data", "docs"]
+
+[tool.ruff.lint]
+# E/W: PEP 8; F: nombres sin definir e imports sin usar (el caso de AUTH_TEXT); I: orden de imports.
+select = ["E", "W", "F", "I"]
+ignore = ["E501", "E702"]        # E501: 120 es guía, no bloqueo. E702: el repo agrupa pasos cortos con `;` a propósito
+
+[tool.ruff.lint.per-file-ignores]
+"views/*.py" = ["F403", "F405"]  # las páginas hacen `from ui.common import *` a propósito (AGENTS.md §6)
+"ui/common.py" = ["E402", "F401"]  # sys.path.insert antes de importar analytics/; reexporta nombres para las páginas
+"app.py" = ["E402"]
+"tests/*.py" = ["E402"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

@@ -51,6 +51,9 @@ FORMAT_LABEL = {"premium": "Premium / VIP", "large": "Gran formato", "3d4d": "3D
 LANGUAGE_LABEL = {"spanish": "Español", "subtitled": "Subtitulada", "original": "Español", "other": "Otro"}
 PLATFORM_LABEL = {"rappi": "Rappi", "didi": "DiDi Food"}
 CINEMA_TYPE_LABEL = {"vip": "VIP", "traditional": "Tradicional"}
+# Plaza: cada cadena la nombra distinto (Cinépolis por slug de ciudad, Cinemex por id de estado). Hoy solo CDMX; al
+# abrir más plazas se amplía con el catálogo de ciudades de cada API.
+CITY_LABEL = {"cdmx": "CDMX", "8": "CDMX"}
 
 LANGUAGE_BUCKETS = ["spanish", "subtitled"]
 
@@ -88,10 +91,10 @@ KIND_HELP = {
 
 COLUMN_LABEL = {
     "status": "Estado", "first_seen": "Publicada", "vs_now": "Frente a hoy", "changes": "Cambios", "detected_at": "Detectado",
-    "platform": "Plataforma", "store_name": "Tienda", "stores": "Tiendas", "address": "Dirección", "status": "Estado",
+    "platform": "Plataforma", "store_name": "Tienda", "stores": "Tiendas", "address": "Dirección",
     "description": "Descripción", "pct_single_price": "% productos con precio único", "last_sampled": "Última lectura",
     "product_name": "Producto", "category": "Categoría", "products": "Productos", "listings": "Referencias",
-    "median_price": "Mediana", "min_price": "Mínimo", "max_price": "Máximo", "avg_price": "Precio promedio",
+    "avg_price": "Precio promedio",
     "spread_pct": "Máx. vs mín. %", "distinct_prices": "Precios distintos", "price": "Precio", "categories": "Categorías",
     "chain": "Cadena", "cinemas": "Cines", "shows": "Funciones", "movies": "Películas",
     "pct_subtitled": "% subtituladas", "shows_per_cinema": "Funciones por cine",
@@ -103,7 +106,7 @@ COLUMN_LABEL = {
     "per_cinema_cinemex": "Por cine Cinemex", "per_cinema_cinepolis": "Por cine Cinépolis",
     "share_cinemex": "% programación Cinemex", "share_cinepolis": "% programación Cinépolis",
     "gap_pp": "Diferencia (puntos)", "shows_total": "Funciones totales",
-    "detected_at": "Detectado", "kind": "Tipo de cambio", "movie_title": "Película",
+    "kind": "Tipo de cambio", "movie_title": "Película",
     "cinema_id": "Cine", "cinema_name": "Cine", "date": "Fecha", "datetime_local": "Función",
     "show_id": "Id", "n": "Cambios",
     "hhi": "Índice de concentración (HHI)", "top3_pct": "Peso del Top 3", "titles_per_cinema": "Títulos por complejo",
@@ -179,3 +182,130 @@ def range_short(d0, d1):
     if a.month == b.month:
         return f"{dias[a.weekday()]} {a.day} – {dias[b.weekday()]} {b.day} {meses[b.month - 1]} {b.year}"
     return f"{dias[a.weekday()]} {a.day} {meses[a.month - 1]} – {dias[b.weekday()]} {b.day} {meses[b.month - 1]} {b.year}"
+
+
+# --- Cuentas y acceso (auth/, ui/auth.py, views/login|olvide|restablecer|usuarios) ---
+ROLE_LABEL = {"admin": "Administrador", "viewer": "Consulta"}
+ROLE_HELP = {"admin": "Gestiona cuentas y ve todo.", "viewer": "Ve la cartelera, la dulcería y los datos."}
+AUTH_TEXT = {
+    "app_name": "Absolut Cinema",
+    "login_title": "Entrar",
+    "login_lead": "Inteligencia de cartelera de Cinemex frente a Cinépolis.",
+    "email": "Correo",
+    "password": "Contraseña",
+    "password_confirm": "Confirma la contraseña",
+    "enter": "Entrar",
+    "forgot": "¿Olvidaste tu contraseña?",
+    "back_to_login": "Volver a entrar",
+    "logout": "Cerrar sesión",
+    "forgot_title": "Restablecer contraseña",
+    "forgot_lead": "Escribe tu correo y te enviaremos un enlace para elegir una contraseña nueva.",
+    "send_link": "Enviar enlace",
+    "forgot_done": "Si el correo está registrado, en unos minutos recibirás un enlace. Revisa también la carpeta de spam.",
+    "reset_title": "Elige tu contraseña nueva",
+    "invite_title": "Bienvenido: elige tu contraseña",
+    "reset_lead": "Para la cuenta {email}. Mínimo 12 caracteres.",
+    "save_password": "Guardar contraseña",
+    "reset_done": "Contraseña guardada. Ya puedes entrar con ella.",
+    "password_mismatch": "Las contraseñas no coinciden.",
+    "password_short": "La contraseña debe tener al menos 12 caracteres.",
+    "password_is_email": "La contraseña no puede ser tu correo.",
+    "token_missing": "Este enlace no es válido. Pide uno nuevo desde “¿Olvidaste tu contraseña?”.",
+    "signed_in_as": "Sesión de",
+    "continue": "Si la página no se recarga sola, continúa aquí.",
+    "pg_unavailable": "El archivo histórico no responde en este momento. Inténtalo en unos minutos.",
+    # Mensajes por clase de error de auth.errors (type(e).__name__).
+    "InvalidCredentials": "Correo o contraseña incorrectos.",
+    "AccountInactive": "Correo o contraseña incorrectos.",
+    "AccountLocked": "Demasiados intentos. Vuelve a intentarlo en {minutes} minutos.",
+    "TokenInvalid": "Este enlace ya no sirve: caducó o ya se usó. Pide uno nuevo desde “¿Olvidaste tu contraseña?”.",
+    "WeakPassword": "La contraseña no cumple la regla mínima.",
+    "DuplicateEmail": "Ya existe una cuenta con ese correo.",
+    "LastAdmin": "No puedes dejar el sistema sin administradores.",
+    "SelfChange": "No puedes cambiar tu propia cuenta desde aquí.",
+    # Página de usuarios.
+    "users_title": "Usuarios",
+    "users_lead": "Quién entra al tablero y con qué rol. Las cuentas nuevas reciben un enlace para elegir su contraseña.",
+    "new_account": "Nueva cuenta",
+    "name": "Nombre",
+    "role": "Rol",
+    "create_and_invite": "Crear y enviar invitación",
+    "invite_sent": "Invitación enviada a {email}.",
+    "invite_link_console": "Correo en modo consola: comparte este enlace con la persona.",
+    "manage_account": "Administrar una cuenta",
+    "pick_account": "Cuenta",
+    "deactivate": "Desactivar",
+    "activate": "Reactivar",
+    "resend_link": "Reenviar enlace",
+    "change_role": "Cambiar rol",
+    "done": "Listo.",
+    "mail_failed": "La cuenta quedó creada pero el correo no salió: {error}. Usa “Reenviar enlace” más tarde.",
+}
+MAIL_INVITE = {
+    "subject": "Tu acceso a Absolut Cinema",
+    "text": ("Hola {name}:\n\nTe creamos una cuenta en Absolut Cinema, el tablero de cartelera de Cinemex frente a "
+             "Cinépolis. Elige tu contraseña en este enlace (vale {hours} horas):\n\n{link}\n\n"
+             "Si no esperabas este correo, ignóralo.\n"),
+    "html": ("<p>Hola {name}:</p><p>Te creamos una cuenta en <b>Absolut Cinema</b>, el tablero de cartelera de Cinemex "
+             "frente a Cinépolis. Elige tu contraseña en este enlace (vale {hours} horas):</p>"
+             "<p><a href=\"{link}\">{link}</a></p><p>Si no esperabas este correo, ignóralo.</p>"),
+}
+MAIL_RESET = {
+    "subject": "Restablecer tu contraseña de Absolut Cinema",
+    "text": ("Hola {name}:\n\nPediste restablecer tu contraseña. Elige una nueva en este enlace (vale {minutes} "
+             "minutos y solo una vez):\n\n{link}\n\nSi no fuiste tú, ignora este correo: tu contraseña no cambia.\n"),
+    "html": ("<p>Hola {name}:</p><p>Pediste restablecer tu contraseña. Elige una nueva en este enlace (vale {minutes} "
+             "minutos y solo una vez):</p><p><a href=\"{link}\">{link}</a></p>"
+             "<p>Si no fuiste tú, ignora este correo: tu contraseña no cambia.</p>"),
+}
+
+# --- Explorador de datos (archive/, views/datos.py) ---
+DATASET_LABEL = {
+    "cinemas": "Cines y salas",
+    "auditoriums": "Salas y aforo",
+    "week_showtimes": "Funciones de la semana",
+    "ticket_prices": "Precio del boleto",
+    "concession_prices": "Dulcería en sala (Cinépolis)",
+    "delivery_prices": "Dulcería a domicilio",
+}
+DATASET_HELP = {
+    "cinemas": "Un renglón por complejo, con sus salas y butacas medidas en el plano de asientos.",
+    "auditoriums": "Un renglón por sala: butacas totales y fuera de servicio según la última medición.",
+    "week_showtimes": "Funciones publicadas en el rango de fechas, tal como están hoy; las cerradas dicen si se cancelaron o concluyeron.",
+    "ticket_prices": "Boleto general y rango de boletos por cine, formato y tipo de día, con la fecha de la lectura.",
+    "concession_prices": "Menú en línea de Cinépolis por complejo; la última lectura de cada producto.",
+    "delivery_prices": "Precios de Cinemex y Cinépolis en Rappi y DiDi Food; la última lectura de cada producto por tienda.",
+}
+DATA_TEXT = {
+    "title": "Datos",
+    "lead": "Las tablas del archivo histórico, para ordenar, filtrar, buscar y descargar.",
+    "dataset": "Tabla",
+    "chain": "Cadena",
+    "both": "Ambas",
+    "cinemas": "Cines",
+    "dates": "Fechas",
+    "platform": "Plataforma",
+    "category": "Categoría",
+    "all": "Todas",
+    "search": "Buscar",
+    "search_help": "Parte del nombre; sin distinguir mayúsculas.",
+    "only_open": "Solo funciones vigentes",
+    "latest_only": "Solo la última lectura de cada producto",
+    "format": "Formato",
+    "day_type": "Tipo de día",
+    "rows": "{n} renglones",
+    "truncated": "Se muestran los primeros {n}; afina los filtros para ver el resto.",
+    "download": "Descargar CSV",
+    "empty": "No hay renglones con esos filtros.",
+    "no_history": "El archivo histórico aún no tiene esta tabla poblada.",
+}
+COLUMN_LABEL.update({
+    "city_id": "Plaza", "lat": "Latitud", "lng": "Longitud", "last_seen": "Última vez vista", "first_seen_at": "Publicada",
+    "broken": "Fuera de servicio", "show_date": "Fecha", "starts_at": "Inicio", "language": "Idioma", "format": "Formato",
+    "experience": "Experiencia", "premium_tier": "Nivel premium", "closed_at": "Cerrada", "closed_kind": "Cierre",
+    "general_price": "Precio general", "fee_price": "Cargo por servicio", "sub_category": "Subcategoría",
+    "promotion_type": "Promoción", "active": "Activa", "in_stock": "En existencia", "store_slug": "Tienda (clave)",
+    "movie_title": "Película", "sampled_at": "Muestreado",
+    "email": "Correo", "name": "Nombre", "role": "Rol", "last_login_at": "Último acceso", "created_at": "Creada",
+    "pending_invite": "Invitación pendiente", "has_password": "Con contraseña", "id": "Id",
+})

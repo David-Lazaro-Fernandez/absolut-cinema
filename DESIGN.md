@@ -93,6 +93,23 @@ línea de resumen con las cifras clave para que no haga falta abrirlo.
 Secundarios en píldora (radio 999 px), borde 1.5 px tinta, texto tinta, hover `#FDEDF0`. No hay botones rojos
 rellenos en el dashboard: el rojo se reserva para Cinemex y los chips de decisión.
 
+### Formularios y tarjeta de acceso
+
+Las páginas sin sesión (entrar, olvidé mi contraseña, restablecer) usan una sola tarjeta centrada de ancho medio
+(columna central de tres, ~1/3 del ancho), fondo blanco, borde `#E4E5E9`, radio 6 px, padding 30 × 32 px, con la marca
+"Absolut Cinema" condensada (la segunda palabra en rojo), un encabezado corto y una línea de contexto en gris. Los campos
+son los del tema (borde `#E4E5E9`, foco rojo) y el botón de envío es la píldora secundaria de siempre; no hay botón rojo
+relleno ni en el login. Los errores usan `st.error` con los textos de `AUTH_TEXT`; nunca se revela si un correo existe.
+Al entrar o salir la página se recarga completa (≈1 s): es lo que exige la cookie en Streamlit.
+
+### Barra de cuenta
+
+Con sesión, la barra lateral abre con "Sesión de **Nombre**", correo y rol en gris (`.cuenta`) y el botón píldora
+"Cerrar sesión", seguido de un divisor; debajo van los filtros de la página. La página Usuarios reutiliza la sección de
+evidencia (`seccion`) para los dos bloques (nueva cuenta, administrar una cuenta) y la tabla estándar para la lista. El
+explorador Datos usa `st.dataframe` a 560 px de alto con orden y búsqueda nativos, precios con formato `$`, y un botón
+de descarga CSV.
+
 ### Tablas
 
 Compactas, sin fondo en el encabezado: cabecera en gris con borde inferior 1.5 px, filas separadas por 1 px
@@ -122,15 +139,16 @@ Compactas, sin fondo en el encabezado: cabecera en gris con borde inferior 1.5 p
   directo en la presentación salvo tonos internos del bloque oscuro de desbloqueo.
 - **CSS complementario.** `ui/common.py` (`inject_css`, llamado desde `app.py`) inyecta la fuente variable Archivo desde Google Fonts, el ancho de lectura
   (1120 px) y los componentes del mockup: `.enc`, `.capa-tag`, `.hallazgo`, `.pregunta`, `.conclusion`, `table.mk`,
-  `.desbloqueo`; y estiliza los expanders según su contenedor (`st-key-apendice-*`, `st-key-leerla-*`) y las
-  secciones (`st-key-sec-*`).
+  `.desbloqueo`, `.marca`, `.acceso-h`, `.acceso-lead`, `.cuenta`; y estiliza los expanders según su contenedor
+  (`st-key-apendice-*`, `st-key-leerla-*`), las secciones (`st-key-sec-*`) y la tarjeta de acceso (`st-key-acceso`).
 - **Textos.** Los hallazgos y las conclusiones salen de `analytics/findings.py`; las etiquetas de `analytics/labels.py`.
 
 Para un color nuevo, agregarlo a `analytics/labels.py` y documentarlo aquí antes de usarlo.
 
 ### Navegación entre páginas
 
-`st.navigation(position="top")`: pestañas "Cartelera" y "Dulcería" en la barra superior en escritorio. En pantallas de
+`st.navigation(position="top")`: pestañas "Cartelera", "Dulcería", "Datos" y, para el rol admin, "Usuarios" en la barra
+superior en escritorio. Sin sesión la navegación va oculta (`position="hidden"`) y solo existen las páginas de acceso. En pantallas de
 768 px o menos, una regla `@media` fija la barra al pie de la pantalla (fondo papel, borde superior, sombra suave) y
 deja 84 px de aire al final del contenido, para que quede al alcance del pulgar. No probado en dispositivo real
 (Streamlit colapsa los enlaces en un desplegable si no caben).

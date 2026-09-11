@@ -220,6 +220,55 @@ contra la versión vigente de `showtime_state` y solo escriba cuando el estado m
 captura entera. La base SQLite crece ~7 MB al día (~2.5 GB al año en CDMX), consistente con los ~1.7 GB de este
 diseño, que no guarda los JSON completos de `event`. Detalle en `docs/ec2-sizing.md`.
 
+## Esquema `app`: acceso al dashboard (2026-09-10)
+
+Cuentas, sesiones y enlaces de acceso del dashboard, en la misma base pero en un esquema aparte y con un rol propio. Copia
+ejecutable: `deploy/postgres/auth.sql` (tablas) y `deploy/postgres/app_role.sql` (rol `absolut_app` y permisos); si cambia
+uno, cambia el otro. En local, `make auth-schema` aplica ambos. Es lo único de Postgres que escribe el dashboard (`auth/`);
+`archive/` lee `public` con el mismo rol, que ahí solo tiene `SELECT`, y además abre la sesión en
+`default_transaction_read_only`.
+
+```sql
+CREATE SCHEMA app;
+CREATE TYPE app.role_t AS ENUM ('admin', 'viewer');
+
+CREATE TABLE app.account (                        -- `account`, no `user` (palabra reservada)
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  email text NOT NULL, name text NOT NULL,
+  role app.role_t NOT NULL DEFAULT 'viewer',
+  password_hash text,                             -- scrypt (hashlib); NULL hasta aceptar la invitación
+  active boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(), created_by bigint REFERENCES app.account,
+  last_login_at timestamptz,
+  failed_logins smallint NOT NULL DEFAULT 0, last_failed_at timestamptz, locked_until timestamptz
+);
+CREATE UNIQUE INDEX account_email_key ON app.account (lower(email));
+
+CREATE TABLE app.session (                        -- una fila por cookie; solo el sha256 del token
+  token_hash text PRIMARY KEY, account_id bigint NOT NULL REFERENCES app.account,
+  created_at timestamptz NOT NULL DEFAULT now(), last_seen_at timestamptz NOT NULL DEFAULT now(),
+  expires_at timestamptz NOT NULL, revoked_at timestamptz, ip inet, user_agent text
+);
+
+CREATE TABLE app.token (                          -- invitación y restablecimiento: un solo uso
+  token_hash text PRIMARY KEY, account_id bigint NOT NULL REFERENCES app.account,
+  purpose text NOT NULL CHECK (purpose IN ('invite', 'reset')),
+  created_at timestamptz NOT NULL DEFAULT now(), expires_at timestamptz NOT NULL, used_at timestamptz,
+  created_by bigint REFERENCES app.account
+);
+
+CREATE TABLE app.audit (                          -- quién hizo qué: altas, roles, accesos, cierres
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, at timestamptz NOT NULL DEFAULT now(),
+  actor_id bigint REFERENCES app.account, action text NOT NULL, target_id bigint REFERENCES app.account, detail jsonb
+);
+```
+
+Reglas que sostienen las tablas (`auth/security.py`): contraseña de 12 caracteres o más, hash `scrypt` con sal por
+cuenta; sesión de 30 días deslizantes; enlace de invitación de 72 h y de restablecimiento de 60 min, ambos de un solo
+uso y con hash en la base; bloqueo de 15 min tras 10 fallos seguidos; hasta 3 restablecimientos por hora por cuenta.
+Cambiar la contraseña o desactivar la cuenta revoca todas sus sesiones. `make auth-prune` (domingos) borra sesiones y
+enlaces vencidos hace más de 90 días; `app.audit` y `app.account` no se borran.
+
 ## Etapa 2 (fuera de este documento)
 
 Portar `analytics/` a Postgres: las consultas usan hoy dialecto SQLite (`substr` sobre fechas en texto, `SUM(condición)`);

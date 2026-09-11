@@ -36,6 +36,10 @@ el producto de inteligencia competitiva (Cinemex vs Cinépolis). Fecha: 2026-09-
   estaba"** (evento `expired` en el scraper + `analytics/history.py`), **tres capturas al día**, dulcería de Cinépolis
   por complejo y dulcería a domicilio en Rappi y DiDi Food (ver secciones "Dulcería", "Programación de tareas" y
   "Dashboard ejecutivo").
+- Sexta fase (2026-09-10): **acceso por usuario** (login, olvidé mi contraseña con correo por Amazon SES, roles admin y
+  consulta), **página de usuarios** para el admin y **explorador de datos** del archivo en Postgres con tablas curadas
+  (cines y salas, funciones de la semana, precios). Paquetes nuevos `auth/` y `archive/`, esquema `app` en Postgres
+  (ver "Acceso por usuario y explorador de datos").
 
 ## Cómo se encontró
 
@@ -729,7 +733,9 @@ y mover el destino a RDS cuando el cliente confirme la cuenta.
 ### Pendientes que no dependen del plan 2
 
 - Terminar el paso al servidor (EC2 levantado el 2026-09-10; WARP + Privoxy para Cinépolis): copiar `data/`, dejar un solo
-  `sync` apuntando a Postgres y apagar los agentes de launchd (`make launchd-unload`).
+  `sync` apuntando a Postgres y apagar los agentes de launchd (`make launchd-unload`). Comprar el dominio y con él: SES
+  (identidad, DKIM, sandbox), `AC_BASE_URL` https, quitar `basic_auth`, aplicar `auth.sql`/`app_role.sql` en RDS y crear el
+  primer admin (`make user-create`).
 - Cinemex, a mano (`make calibrate-cinemex`, hacia las 7 P.M., por chunks de 60): calibración del semáforo; enciende la
   ocupación estimada de Cinemex en el dashboard.
 - Con historia: ocupación por película, franja y complejo desde `occupancy_sample` post-inicio; escala de los colores
@@ -747,6 +753,56 @@ y mover el destino a RDS cuando el cliente confirme la cuenta.
   `data/geo.db`; `analytics/` sigue sin dependencias. Verificado: INEGIpy da geometrías y DENUE pero no la tabla censal
   por AGEB (va por CSV), y su Ruteo es punto a punto en auto, sin isócronas (usar OpenRouteService). Modelo supervisado
   no antes de finales de octubre de 2026 y solo Cinépolis mientras Cinemex dependa del semáforo.
+
+## Acceso por usuario y explorador de datos (2026-09-10)
+
+Con la infraestructura ya en AWS (falta solo el dominio), el dashboard deja el `basic_auth` compartido de Caddy y pasa a
+cuentas por persona. Decisiones de David (2026-09-10): seguir en **Streamlit, misma app** (FastAPI + Next.js sigue
+pospuesto), **dos roles** (`admin`: gestiona cuentas y ve todo; `viewer`: gente de Cinemex, ve cartelera, dulcería y
+datos), correo por **Amazon SES**, y un **explorador de tablas curadas** con filtros, orden, búsqueda y CSV, sin consola
+SQL: es parte del valor que se entrega al cliente, sin regalarle la base completa.
+
+- **Paquetes.** `auth/` (venv, psycopg, boto3): cuentas, sesiones, enlaces de invitación y restablecimiento, correo y
+  CLI (`make user-create|user-list|user-reset|user-deactivate|user-activate|auth-prune`); `archive/` (venv, psycopg):
+  consultas de solo lectura sobre el archivo en Postgres, mismo estilo que `analytics/` (`fn(conn, ...) -> list[dict]`),
+  donde crecerá la etapa 2. `ui/session.py` es el único módulo que conoce la cookie. Las reglas de arquitectura quedan
+  enmendadas en `AGENTS.md`: el dashboard sigue sin escribir datos; `auth/` escribe solo el esquema `app` con el rol
+  `absolut_app` (`deploy/postgres/auth.sql`, `app_role.sql`; diseño en `docs/postgres-esquema.md`).
+- **Sesión.** Streamlit 1.63 solo lee cookies (`st.context.cookies`, en el handshake del WebSocket) y no tiene API para
+  escribirlas, así que `ui/session.py` la escribe con JavaScript desde `st.iframe` (mismo origen) y recarga la página;
+  `st.rerun()` no basta. Cookie `ac_session` de 30 días deslizantes, `SameSite=Lax`, `Secure` si `AC_BASE_URL` es https,
+  sin `HttpOnly` (imposible desde Streamlit; mitigación: token aleatorio, solo su sha256 en la base, revocación al cerrar
+  sesión, cambiar contraseña o desactivar; el memo por pestaña se revalida cada 60 s). Se descartó
+  `streamlit-cookies-controller` (sin mantenimiento desde 2024) y Cognito/`st.login` (hosted UI, sin las páginas propias).
+- **Reglas** (`auth/security.py`, probadas en `tests/test_security.py`): contraseña de 12+ caracteres, `hashlib.scrypt`
+  con sal; enlace de invitación 72 h y de restablecimiento 60 min, un solo uso, se invalidan los anteriores; 10 fallos
+  seguidos bloquean 15 min; "olvidé mi contraseña" responde igual exista o no la cuenta (verifica contra un hash falso para
+  no delatar por tiempo) y emite a lo más 3 enlaces por hora. Nadie se desactiva ni se cambia el rol a sí mismo, ni deja
+  el sistema sin admin activo (`SelfChange`, `LastAdmin`). Todo queda en `app.audit`.
+- **Navegación** (`app.py`): la lista de páginas depende de la sesión. Sin cookie válida: `login` (raíz), `olvide`,
+  `restablecer` (`?token=`), con navegación oculta. Con sesión: Cartelera, Dulcería, Datos y, para admin, Usuarios; la
+  página `restablecer` queda oculta pero accesible para que el enlace del correo abra aun con sesión. Una URL que no
+  corresponde al rol cae en la página por defecto; `usuarios` además exige admin.
+- **Correo.** `AC_MAIL_BACKEND=console` (default) escribe el correo en `data/logs/mail.log`; `ses` envía con boto3 y el
+  rol de la instancia (IAM `ses:SendEmail`, identidad del dominio con DKIM; la cuenta nace en sandbox, ver
+  `docs/aws-setup.md`). Si el correo falla, la cuenta y el enlace ya existen (`MailFailed` trae el enlace para entregarlo
+  por otro canal). Plantillas en `analytics/labels.py` (`MAIL_INVITE`, `MAIL_RESET`).
+- **Explorador** (`archive/datasets.py`, `views/datos.py`): seis conjuntos, `cinemas` (complejo con salas y butacas de la
+  última medición), `auditoriums`, `week_showtimes` (estado vigente `valid_to IS NULL`, rango de fechas obligatorio para
+  podar particiones, por defecto la semana de cine), `ticket_prices`, `concession_prices` y `delivery_prices` (las dos
+  últimas con "solo la última lectura" por `DISTINCT ON`). Tope 5,000 renglones con aviso; precios en pesos; conexión con
+  `default_transaction_read_only` y `statement_timeout` de 15 s. Medido en local (2026-09-10): todas responden en
+  < 200 ms con 66 k funciones.
+- **Variables** (`scraper/config.py`, `.env.example`): `AC_AUTH_PG_DSN` (rol `absolut_app`; sin ella usa `AC_PG_DSN`,
+  solo aceptable en desarrollo), `AC_MAIL_BACKEND`, `AC_MAIL_FROM`, `AC_BASE_URL`, `AWS_REGION`. Dependencias nuevas del
+  dashboard: `psycopg` (ya estaba por el sync) y `boto3`; `streamlit>=1.60`.
+- **Verificado (2026-09-10, Postgres local en Docker):** CLI y todos los flujos de `auth/` (invitación, canje, login,
+  bloqueo al décimo fallo, restablecimiento con tope, revocación al cambiar contraseña, cierre de sesión, reglas de admin,
+  auditoría completa); las páginas recorridas con `streamlit.testing.v1.AppTest` (login, olvide, restablecer con enlace
+  bueno y malo, usuarios con cada acción, datos con los seis conjuntos y filtros, viewer sin acceso a usuarios). **Lo que
+  falta probar en navegador:** el ciclo de la cookie (entrar, refrescar, cerrar sesión), que `AppTest` no simula.
+- **Pendiente con el dominio:** identidad SES + DKIM, `AC_BASE_URL=https://…`, quitar `basic_auth` de Caddy, salir del
+  sandbox de SES. Mientras, `console`/`NOMAIL=1` y el enlace se entrega a mano.
 
 ## Consideraciones
 

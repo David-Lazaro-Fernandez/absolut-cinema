@@ -163,7 +163,10 @@ with seccion("resumen"):
                 cls = "sum" if r.kind != "title" else ""
                 rank += r.kind == "title"
                 name = {"title": r.title, "rest": "Resto", "total": "Total de programación"}[r.kind]
-                cell = lambda txt, extra="": (txt, " ".join(x for x in (extra, cls) if x))
+
+                def cell(txt, extra="", cls=cls):
+                    return txt, " ".join(x for x in (extra, cls) if x)
+
                 rows_.append([cell(str(rank) if r.kind == "title" else ""), cell(name),
                               cell(n(r.cinemas_cinemex) if r.kind != "rest" else "—", "cmx"), cell(n(r.shows_cinemex), "cmx"),
                               cell(f"{r.share_cinemex:.1f} %" if pd.notna(r.share_cinemex) else "—", "cmx"),

@@ -3,10 +3,8 @@ Hablamos en primera persona como Cinemex (labels.US) y comparamos siempre por sh
 programación de cada cadena), porque las cadenas no tienen el mismo número de cines ni salas.
 
 Cada frase lleva `topic`, para que el dashboard la coloque junto a la gráfica que la sustenta."""
-from .labels import (CHAIN_LABEL, FORMAT_LABEL, KIND_LABEL, KIND_PLURAL, SLOT_LABEL, SLOTS, THEM,
-                     US, WEEKDAY_LABEL, range_es, time_12)
-from .queries import (_window, concentration, events_by_kind, heatmap_day_slot, kpis, mix,
-                      movies_by_chain, showtimes_by_slot, today)
+from .labels import CHAIN_LABEL, FORMAT_LABEL, KIND_LABEL, KIND_PLURAL, SLOTS, THEM, US, range_es, time_12
+from .queries import _window, concentration, events_by_kind, kpis, mix, movies_by_chain, showtimes_by_slot, today
 
 THEM_NAME = CHAIN_LABEL[THEM]
 

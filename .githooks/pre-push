@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Antes de cada push: lint, comprobación de imports y pruebas (`make check`). Se activa una vez por clon con
+# `make hooks` (git config core.hooksPath .githooks). Para una emergencia: git push --no-verify.
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+echo ">> pre-push: make check"
+make check

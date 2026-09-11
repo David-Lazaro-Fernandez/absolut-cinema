@@ -1,9 +1,12 @@
-# /etc/caddy/Caddyfile. Cambia el dominio y genera el hash con `caddy hash-password`.
-# Caddy obtiene el certificado TLS solo; el DNS del dominio debe apuntar al droplet antes.
+# /etc/caddy/Caddyfile. Cambia el dominio. Caddy obtiene el certificado TLS solo; el DNS del dominio debe apuntar a
+# la instancia antes. El dashboard trae su propio login por usuario (auth/); el basic_auth de abajo es una segunda
+# puerta opcional mientras no haya dominio ni TLS (genera el hash con `caddy hash-password`). Con el dominio en
+# producción, quita el bloque basic_auth y recarga: systemctl reload caddy.
 cinema.example.com {
     basic_auth {
         cinemex REEMPLAZAR_CON_LA_SALIDA_DE_caddy_hash-password
     }
+    # Caddy añade X-Forwarded-For; ui/session.py la usa como IP del visitante en la auditoría de accesos.
     reverse_proxy 127.0.0.1:8501
     encode zstd gzip
 }

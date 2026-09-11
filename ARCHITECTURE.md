@@ -31,7 +31,8 @@ flowchart LR
 
     subgraph archivo["Archivo histórico (venv, psycopg)"]
         SYNC["sync.run · make sync<br/>:22 y :52 · marca de agua por tabla<br/>crudo → showtime + showtime_state"]
-        PGDB[("PostgreSQL<br/>local Docker hoy · RDS después<br/>identidad + versiones · eventos · muestreos")]
+        PGDB[("PostgreSQL · esquema public<br/>local Docker hoy · RDS después<br/>identidad + versiones · eventos · muestreos")]
+        PGAPP[("PostgreSQL · esquema app<br/>account · session · token · audit<br/>rol absolut_app")]
     end
 
     subgraph datos["data/ (fuera de git)"]
@@ -42,8 +43,10 @@ flowchart LR
 
     subgraph producto["Producto"]
         AN["analytics/ (funciones puras, sin dependencias)<br/>queries · findings · summary · history · seats · concessions · delivery · labels"]
-        APP["app.py · Streamlit (.venv) · st.navigation<br/>views/cartelera.py: 3 capas + filtros de periodo y franja<br/>views/dulceria.py · ui/common.py helpers"]
-        CADDY["Caddy · HTTPS + basic auth"]
+        ARCH["archive/ (venv, psycopg, solo lectura)<br/>datasets del explorador: cines y salas · funciones · precios"]
+        AUTH["auth/ (venv, psycopg, boto3)<br/>cuentas · sesiones · enlaces · correo SES/console · auth.cli"]
+        APP["app.py · Streamlit (.venv) · st.navigation según sesión y rol<br/>views/login · olvide · restablecer<br/>views/cartelera (3 capas) · dulceria · datos · usuarios (admin)<br/>ui/common.py helpers · ui/session.py cookie"]
+        CADDY["Caddy · HTTPS (basic auth opcional hasta tener dominio)"]
     end
 
     CPL -. en el servidor, vía .-> WARP
@@ -64,6 +67,9 @@ flowchart LR
     SYNC -. sync_status.json .-> HEALTH
     RUN & OCC & POST & PRICE & CAP --> LOGS
     DB -. solo lectura .-> AN --> APP --> CADDY
+    PGDB -. solo lectura .-> ARCH --> APP
+    APP --> AUTH --> PGAPP
+    AUTH -. invitación / restablecer .-> SES["Amazon SES<br/>AC_MAIL_BACKEND=ses"]
 
     subgraph futuro["Siguiente fase (fuera del servidor)"]
         GEO["geo/ · pipeline batch en la Mac<br/>INEGI Censo AGEB · CONAPO · DENUE · Metro · isócronas ORS"]
@@ -76,8 +82,10 @@ Reglas que sostiene el diagrama:
 
 - **Un solo escritor** sobre `snapshots.db`: todo lo que escribe corre en serie desde el mismo timer o en minutos
   distintos (:07); si coincide, SQLite espera hasta 60 s.
-- **El dashboard nunca escribe.** Abre la base en modo lectura y toda la lógica de negocio vive en `analytics/`,
-  para envolverla después en un API sin reescribir.
+- **El dashboard nunca escribe datos.** Abre SQLite en modo lectura, el archivo en Postgres en solo lectura (`archive/`)
+  y toda la lógica de negocio vive en `analytics/` y `archive/`, para envolverla después en un API sin reescribir. Lo
+  único que escribe es `auth/`, en su propio esquema `app` (cuentas, sesiones, enlaces, auditoría) con el rol
+  `absolut_app`, que en `public` solo tiene SELECT.
 - **El scraper no tiene dependencias**; el dashboard y el `sync` usan el venv. El futuro `geo/` tendrá su propio venv y
   no corre en el servidor.
 - **Cinépolis se alcanza por Cloudflare WARP desde el servidor.** `api-g.cinepolis.com` (cartelera, planos, boletos y
@@ -85,9 +93,13 @@ Reglas que sostiene el diagrama:
   el cliente WARP corre en modo proxy (SOCKS5 local, registro gratuito, sin cuenta) y Privoxy lo convierte en proxy HTTP;
   `scraper/http.py` manda por ahí solo los hosts de `AC_EGRESS_PROXY_HOSTS`. Cinemex, Rappi y DiDi salen directo. En la Mac
   no hace falta: `AC_EGRESS_PROXY` vacío. Operación en `deploy/README.md`.
-- **Postgres es archivo, no fuente del dashboard (etapa 1).** El `sync` lee SQLite en solo lectura y el crudo, y escribe
-  en Postgres por marca de agua; nada más escribe ahí. La historia de cada función se reconstruye desde el crudo, así
-  que si cambia la normalización se trunca y se vuelve a cargar.
+- **Postgres es archivo; el dashboard lo lee solo en el explorador (etapa 1).** El `sync` lee SQLite en solo lectura y el
+  crudo, y escribe en Postgres por marca de agua; nada más escribe en `public`. La historia de cada función se
+  reconstruye desde el crudo, así que si cambia la normalización se trunca y se vuelve a cargar. La cartelera y la
+  dulcería siguen leyendo SQLite hasta la etapa 2.
+- **Sesión por cookie propia.** Streamlit no escribe cookies: `ui/session.py` la pone con JavaScript desde un iframe del
+  mismo origen y recarga la página; `st.context.cookies` la lee en el handshake. En la base solo vive su sha256; cambiar
+  la contraseña o desactivar la cuenta revoca todas las sesiones y surte efecto en ≤ 60 s.
 
 ## 2. Programación: qué dispara cada servicio
 
@@ -110,6 +122,8 @@ flowchart TB
         THE["health.timer<br/>08:07 diario"]
         TCA["capacity.timer<br/>día 1, 04:07"]
         TBK["backup.timer<br/>05:07 diario"]
+        TAP["auth-prune.timer<br/>domingos 04:07"]
+        TDP["deploy.timer<br/>07:07 diario"]
         TCX["calibrate-cinemex.timer<br/>19:07 diario · APAGADO por defecto"]
         SDASH["dashboard.service<br/>Streamlit 127.0.0.1:8501 · siempre"]
         SWARP["warp-svc + privoxy<br/>salida por Cloudflare para Cinépolis · siempre"]
@@ -124,6 +138,8 @@ flowchart TB
         MH["make health<br/>sale con 1 si hay huecos o fallos"]
         MC["make capacity REFRESH=1"]
         MB["make backup<br/>backup.sh → bucket S3/Spaces"]
+        MAP["make auth-prune<br/>borra sesiones y enlaces vencidos > 90 días"]
+        MDP["make deploy<br/>update.sh: origin/stable → reinicio del dashboard"]
         MX["make calibrate-cinemex<br/>abre órdenes de checkout · tope 60 por corrida"]
         MK["make capacity-cinemex<br/>solo a mano"]
     end
@@ -141,6 +157,9 @@ flowchart TB
     THE --> MH
     TCA --> MC
     TBK --> MB
+    TAP --> MAP
+    TDP --> MDP
+    GHA["GitHub Actions (push a main)<br/>pytest + import sin dependencias<br/>mueve la rama stable si pasa"] -. rama stable .-> MDP
     TCX -. opt-in .-> MX
     MANUAL["David, con ! en la sesión"] -. a mano .-> MX & MK
 ```
@@ -160,7 +179,11 @@ flowchart TB
 | `sync.run` (`make sync`) | copia lo nuevo de SQLite a PostgreSQL y reconstruye la historia de funciones desde el crudo (identidad + versiones) | :22 y :52 | Postgres: `snapshot`, `cinema`, `movie`, `showtime`, `showtime_state`, `event`, muestreos, `auditorium`, `sync_watermark`; `logs/sync_status.json` | `sync` (launchd) / `sync.timer` |
 | `scraper.health` (`make health`) | salud de la captura: capturas programadas, fallos, muestreos | diario | `logs/health.log` | `daily` (launchd) / `health.timer` |
 | `backup.sh` | copia de la base y sync del crudo | diario 05:07 | bucket | `backup.timer` |
-| `app.py` (+ `ui/`, `views/`) | dashboard Streamlit, páginas Cartelera y Dulcería | siempre | nada (solo lectura) | `dashboard.service`, detrás de Caddy |
+| `app.py` (+ `ui/`, `views/`) | dashboard Streamlit con login por usuario: Cartelera, Dulcería, Datos (explorador del archivo) y Usuarios (admin) | siempre | Postgres `app.*` vía `auth/` (cuentas, sesiones, enlaces, auditoría); los datos, solo lectura | `dashboard.service`, detrás de Caddy |
+| `auth.cli` (`make user-create`, `user-list`, `user-reset`, `user-deactivate`, `user-activate`) | administración de cuentas desde la terminal; así nace el primer admin | a mano | Postgres `app.*`; correo por SES o `data/logs/mail.log` | manual |
+| `auth.cli prune` (`make auth-prune`) | borra sesiones y enlaces vencidos hace más de 90 días | domingos 04:07 | Postgres `app.session`, `app.token` | `auth-prune.timer` |
+| GitHub Actions `tests.yml` | pruebas en cada push a `main`; si pasan, mueve la rama `stable` a ese commit | cada push | rama `stable` del repo | GitHub |
+| `deploy/update.sh` (`make deploy`) | trae `origin/stable`, reinstala si cambió `requirements-*`, reinicia el dashboard, comprueba salud | diario 07:07 | código en `/opt/absolut-cinema`, `logs/deploy.log` | `deploy.timer` |
 | `warp-svc` + `privoxy` (solo servidor) | salida por Cloudflare WARP para `api-g.cinepolis.com`, cuyo WAF bloquea AWS; `http.py` la usa vía `AC_EGRESS_PROXY` | siempre | nada | systemd, instalados por `install.sh` |
 | `geo/` (futuro) | features de zona y arquetipos | trimestral | `geo.db` | a mano en la Mac |
 

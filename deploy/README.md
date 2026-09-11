@@ -33,6 +33,8 @@ mostraría un aviso de "aún no hay datos"), enlaza los units de systemd y los h
 | `absolut-cinema-capacity.timer` | día 1, 04:07 | refresco mensual del aforo de Cinépolis (`make capacity REFRESH=1`) |
 | `absolut-cinema-sync.timer` | :22 y :52 | copia lo nuevo de SQLite al archivo histórico en PostgreSQL (`make sync`); DSN en `AC_PG_DSN` |
 | `absolut-cinema-backup.timer` | diario 05:07 | `backup.sh`: copia de la base y sync del crudo al bucket (`make backup`) |
+| `absolut-cinema-auth-prune.timer` | domingos 04:07 | borra sesiones y enlaces de acceso vencidos hace más de 90 días (`make auth-prune`) |
+| `absolut-cinema-deploy.timer` | diario 07:07 | despliega el último commit estable de GitHub (rama `stable`) y reinicia el dashboard (`make deploy`) |
 | `absolut-cinema-calibrate-cinemex.timer` | diario 19:07, **apagado** | calibración del semáforo de Cinemex, 60 funciones por corrida; abre órdenes de checkout, por eso `install.sh` lo enlaza pero no lo habilita (`make calibrate-cinemex`) |
 | `absolut-cinema-dashboard.service` | siempre | Streamlit en `127.0.0.1:8501` |
 
@@ -50,8 +52,10 @@ Después de instalar:
    (`launchctl bootout gui/$(id -u)/com.absolut-cinema.scraper`) para que no haya dos escritores.
 2. Editar `/etc/absolut-cinema.env` con el bucket de respaldo y, si hace falta, el endpoint de Spaces.
    Credenciales del bucket en `/home/absolut/.aws/credentials`.
-3. Editar `/etc/caddy/Caddyfile`: dominio (con DNS apuntando al servidor) y hash de la contraseña
-   (`caddy hash-password`). Luego `systemctl reload caddy`.
+3. Editar `/etc/caddy/Caddyfile`: dominio (con DNS apuntando al servidor). El `basic_auth` es una segunda puerta
+   opcional mientras no haya dominio ni TLS; con el dominio en producción, quitar ese bloque. Luego `systemctl reload caddy`.
+4. Dar de alta el acceso por usuario (siguiente sección): esquema `app`, rol `absolut_app`, variables `AC_AUTH_PG_DSN`,
+   `AC_BASE_URL`, `AC_MAIL_*` y el primer admin con `make user-create`.
 
 ## Operación
 
@@ -65,8 +69,68 @@ systemctl start absolut-cinema-health.service      # reporte de salud ahora (tam
 cat /opt/absolut-cinema/data/logs/health.log       # una línea por día
 ```
 
-Actualizar código: `cd /opt/absolut-cinema && sudo -u absolut git pull && systemctl restart absolut-cinema-dashboard`.
-Los timers toman el código nuevo en su siguiente ejecución.
+Actualizar código: lo hace solo el despliegue diario (sección siguiente). Para forzarlo ahora: `make deploy` como root
+(o `systemctl start absolut-cinema-deploy.service`). Los timers toman el código nuevo en su siguiente ejecución.
+
+## Despliegue diario y commit estable
+
+No se despliega cada push: un piloto sin entornos de staging no lo necesita y una recarga a media mañana molestaría
+al cliente. En su lugar hay dos piezas desacopladas:
+
+1. **GitHub Actions decide qué es seguro** (`.github/workflows/tests.yml`). En cada push a `main` corre `pytest` y
+   comprueba que `scraper/` y `analytics/` siguen importando sin dependencias externas. Si todo pasa, mueve la rama
+   `stable` a ese commit; si algo falla, `stable` no se mueve y el commit queda en rojo en GitHub. La rama `stable` la
+   mueve solo el workflow: no se toca a mano. Así el "último commit seguro" siempre es `origin/stable`.
+2. **El servidor decide cuándo** (`deploy/update.sh`, `make deploy`, `absolut-cinema-deploy.timer` a las 07:07, hora de
+   poco uso y antes de la captura de las 07:30). Trae `origin/stable`, y solo si hay algo nuevo: `git reset --hard` a ese
+   commit como el usuario `absolut`, reinstala el venv si cambió algún `requirements-*.txt`, `daemon-reload` si cambió una
+   unidad en `deploy/`, reinicia el dashboard y espera a que `/_stcore/health` responda. Escribe una línea por corrida en
+   `data/logs/deploy.log` y sale con 1 si el dashboard no levanta (queda visible en `systemctl list-timers`). No toca
+   `data/` ni Postgres: los cambios de esquema (`schema.sql`, `auth.sql`) siguen siendo un paso a mano y documentado.
+
+```sh
+tail -5 /opt/absolut-cinema/data/logs/deploy.log        # qué se desplegó y cuándo
+make deploy                                              # desplegar ahora el último estable
+REF=<commit> make deploy                                 # volver a un commit anterior (o adelantar uno concreto)
+git -C /opt/absolut-cinema log -1 --oneline              # qué corre hoy
+```
+
+Los timers del scraper no se reinician: Python ya cargó sus módulos al arrancar cada corrida, y la siguiente toma el
+código nuevo. El único reinicio es el del dashboard, unos segundos a las 07:07.
+
+## Acceso por usuario y correo (SES)
+
+El dashboard pide correo y contraseña (`auth/`, `ui/session.py`) con dos roles: `admin` (gestiona cuentas en la página
+Usuarios y ve todo) y `viewer` (Cartelera, Dulcería y el explorador Datos). Las cuentas viven en el esquema `app` de la
+misma base Postgres del archivo, con un rol propio que solo escribe ahí y lee `public`.
+
+```sh
+# Una vez, como propietario de la base (misma DSN del sync):
+psql "$AC_PG_DSN" -v ON_ERROR_STOP=1 -f deploy/postgres/auth.sql
+psql "$AC_PG_DSN" -v ON_ERROR_STOP=1 -v app_password='CONTRASEÑA_DEL_ROL' -f deploy/postgres/app_role.sql
+# En /etc/absolut-cinema.env: AC_AUTH_PG_DSN=postgresql://absolut_app:CONTRASEÑA_DEL_ROL@HOST-RDS:5432/absolut_cinema
+#                             AC_BASE_URL=https://DOMINIO   AC_MAIL_BACKEND=ses   AC_MAIL_FROM="Absolut Cinema <no-responder@DOMINIO>"
+systemctl restart absolut-cinema-dashboard
+sudo -u absolut make -C /opt/absolut-cinema user-create EMAIL=quien@cinemex.com NAME="Nombre Apellido" ROLE=admin
+```
+
+`user-create` imprime el enlace de invitación además de enviarlo (vale 72 h, un solo uso); con `NOMAIL=1` solo lo
+imprime, para entregarlo por otro canal. Después, el admin crea el resto de las cuentas desde la página Usuarios. Más
+comandos: `make user-list`, `make user-reset EMAIL=…` (enlace nuevo), `make user-deactivate EMAIL=…`, `make user-activate EMAIL=…`.
+
+**Correo.** `AC_MAIL_BACKEND=console` (default) no envía nada: escribe el correo completo en `data/logs/mail.log`.
+`ses` envía por Amazon SES con las credenciales del rol de la instancia (`ses:SendEmail` en la política, ver
+`docs/aws-setup.md`), `AWS_REGION` del entorno y `AC_MAIL_FROM` como identidad verificada. Pasos en SES (consola, región
+de la instancia): crear la identidad del dominio y publicar sus tres CNAME de DKIM en el DNS; mientras la cuenta esté en
+*sandbox* solo llegan correos a direcciones verificadas a mano, así que pedir "production access" (caso de uso: correos
+transaccionales de acceso, menos de 100 al mes) o verificar los correos del personal de Cinemex. Probar con
+`make user-reset EMAIL=…` y `journalctl -u absolut-cinema-dashboard`.
+
+**Cookie y seguridad.** La sesión dura 30 días y se extiende con el uso; se guarda solo su sha256 y se revoca al cerrar
+sesión, cambiar la contraseña o desactivar la cuenta (surte efecto en ≤ 60 s). Con `AC_BASE_URL` en `https` la cookie
+lleva `Secure`. Diez contraseñas malas seguidas bloquean la cuenta 15 min. "Olvidé mi contraseña" responde igual exista o
+no el correo y emite a lo más tres enlaces por hora (valen 60 min). Streamlit no permite cookies `HttpOnly`; la
+mitigación es el token aleatorio con hash en base y la revocación.
 
 ## Salida por Cloudflare WARP para Cinépolis
 
@@ -112,3 +176,5 @@ Diseño y consultas de ejemplo en `docs/postgres-esquema.md`.
 - **Particiones**: el sync crea `showtime_YYYYMM`, `showtime_state_YYYYMM` y `event_YYYYMM` bajo demanda; no hay DEFAULT.
 - **Si falta el crudo de una captura buena**, el sync se detiene en ella y lo reporta: hay que restaurarlo del bucket
   (`raw/{chain}/{fecha}/…`) antes de seguir; saltarla rompería la historia.
+- **Esquema `app`** (cuentas del dashboard): `deploy/postgres/auth.sql` y `app_role.sql`, ver "Acceso por usuario". Es la
+  única parte de Postgres que escribe el dashboard; el `sync` no la toca.

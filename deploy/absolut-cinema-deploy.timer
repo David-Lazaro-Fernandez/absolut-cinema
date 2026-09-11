@@ -1,0 +1,11 @@
+[Unit]
+Description=absolut-cinema: despliegue diario del commit estable, 07:07
+
+[Timer]
+# Hora de poco uso, antes de la captura de las 07:30; los demás trabajos de las :07 caen en otras horas.
+OnCalendar=*-*-* 07:07:00
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

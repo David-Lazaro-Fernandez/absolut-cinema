@@ -23,6 +23,8 @@ competidor), plaza piloto CDMX. Tres capas, sin mezclarse:
 | Negocio | `analytics/` | **solo stdlib** | nada (abre la base en `mode=ro`) |
 | Presentación | `app.py` + `ui/` + `views/` | `.venv` (streamlit, pandas, altair) | nada |
 | Archivo histórico | `sync/` | `.venv` (psycopg) | PostgreSQL (`AC_PG_DSN`) y `data/logs/sync_status.json` |
+| Acceso | `auth/` | `.venv` (psycopg, boto3) | PostgreSQL, **solo el esquema `app`** (cuentas, sesiones, enlaces, auditoría) con el rol `absolut_app` |
+| Archivo, lectura | `archive/` | `.venv` (psycopg) | nada (abre Postgres en `default_transaction_read_only`) |
 
 ### Reglas de arquitectura (no negociables sin discutirlo)
 
@@ -37,14 +39,20 @@ competidor), plaza piloto CDMX. Tres capas, sin mezclarse:
   devuelve `analytics/`. Si para una vista nueva hace falta un cálculo, va en `analytics/`, no en el dashboard.
 - **Un solo escritor** sobre `snapshots.db`. Todo lo que escribe corre en serie desde el mismo timer
   o en minutos distintos (`:07`). No añadas un proceso escritor sin ubicarlo en ese calendario.
-- **El dashboard nunca escribe.** `analytics.connect()` abre en `mode=ro` a propósito.
-- **`sync/` es la única capa que toca PostgreSQL** y lo hace por marca de agua y `ON CONFLICT DO NOTHING`: Postgres es
-  append-only, nadie borra ahí de forma automática. Lee SQLite en `mode=ro` y el crudo; puede importar
+- **El dashboard nunca escribe datos.** `analytics.connect()` abre SQLite en `mode=ro` y `archive.connect()` abre
+  Postgres en solo lectura, a propósito. Lo único que escribe desde el dashboard es `auth/`, y solo en su esquema `app`
+  (cuentas, sesiones, enlaces de acceso, auditoría); las vistas no lo llaman directo, pasan por `ui/session.py` y
+  `load_auth`. `ui/session.py` es el único módulo que conoce la cookie de sesión.
+- **`sync/` es el único escritor del archivo histórico en PostgreSQL** (esquema `public`) y lo hace por marca de agua y
+  `ON CONFLICT DO NOTHING`: el archivo es append-only, nadie borra ahí de forma automática. `archive/` lo lee y `auth/`
+  escribe solo `app`; ninguno importa `sync/`, y `scraper/`, `analytics/` y `sync/` jamás importan `auth/` ni `archive/`.
+  `auth/` y `archive/` tampoco importan Streamlit. Lee SQLite en `mode=ro` y el crudo; puede importar
   `scraper.config`, `scraper.normalize` y `scraper.diff` (stdlib), pero el scraper jamás importa `sync/`. Las reglas de
   "qué cuenta como cambio" y "cómo se cierra una función" viven en `scraper/diff.py` (`changed_fields`,
   `closing_kind`) y `scraper/normalize.py` (`TRACKED_FIELDS`); scraper, dashboard y sync las comparten y no se duplican.
 - **`app.py` vive en la raíz a propósito**: Streamlit solo recarga en caliente los módulos bajo la
-  carpeta del script, así `ui/`, `views/`, `analytics/` y `scraper/` también se recargan al editarlos. No lo muevas.
+  carpeta del script, así `ui/`, `views/`, `analytics/`, `archive/`, `auth/` y `scraper/` también se recargan al
+  editarlos. No lo muevas.
 
 ## 2. Principios de producto
 
@@ -160,15 +168,21 @@ el timer lo note. Si añades un flujo de captura, añade su cobertura ahí.
 ## 6. Dashboard (`app.py`, `ui/`, `views/`)
 
 - Páginas con `st.navigation` (barra superior; en celular el CSS la fija abajo): `views/cartelera.py` (tres
-  capas con los filtros de periodo y franja en la barra lateral) y `views/dulceria.py`. Un módulo que responde una
+  capas con los filtros de periodo y franja en la barra lateral), `views/dulceria.py`, `views/datos.py` (explorador del
+  archivo en Postgres) y, solo para el rol admin, `views/usuarios.py`. Un módulo que responde una
   pregunta propia del cliente y no depende del periodo va en su página; lo demás, en la cartelera. Las páginas
   hacen `from ui.common import *` a propósito: comparten un espacio de nombres de presentación.
+- **La lista de páginas depende de la sesión** (`app.py`): sin cookie válida solo existen `views/login.py`,
+  `views/olvide.py` y `views/restablecer.py` (navegación oculta). Streamlit resuelve la URL contra esa lista, así que una
+  ruta que no corresponde al rol cae en la página por defecto; `views/usuarios.py` además abre con `require_admin`.
+  Las páginas de acceso no tocan `snapshots.db` y solo hablan con `ui/session.py`.
 - Estructura fija de tres capas (hallazgos → evidencia → apéndice), descrita en `DESIGN.md` y
   `project.md`. Una sección de evidencia va siempre en el mismo orden: pregunta, conclusión,
   leyenda, gráfico, controles, "Cómo leerla". Reutiliza los helpers (`capa`, `seccion`, `pregunta`,
   `leerla`, `apendice`, `leyenda`, `table`, `chart`), no repliques el HTML.
-- **Todo dato entra por `load()` / `load_raw()`**, que cachean con `ttl=TTL` y cierran la conexión.
-  No abras conexiones sueltas ni llames a `analytics` directamente en el cuerpo de la página.
+- **Todo dato entra por `load()` / `load_raw()`** (SQLite, `ttl=TTL`), **`load_pg()`** (archivo en Postgres, `ttl=TTL_PG`)
+  o **`load_auth()`** (cuentas, sin caché); los tres cierran la conexión. No abras conexiones sueltas ni llames a
+  `analytics`, `archive` o `auth` directamente en el cuerpo de la página.
 - **El HTML crudo se escapa.** Cualquier texto que venga de la base y se pinte con
   `unsafe_allow_html=True` pasa por `esc()`.
 - **Paneles dependientes de historia**: si un panel necesita más días de los que hay desde
@@ -191,10 +205,18 @@ el timer lo note. Si añades un flujo de captura, añade su cobertura ahí.
 
 ## 8. Verificar un cambio
 
+`make check` es la compuerta: `ruff` (reglas en `pyproject.toml`), la comprobación de que `scraper/` y `analytics/`
+compilan e importan con el Python del sistema, y `pytest`. Lo corre el hook `pre-push` (`.githooks/`, se activa una
+vez por clon con `make hooks`) y el workflow de GitHub que mueve la rama `stable`; si falla en local no hay push, y si
+falla en CI no hay despliegue. `ruff` no bloquea por largo de línea ni por los `;` que agrupan pasos cortos (el repo los
+usa a propósito); sí por imports sin usar, nombres sin definir, orden de imports y llaves repetidas en un dict.
+
 La verificación principal es correr el flujo de verdad contra la base. Hay además pruebas unitarias en
-`tests/` (pytest, `requirements-dev.txt`, solo en el venv) para la lógica pura que no toca red: hoy el diff
-de snapshots. Corre `.venv/bin/python -m pytest -q tests/` si tocas `scraper/diff.py` o añades lógica pura, y
-añade una prueba cuando el caso quepa en memoria. Antes de dar por bueno un cambio:
+`tests/` (pytest, `requirements-dev.txt`, solo en el venv): lógica pura que no toca red (diff de snapshots, sync,
+parsers, seguridad de cuentas, filtros del explorador) y un recorrido por pantalla con `AppTest`
+(`tests/test_views.py`: acceso, cartelera, dulcería, datos y usuarios, por rol), que se omite donde no hay
+`data/snapshots.db` o el Postgres de desarrollo. Corre `.venv/bin/python -m pytest -q tests/` si tocas `scraper/diff.py`,
+una vista o añades lógica pura; añade una prueba cuando el caso quepa en memoria y, si es una pantalla, en `test_views.py`. Antes de dar por bueno un cambio:
 
 ```sh
 make help                                  # los targets son lo que corren los timers
@@ -212,8 +234,12 @@ sqlite3 data/snapshots.db "SELECT * FROM snapshot ORDER BY id DESC LIMIT 4;"
   `/usr/bin/python3 -c "import analytics, scraper.run, scraper.sample"`.
 - Los flujos que abren órdenes de checkout (`capacity-cinemex`, `calibrate-cinemex`) se lanzan **a
   mano y con tope**. No los pongas en un automatismo ni subas su límite sin pedirlo.
-- Si añades una función a `analytics/`, imprímela una vez con datos reales antes de conectarla al
+- Si añades una función a `analytics/` o `archive/`, imprímela una vez con datos reales antes de conectarla al
   dashboard; es más rápido que depurar dentro de Streamlit.
+- Acceso: `make pg-up pg-schema auth-schema` deja el esquema `app` y el rol `absolut_app` en el Postgres local;
+  `make user-create EMAIL=… NAME=… ROLE=admin` imprime el enlace de invitación (con `AC_MAIL_BACKEND=console` también
+  queda en `data/logs/mail.log`). Las páginas se pueden recorrer sin navegador con `streamlit.testing.v1.AppTest`
+  parcheando `ui.session._raw_cookie`; lo que solo un navegador prueba es la cookie (entrar, refrescar, salir).
 
 ## 9. Al terminar
 
@@ -225,4 +251,7 @@ sqlite3 data/snapshots.db "SELECT * FROM snapshot ORDER BY id DESC LIMIT 4;"
 - Documenta con fecha lo que se verificó contra la API ajena (`verificado 2026-09-08`); estas APIs
   no tienen contrato y lo que hoy responde puede cambiar.
 - `data/` está fuera de git. No versiones la base, el crudo ni los logs.
-- La rama principal es `main`. No hagas commit ni push salvo que se te pida.
+- La rama principal es `main`. No hagas commit ni push salvo que se te pida. La rama `stable` la mueve GitHub Actions
+  (`.github/workflows/tests.yml`) cuando las pruebas pasan en `main`, y es lo que el servidor despliega cada mañana
+  (`make deploy`, 07:07): no la muevas a mano. Si un commit rompe las pruebas, `stable` se queda atrás hasta que se
+  arregle; por eso una prueba que falla en CI bloquea el despliegue de todo lo posterior.

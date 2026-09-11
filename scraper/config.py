@@ -93,3 +93,12 @@ BACKUP_BUCKET = os.environ.get("BACKUP_BUCKET")            # si existe, snapshot
 SYNC_STATUS_PATH = LOG_DIR / "sync_status.json"            # lo escribe el sync y lo lee scraper.health (sin psycopg)
 SYNC_MAX_AGE_MIN = 90                                       # el sync corre cada 30 min; más de esto es un problema
 SNAPSHOT_STALE_HOURS = 2                                    # snapshot sin finish_snapshot más viejo que esto: se da por fallido
+
+# --- Acceso al dashboard (auth/, archive/; ver deploy/postgres/auth.sql) ---
+# El dashboard entra a Postgres con su propio rol (`absolut_app`): escribe solo el esquema `app` y lee `public`.
+# En desarrollo, sin AC_AUTH_PG_DSN, usa la misma conexión que el sync (Docker local, un solo usuario).
+AUTH_PG_DSN = os.environ.get("AC_AUTH_PG_DSN") or PG_DSN
+MAIL_BACKEND = os.environ.get("AC_MAIL_BACKEND", "console")      # console: escribe data/logs/mail.log; ses: Amazon SES
+MAIL_FROM = os.environ.get("AC_MAIL_FROM", "Absolut Cinema <no-responder@localhost>")   # en SES, identidad verificada
+BASE_URL = os.environ.get("AC_BASE_URL", "http://localhost:8501").rstrip("/")            # base de los enlaces del correo
+MAIL_LOG_PATH = LOG_DIR / "mail.log"

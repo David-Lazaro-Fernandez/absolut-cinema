@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 from scraper import config
 
 from .db import rows
-from .labels import FORMAT_BUCKETS, FULL_DAY, PRIME_START_HOUR, SLOTS
+from .labels import FULL_DAY, PRIME_START_HOUR, SLOTS
 
 
 def now_local(tz=config.PILOT_TIMEZONE):

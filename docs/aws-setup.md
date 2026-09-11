@@ -97,6 +97,8 @@ EC2 necesita:
 - **S3:** leer y escribir en bucket de respaldos (`backup.timer` → `s3://absolut-cinema-{account}/raw/` y `snapshots/`).
 - **RDS:** conectar (red, no IAM).
 - **CloudWatch:** escribir logs opcionales.
+- **SES:** enviar los correos de invitación y restablecimiento de contraseña del dashboard (`AC_MAIL_BACKEND=ses`,
+  2026-09-10), solo desde el remitente del dominio.
 
 ### Policy JSON (`absolut-cinema-ec2-policy`)
 
@@ -125,6 +127,12 @@ EC2 necesita:
         "logs:PutLogEvents"
       ],
       "Resource": "arn:aws:logs:us-east-1:*:*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["ses:SendEmail", "ses:SendRawEmail"],
+      "Resource": "arn:aws:ses:us-east-1:CUENTA:identity/DOMINIO",
+      "Condition": { "StringLike": { "ses:FromAddress": "*@DOMINIO" } }
     }
   ]
 }
@@ -330,8 +338,13 @@ CINEPOLIS_API_KEY=lQM6Mkvri1iHksKKCfpAiwGXq0YUZA7Nn6XAXRPr4i13LwXo
 CINEMEX_CONSUMER_KEY=XXQha7vz4kdvoMSdixhN
 CINEMEX_BASE_URL=https://api.cinemex.com/rest/v2.37.2
 
-# Plan 2: PostgreSQL en RDS
-DATABASE_URL=postgresql://postgres:PASSWORD_FUERTE@absolut-cinema.c1234567890.us-east-1.rds.amazonaws.com:5432/absolut_cinema
+# Plan 2: PostgreSQL en RDS (el sync escribe el archivo con este rol)
+AC_PG_DSN=postgresql://absolut:PASSWORD_FUERTE@absolut-cinema.c1234567890.us-east-1.rds.amazonaws.com:5432/absolut_cinema
+# Acceso al dashboard: rol absolut_app (deploy/postgres/app_role.sql), correo por SES y URL pública para los enlaces
+AC_AUTH_PG_DSN=postgresql://absolut_app:OTRA_PASSWORD@absolut-cinema.c1234567890.us-east-1.rds.amazonaws.com:5432/absolut_cinema
+AC_MAIL_BACKEND=ses
+AC_MAIL_FROM=Absolut Cinema <no-responder@DOMINIO>
+AC_BASE_URL=https://DOMINIO
 
 # S3
 AWS_REGION=us-east-1
@@ -345,6 +358,25 @@ STREAMLIT_SERVER_ADDRESS=127.0.0.1
 # Zona horaria
 TZ=America/Mexico_City
 ```
+
+### Amazon SES: correo de invitación y restablecimiento (2026-09-10)
+
+El dashboard manda dos correos transaccionales (invitación al crear una cuenta, enlace de restablecimiento) con
+`boto3` y las credenciales del rol de la instancia; no hay credenciales SMTP.
+
+1. **SES → Identities → Create identity → Domain**: el dominio que se compre para el dashboard. Elegir *Easy DKIM* y
+   publicar los tres registros CNAME en el DNS (misma zona que apunta a la IP de Caddy). Opcional: *custom MAIL FROM*
+   (`correo.DOMINIO`, registros MX y TXT) para alinear SPF.
+2. **Sandbox**: una cuenta nueva de SES solo entrega a direcciones verificadas y hasta 200 correos al día. Para el
+   piloto basta verificar a mano los correos del personal de Cinemex (**Identities → Create identity → Email**); para
+   abrirlo, **Account dashboard → Request production access** (caso de uso: correos transaccionales de acceso a un
+   tablero interno, menos de 100 al mes, sin listas).
+3. **IAM**: el statement de `ses:SendEmail` de la sección 3, acotado a la identidad del dominio y al remitente.
+4. **Servidor**: `AC_MAIL_BACKEND=ses`, `AC_MAIL_FROM`, `AWS_REGION` y `AC_BASE_URL=https://DOMINIO` en
+   `/etc/absolut-cinema.env`; `systemctl restart absolut-cinema-dashboard`; probar con `make user-reset EMAIL=…`.
+
+Mientras no haya dominio, `AC_MAIL_BACKEND=console` deja cada correo en `data/logs/mail.log` y el admin entrega el enlace
+por otro canal (`make user-create … NOMAIL=1`).
 
 ### Gestión de secretos
 

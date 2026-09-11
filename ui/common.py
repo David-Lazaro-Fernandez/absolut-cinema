@@ -18,19 +18,66 @@ import pandas as pd
 import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import psycopg  # noqa: E402
+
 import analytics  # noqa: E402
+import archive  # noqa: E402
+import auth  # noqa: E402
+from analytics.labels import (  # noqa: E402
+    AUTH_TEXT,
+    AVAILABILITY_LABEL,
+    CHAIN_COLOR,
+    CHAIN_LABEL,
+    CINEMA_TYPE_LABEL,
+    CITY_LABEL,
+    COLUMN_LABEL,
+    DATA_TEXT,
+    DATASET_HELP,
+    DATASET_LABEL,
+    DAY_TYPE_LABEL,
+    DIVERGING,
+    FIELD_LABEL,
+    FORMAT_BUCKETS,
+    FORMAT_LABEL,
+    FULL_DAY,
+    GRAY,
+    GRAY_DARK,
+    GRAY_LIGHT,
+    GRID,
+    HOUR_MARKS,
+    HOUR_PRESETS,
+    INK,
+    KIND_HELP,
+    KIND_LABEL,
+    LANGUAGE_BUCKETS,
+    LANGUAGE_LABEL,
+    LINE,
+    NEUTRAL,
+    PAPER,
+    PLATFORM_LABEL,
+    RED,
+    RED_RAMP,
+    RED_SOFT,
+    ROLE_HELP,
+    ROLE_LABEL,
+    SLOT_SHORT,
+    SLOTS,
+    STATUS_LABEL,
+    VS_NOW_LABEL,
+    WEEKDAY_LABEL,
+    date_es,
+    hour_mark,
+    hours_label,
+    range_es,
+    range_short,
+    time_12,
+)
 from scraper import config  # noqa: E402
 from scraper.health import MAX_AGE_MIN  # noqa: E402  (umbral de captura vieja, el mismo que scraper.health)
-from analytics.labels import (  # noqa: E402
-    CINEMA_TYPE_LABEL, FIELD_LABEL, FULL_DAY, HOUR_MARKS, HOUR_PRESETS, PLATFORM_LABEL, STATUS_LABEL, VS_NOW_LABEL,
-    hour_mark, hours_label,
-    AVAILABILITY_LABEL, CHAIN_COLOR, CHAIN_LABEL, COLUMN_LABEL, DAY_TYPE_LABEL, DIVERGING, FORMAT_BUCKETS, FORMAT_LABEL,
-    GRAY, GRAY_DARK, GRAY_LIGHT, GRID, INK, KIND_HELP, KIND_LABEL, LANGUAGE_BUCKETS, LANGUAGE_LABEL, LINE, NEUTRAL, PAPER,
-    RED, RED_RAMP, RED_SOFT, SLOT_SHORT, SLOTS, WEEKDAY_LABEL,
-    date_es, range_es, range_short, time_12,
-)
 
 TTL = 60  # segundos; los planos de asientos escriben cada 15 min y la cartelera tres veces al día
+TTL_PG = 300  # el archivo histórico recibe el sync cada 30 min; el explorador no necesita más frescura
+PG_ERROR = psycopg.OperationalError  # Postgres no responde: las vistas lo capturan sin importar psycopg
 TZ = ZoneInfo("America/Mexico_City")
 KINDS = ["added", "removed", "moved", "changed", "availability"]
 CHAINS = ["cinemex", "cinepolis"]
@@ -125,6 +172,16 @@ table.mk td.sum {{ font-weight: 700; border-top: 2px solid {LINE}; background: {
 .desb-item p {{ font-size: 12.5px; color: #A7ABB5; line-height: 1.45; margin: 0; }}
 .pie {{ margin-top: 48px; padding-top: 16px; border-top: 1px dashed {LINE}; color: {GRAY}; font-size: 12.5px; }}
 
+/* acceso: tarjeta de entrada y bloque de cuenta en la barra lateral */
+[class*="st-key-acceso"] {{ background: {PAPER}; border: 1px solid {LINE} !important; border-radius: 6px; padding: 30px 32px 22px;
+                             margin-top: 8vh; }}
+.marca {{ font-weight: 850; font-stretch: 75%; font-size: 30px; line-height: 1; letter-spacing: -.01em; margin-bottom: 6px; }}
+.marca span {{ color: {RED}; }}
+.acceso-h {{ font-weight: 800; font-stretch: 82%; font-size: 21px; margin: 14px 0 2px; padding: 0; }}
+.acceso-lead {{ color: {GRAY}; font-size: 13.5px; margin: 0 0 14px; }}
+.cuenta {{ font-size: 13px; color: {GRAY}; line-height: 1.4; margin-bottom: 8px; }}
+.cuenta b {{ color: {INK}; }}
+
 /* controles */
 .stButton > button, [data-testid="stBaseButton-secondary"] {{ font-weight: 600; border: 1.5px solid {INK}; color: {INK}; }}
 .stButton > button:hover {{ background: {RED_SOFT}; border-color: {INK}; color: {INK}; }}
@@ -166,6 +223,26 @@ def load_raw(fn_name, **kwargs):
         conn.close()
 
 
+@st.cache_data(ttl=TTL_PG)
+def load_pg(fn_name, **kwargs):
+    """Consultas del archivo histórico (`archive/`, Postgres solo lectura). Las listas van como tuplas para que la
+    caché pueda hashear los argumentos."""
+    conn = archive.connect()
+    try:
+        return pd.DataFrame(getattr(archive, fn_name)(conn, **kwargs))
+    finally:
+        conn.close()
+
+
+def load_auth(fn_name, **kwargs):
+    """Consultas de cuentas (`auth/`), sin caché: la página de usuarios debe reflejar cada acción al instante."""
+    conn = auth.connect()
+    try:
+        return pd.DataFrame(getattr(auth, fn_name)(conn, **kwargs))
+    finally:
+        conn.close()
+
+
 def esc(s):
     return html.escape(str(s))
 
@@ -183,8 +260,21 @@ def pp(v):
     return f"{v:+.1f} pp".replace("-", "−")
 
 
-def local_time(iso):
-    return datetime.fromisoformat(iso).astimezone(TZ).strftime("%d/%m %I:%M %p").lstrip("0")
+def local_time(v):
+    """'dd/mm h:mm AM' en hora de la plaza. Acepta ISO (SQLite) o datetime (Postgres); un datetime sin zona ya es
+    hora local (así publican las cadenas la hora de la función)."""
+    if v is None or pd.isna(v):
+        return None
+    if isinstance(v, str):
+        v = datetime.fromisoformat(v)
+    if v.tzinfo is not None:
+        v = v.astimezone(TZ)
+    return v.strftime("%d/%m %I:%M %p").lstrip("0")
+
+
+def money_config(cols):
+    """`column_config` para columnas de precio en pesos, con las etiquetas ya traducidas."""
+    return {COLUMN_LABEL.get(c, c): st.column_config.NumberColumn(format="$%.2f") for c in cols}
 
 
 def pretty(df, index=None):
@@ -205,9 +295,14 @@ def pretty(df, index=None):
         df["status"] = df["status"].map(STATUS_LABEL).fillna(df["status"])
     if "vs_now" in df.columns:
         df["vs_now"] = df["vs_now"].map(VS_NOW_LABEL).fillna(df["vs_now"])
-    for col in ("sampled_at", "detected_at", "first_seen"):
+    for col, labels in (("role", ROLE_LABEL), ("closed_kind", STATUS_LABEL), ("language", LANGUAGE_LABEL),
+                        ("platform", PLATFORM_LABEL), ("city_id", CITY_LABEL)):
         if col in df.columns:
-            df[col] = df[col].map(lambda s: local_time(s) if isinstance(s, str) else s)
+            df[col] = df[col].map(labels).fillna(df[col])
+    for col in ("sampled_at", "detected_at", "first_seen", "first_seen_at", "closed_at", "last_seen", "last_login_at",
+                "created_at", "starts_at"):
+        if col in df.columns:
+            df[col] = df[col].map(lambda s: local_time(s) if isinstance(s, (str, datetime)) else s)
     if "datetime_local" in df.columns:
         df["datetime_local"] = df["datetime_local"].map(
             lambda s: f"{date_es(s[:10])}, {time_12(s[11:16])}" if isinstance(s, str) and len(s) >= 16 else s)
