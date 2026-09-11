@@ -734,6 +734,53 @@ SQLite no se propagan); particiones mensuales bajo demanda, sin DEFAULT; `cinema
 **Etapa 2 (siguiente):** portar `analytics/` a Postgres con tipos nativos, encender el filtro de plaza para lo nacional,
 y mover el destino a RDS cuando el cliente confirme la cuenta.
 
+### Paso 2: Resumen general narrado con la IA del cliente (planeado el 2026-09-11, sin construir)
+
+Hoy ningún modelo de lenguaje interviene: los hallazgos, las conclusiones y las frases ejecutivas son plantillas
+deterministas en `analytics/findings.py` y `analytics/headlines.py`, que solo se redactan si cruzan su umbral. Eso se
+conserva como base. Lo que se añade es una **capa narrativa opcional** que redacta el "Resumen general" en prosa con el
+modelo y la clave que elija el cliente. Decisiones tomadas con David:
+
+- **El modelo redacta, nunca calcula.** Recibe los dicts que ya devuelve `analytics/` (cifras y umbrales resueltos) y
+  devuelve título, cuerpo y acción en un esquema fijo. Validación posterior: todo número de la salida debe existir en la
+  entrada; si no, se descarta. Si la clave falla, el proveedor no responde o se agota la cuota, se pinta la plantilla.
+  El dashboard nunca se bloquea ni espera a una API externa.
+- **Se genera por timer, no en el dashboard.** Servicio nuevo en el venv (`make narrate`, hacia las :45 tras cada captura
+  de :30) para las vistas por defecto (hoy y la semana de cine, día completo); filtros no estándar caen a plantilla.
+  Guarda en Postgres, esquema `app`, tabla `app.narrative`: captura, periodo, proveedor, modelo, texto, tokens, costo e id
+  de la petición del proveedor. No toca SQLite (regla de un solo escritor).
+- **Paquete `narrative/`** con un adaptador por proveedor detrás de una misma función, usando el SDK oficial de cada
+  uno; Anthropic primero (`claude-opus-5`, salida estructurada), luego OpenAI, Google si un cliente lo pide. `scraper/`
+  y `analytics/` jamás lo importan. Costo estimado con tres generaciones diarias: < 5 USD al mes.
+- **Sin concepto de organización todavía.** `app.account` no tiene tenant, así que la configuración del proveedor es
+  **una por instancia**, la fija el admin desde el tablero. Si algún día hay más de un cliente por despliegue, entra
+  organización antes que clave por usuario.
+
+**Custodia y auditoría de la clave** (tres capas, todas necesarias; KMS solo resuelve la primera):
+
+1. *Custodia.* Cifrado de sobre con una llave de KMS: el dashboard cifra con `kms:Encrypt` y guarda el texto cifrado
+   en `app.ai_provider` (proveedor, modelo, últimos 4 caracteres, texto cifrado, quién y cuándo); el servicio de
+   generación descifra con `kms:Decrypt`. Dos permisos acotados al ARN de la llave en la política del rol de la instancia
+   (`docs/aws-setup.md`). Cada `Decrypt` queda en CloudTrail. Alternativa equivalente: Secrets Manager. La clave nunca va
+   al archivo de entorno ni a `scraper/config.py`: es un dato del cliente.
+2. *Acceso.* Solo el rol de la instancia; dentro de la app solo `narrative/` descifra, el dashboard únicamente cifra. Tras
+   guardarla la interfaz muestra proveedor, modelo y últimos 4 caracteres, nunca la clave.
+3. *Auditoría propia.* Tres acciones nuevas en `app.audit` (`ai_key_set`, `ai_key_tested`, `ai_key_revoked`) con actor,
+   proveedor, modelo y últimos 4 en `detail`; la clave completa jamás entra a `detail` ni a ningún log. Cada texto
+   generado deja proveedor, modelo, tokens, costo y request id en `app.narrative`.
+
+**Prerrequisitos:** HTTPS con dominio propio antes de capturar ninguna clave (hoy Caddy con `basic_auth` y sin
+certificado propio); botón de revocar y prueba de conexión en la sección de admin. **Para el cliente**, documentar aquí
+qué se envía al proveedor (solo cifras agregadas de cartelera pública, sin datos personales), dónde vive la clave, quién
+la lee, cómo se revoca y la retención del proveedor (Anthropic: 30 días salvo acuerdo de retención cero).
+**Alternativa sin clave:** si Cinemex usa AWS, acceso a Bedrock desde su cuenta con un rol cruzado; no existe clave que
+custodiar y el consumo se factura directo a ellos.
+
+**Orden de construcción cuando se retome:** (1) tabla y cifrado de la configuración en `app` + llave KMS y permisos;
+(2) paquete `narrative/` con Anthropic y la validación de cifras; (3) target `narrate`, timer y `app.narrative`;
+(4) sección de admin para capturar, probar y revocar la clave; (5) el dashboard lee `app.narrative` con plantilla de
+respaldo. Pruebas: validación de cifras y adaptador con respuestas grabadas, sin red.
+
 ### Pendientes que no dependen del plan 2
 
 - Terminar el paso al servidor (EC2 levantado el 2026-09-10; WARP + Privoxy para Cinépolis): copiar `data/`, dejar un solo
