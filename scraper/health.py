@@ -31,6 +31,7 @@ from . import config, sample, store
 
 MAX_AGE_MIN = 12 * 60        # tres capturas al día: el hueco normal más largo (20:30 → 07:30) es de 11 h
 SLOT_TOLERANCE_MIN = 30      # una captura programada cuenta si hay snapshot bueno a ±30 min
+COVERAGE_MIN_RATIO = 0.9     # cines en la última captura frente al máximo de 7 días: menos es un estado o ciudad que llegó vacío
 CHAINS = ("cinemex", "cinepolis")
 # Logs que se pueden consultar desde el dashboard: nombre → archivo en config.LOG_DIR. Lista cerrada a propósito, para
 # que la página nunca reciba una ruta arbitraria.
@@ -66,7 +67,7 @@ def check(conn, hours=24, now=None):
     report = {"at": now.isoformat(timespec="seconds"), "hours": hours, "chains": {}, "problems": []}
     for chain in CHAINS:
         c = {}
-        last = conn.execute("SELECT taken_at, finished_at, ok, n_shows, error FROM snapshot WHERE chain = ? ORDER BY id DESC LIMIT 1",
+        last = conn.execute("SELECT taken_at, finished_at, ok, n_shows, n_cinemas, error FROM snapshot WHERE chain = ? ORDER BY id DESC LIMIT 1",
                             (chain,)).fetchone()
         if not last:
             report["problems"].append(f"{chain}: sin snapshots"); report["chains"][chain] = c; continue
@@ -90,6 +91,12 @@ def check(conn, hours=24, now=None):
                               FROM occupancy_sample WHERE chain = ? AND sampled_at >= ?""", (chain, since)).fetchone()
         c["occupancy_t60"], c["occupancy_post_start"] = occ["pre"] or 0, occ["post"] or 0
         week_ago = (now - timedelta(days=7)).isoformat(timespec="seconds")
+        # Cobertura: una captura buena con muchos menos cines que las de la semana significa que un estado o una ciudad
+        # respondió vacío (la API contesta 200 igual). El máximo semanal es la referencia, no una constante.
+        peak = conn.execute("SELECT MAX(n_cinemas) FROM snapshot WHERE chain = ? AND ok = 1 AND taken_at >= ?", (chain, week_ago)).fetchone()[0]
+        c["last_cinemas"], c["peak_cinemas_7d"] = last["n_cinemas"], peak
+        if last["ok"] and peak and (last["n_cinemas"] or 0) < COVERAGE_MIN_RATIO * peak:
+            report["problems"].append(f"{chain}: la última captura trae {last['n_cinemas']} cines frente a {peak} en la semana (cobertura incompleta)")
         c["prices_7d"] = conn.execute("SELECT COUNT(*) FROM price_sample WHERE chain = ? AND sampled_at >= ?", (chain, week_ago)).fetchone()[0]
         c["concession_cinemas_8d"] = conn.execute(
             "SELECT COUNT(DISTINCT cinema_id) FROM concession_price WHERE chain = ? AND sampled_at >= ?",
@@ -107,10 +114,11 @@ def check(conn, hours=24, now=None):
             have = sample.calibration_progress(conn, chain)
             c["calibration"] = {lvl: have.get(lvl, 0) for lvl in sample.CALIBRATION_LEVELS}
         report["chains"][chain] = c
-    # el muestreo de planos hoy solo corre para Cinépolis; si no hay ninguna muestra en la ventana, algo se detuvo
+    # el muestreo de planos hoy solo corre para Cinépolis y solo en las plazas de config.SEATS_PLAZAS; si no hay ninguna
+    # muestra en la ventana, algo se detuvo
     cp = report["chains"].get("cinepolis", {})
     if cp and cp.get("snapshots") and not cp.get("occupancy_post_start"):
-        report["problems"].append("cinepolis: cero planos post-inicio en la ventana (¿se cayó el pase de butacas?)")
+        report["problems"].append(f"cinepolis: cero planos post-inicio en la ventana para {', '.join(config.SEATS_PLAZAS)} (¿se cayó el pase de butacas?)")
     report["sync"] = sync_status(now)
     if report["sync"]:
         s_ = report["sync"]

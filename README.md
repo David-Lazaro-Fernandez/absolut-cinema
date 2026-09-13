@@ -8,7 +8,8 @@ Inteligencia competitiva de cartelera: Cinemex vs Cinépolis (México).
 
 - `project.md`: cómo funcionan las APIs de ambas cadenas, modelo de datos y estado del proyecto.
 - `cinepolis_mx_cines.yaml`: catálogo de cines Cinépolis MX con slug, Vista ID, timezone y coordenadas.
-- `scraper/`: capturas de cartelera de la plaza piloto (CDMX) tres veces al día, con diff de cambios en SQLite;
+- `scraper/`: capturas **nacionales** de cartelera (Cinépolis 499 cines, Cinemex 278) tres veces al día, con diff de cambios en
+  SQLite; `scraper/plazas.py` define las plazas comparables (CDMX, Guadalajara, Monterrey);
   `scraper/sample.py` mide aforo, ocupación (planos de asientos de Cinépolis tras el inicio, cada hora), precios y
   dulcería; `scraper/delivery.py` lee la dulcería a domicilio en Rappi y DiDi Food; `scraper/health.py` vigila la captura.
 - `analytics/`: consultas de negocio sobre la base (funciones puras, sin dependencias).
@@ -25,6 +26,8 @@ Inteligencia competitiva de cartelera: Cinemex vs Cinépolis (México).
   para correr todo en un servidor (`deploy/README.md`); `deploy/docker-compose.dev.yml` levanta Postgres 16 y pgAdmin
   para desarrollo.
 - `docs/`: diseño del archivo histórico (`postgres-esquema.md`), diagrama de despliegue (`arquitectura_aws.py`) e investigación.
+- `marketing/`: landing page pública del producto (Next.js, independiente del resto del repo, sitio estático). Ver
+  `marketing/README.md` y `marketing/design.md`.
 - `ARCHITECTURE.md`: qué proceso toca qué dato y qué lo programa. `AGENTS.md`: convenciones del repo. `make help`: comandos.
 - Calidad: `make check` (lint con `ruff`, imports sin dependencias, `pytest`) corre en el hook `pre-push` (`make hooks` lo
   activa) y en GitHub Actions, que mueve la rama `stable` cuando pasa; el servidor despliega `stable` cada mañana.

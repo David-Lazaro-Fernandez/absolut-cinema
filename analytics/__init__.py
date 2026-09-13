@@ -24,6 +24,7 @@ from .delivery import (
 from .findings import conclusions, findings
 from .headlines import headlines
 from .history import board_as_of, cinemas, dates_known, functions_on, showtime_timeline, snapshot_times
+from .plaza import plaza_coverage, plazas
 from .queries import (
     cinema_week,
     concentration,
@@ -63,4 +64,5 @@ __all__ = [
     "cinema_week", "concentration", "conclusions", "connect", "coverage", "events_by_kind", "findings", "headlines",
     "heatmap_day_slot", "is_full_day", "kpis", "kpis_today", "labels", "mix", "movies_by_chain", "recent_events",
     "showtimes_by_slot", "snapshot_health", "today",
+    "plaza_coverage", "plazas",
 ]

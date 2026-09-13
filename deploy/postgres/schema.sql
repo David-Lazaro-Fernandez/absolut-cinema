@@ -22,7 +22,9 @@ CREATE TABLE cinema (                            -- dimensión derivada de las c
   cinema_id   text NOT NULL,                     -- Cinépolis slug, Cinemex id numérico como texto
   name        text NOT NULL,
   lat         double precision, lng double precision,
-  city_id     text,                              -- plaza (Cinépolis cityId, Cinemex estado/área); habilita el filtro de zona
+  city_id     text,                              -- llave geográfica más fina de cada API (Cinépolis cityId, Cinemex id de área); plaza = scraper/plazas.py
+  state_id    text,                              -- estado de Cinemex (NULL en Cinépolis)
+  timezone    text,                              -- zona IANA del cine (solo la publica Cinépolis)
   first_seen  timestamptz NOT NULL, last_seen timestamptz NOT NULL,
   PRIMARY KEY (chain, cinema_id)
 );
@@ -64,6 +66,7 @@ CREATE TABLE showtime_state (                    -- versiones del estado mutable
   language       text, language_raw text,
   format         text, experience text, premium_tier text, version_raw text,
   availability   text,                           -- color (Cinépolis) o high/mid/low (Cinemex)
+  starts_at_utc  timestamptz,                    -- la misma hora en UTC: México tiene siete zonas, el cierre se decide con esta
   PRIMARY KEY (chain, show_id, show_date, valid_from),
   FOREIGN KEY (chain, show_id, show_date) REFERENCES showtime
 ) PARTITION BY RANGE (show_date);

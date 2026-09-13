@@ -6,7 +6,8 @@ VENV ?= .venv/bin
 
 .PHONY: help tick snapshot seats occupancy post-start daily health prices concessions delivery capacity capacity-cinemex \
         calibrate-cinemex dashboard backup launchd-load launchd-unload pg-up pg-schema pg-psql pg-admin pg-down sync \
-        auth-schema user-create user-list user-reset user-deactivate user-activate auth-prune deploy check lint test hooks
+        auth-schema user-create user-list user-reset user-deactivate user-activate auth-prune deploy check lint test hooks \
+        marketing-dev marketing-build
 
 help:               ## lista los targets
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-20s %s\n", $$1, $$2}'
@@ -38,11 +39,11 @@ concessions:        ## menú de dulcería de Cinépolis con precio por complejo 
 delivery:           ## dulcería a domicilio en Rappi y DiDi Food, a las 15:00 con las tiendas abiertas (renovadas cada 7 días)
 	$(PY) -m scraper.delivery
 
-capacity:           ## aforo por sala de Cinépolis; con REFRESH=1 vuelve a medir las conocidas
-	$(PY) -m scraper.sample --capacity $(if $(REFRESH),--refresh,)
+capacity:           ## aforo por sala de Cinépolis en AC_SEATS_PLAZAS; REFRESH=1 vuelve a medir; PLAZAS=all (o gdl,mty) cambia el alcance
+	$(PY) -m scraper.sample --capacity $(if $(REFRESH),--refresh,) $(if $(PLAZAS),--plazas $(PLAZAS),) $(if $(WORKERS),--workers $(WORKERS),)
 
-capacity-cinemex:   ## aforo de Cinemex (abre órdenes de checkout; lanzar a mano)
-	$(PY) -m scraper.sample --capacity --chain cinemex $(if $(REFRESH),--refresh,)
+capacity-cinemex:   ## aforo de Cinemex (abre órdenes de checkout; lanzar a mano); PLAZAS=all para la pasada nacional única
+	$(PY) -m scraper.sample --capacity --chain cinemex $(if $(REFRESH),--refresh,) $(if $(PLAZAS),--plazas $(PLAZAS),) $(if $(WORKERS),--workers $(WORKERS),)
 
 calibrate-cinemex:  ## calibración del semáforo de Cinemex, 100 funciones por nivel (checkout; a mano o timer opcional)
 	$(PY) -m scraper.sample --occupancy --chain cinemex --per-level $(or $(PER_LEVEL),100) --lead 60 --tolerance 45 --limit $(or $(LIMIT),60)
@@ -68,6 +69,12 @@ sync:               ## copia lo nuevo de SQLite al archivo histórico en Postgre
 
 dashboard:          ## Streamlit local
 	$(VENV)/streamlit run app.py
+
+marketing-dev:      ## landing page pública en local (Next.js, marketing/); requiere `npm install` una vez ahí
+	cd marketing && npm run dev
+
+marketing-build:    ## exporta la landing page pública como sitio estático a marketing/out
+	cd marketing && npm run build
 
 auth-schema:        ## esquema `app` (cuentas y sesiones) y rol absolut_app en el Postgres local; APP_PASSWORD opcional
 	docker compose -f deploy/docker-compose.dev.yml exec -T postgres psql -v ON_ERROR_STOP=1 -U absolut -d absolut_cinema < deploy/postgres/auth.sql

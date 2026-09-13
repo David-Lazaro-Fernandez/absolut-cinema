@@ -10,7 +10,7 @@ comandos en `make help`.
 flowchart LR
     subgraph fuentes["Fuentes externas (APIs públicas con clave embebida)"]
         CPL["Cinépolis GraphQL<br/>api-g.cinepolis.com<br/>locations · billboards v2 · ticket (Seats, Tickets)"]
-        CMX["Cinemex REST<br/>api.cinemex.com/rest/v2.37.2<br/>cinemas · movies por área · sessions/{id} · buy/selectTickets"]
+        CMX["Cinemex REST<br/>api.cinemex.com/rest/v2.37.2<br/>states · cinemas/state/{id}/movies · sessions/{id} · buy/selectTickets"]
         CPF["Cinépolis dulcería<br/>fab-struct-concession/graphql (MenuByType)"]
         DEL["Rappi · DiDi Food<br/>HTML del lado del servidor"]
     end
@@ -18,9 +18,9 @@ flowchart LR
     WARP["Solo servidor: Cloudflare WARP (SOCKS5) + Privoxy (HTTP :8118)<br/>AC_EGRESS_PROXY · solo hosts de AC_EGRESS_PROXY_HOSTS<br/>el WAF de Cinépolis bloquea las IPs de AWS"]
 
     subgraph scraper["scraper/ (solo stdlib, /usr/bin/python3)"]
-        RUN["scraper.run · make snapshot<br/>captura de cartelera 3/día<br/>cinepolis.py · cinemex.py → normalize → diff"]
+        RUN["scraper.run · make snapshot<br/>captura nacional de cartelera 3/día<br/>cinepolis.py · cinemex.py (en paralelo) → normalize → diff"]
         OCC["scraper.sample --occupancy<br/>plano a T−60 (preventa, solo a mano)"]
-        POST["scraper.sample --post-start<br/>plano a +10…30 min (asistencia final)"]
+        POST["scraper.sample --post-start<br/>plano a +15…75 min (asistencia final)<br/>solo plazas de AC_SEATS_PLAZAS"]
         PRICE["scraper.sample --prices<br/>boletos por cine, formato y tipo de día"]
         CAP["scraper.sample --capacity<br/>aforo por sala"]
         CAL["scraper.sample --occupancy --chain cinemex --per-level<br/>calibración del semáforo (checkout, a mano)"]
@@ -36,7 +36,7 @@ flowchart LR
     end
 
     subgraph datos["data/ (fuera de git)"]
-        DB[("snapshots.db (SQLite WAL)<br/>snapshot · current_showtime · event (incl. expired)<br/>auditorium · occupancy_sample · price_sample<br/>concession_price · delivery_price")]
+        DB[("snapshots.db (SQLite WAL)<br/>snapshot · cinema · current_showtime · event (incl. expired)<br/>auditorium · occupancy_sample · price_sample<br/>concession_price · delivery_price")]
         RAW["raw/{chain}/{fecha}/*.json.gz"]
         LOGS["logs/ run.log · sample.log · health.log"]
     end
@@ -81,7 +81,13 @@ flowchart LR
 Reglas que sostiene el diagrama:
 
 - **Un solo escritor** sobre `snapshots.db`: todo lo que escribe corre en serie desde el mismo timer o en minutos
-  distintos (:07); si coincide, SQLite espera hasta 60 s.
+  distintos (:07); si coincide, SQLite espera hasta 60 s. La captura nacional descarga las dos cadenas en paralelo
+  (solo red, 15–30 min) y escribe en serie al final (segundos), así que puede solaparse con el pase de butacas de :50 sin
+  que haya dos escritores a la vez.
+- **La geografía sale de `scraper/plazas.py`.** Cada cine lleva su `city_id` (Cinépolis ciudad, Cinemex área) y su
+  `state_id` en la dimensión `cinema` y en cada fila de `current_showtime`; una plaza es la unión de esas llaves para
+  ambas cadenas. Los planos de asientos solo se toman en las plazas de `AC_SEATS_PLAZAS`; el dashboard filtra con la
+  misma membresía (`analytics/plaza.py`).
 - **El dashboard nunca escribe datos.** Abre SQLite en modo lectura, el archivo en Postgres en solo lectura (`archive/`)
   y toda la lógica de negocio vive en `analytics/` y `archive/`, para envolverla después en un API sin reescribir. Lo
   único que escribe es `auth/`, en su propio esquema `app` (cuentas, sesiones, enlaces, auditoría) con el rol
@@ -168,13 +174,13 @@ flowchart TB
 
 | Servicio | Tipo | Cadencia | Escribe en | Quién lo lanza |
 | --- | --- | --- | --- | --- |
-| `scraper.run` (`make snapshot`) | captura de cartelera, ambas cadenas | 07:30, 13:30, 20:30 | `snapshot`, `current_showtime`, `event` (incl. `expired`), crudo | `scraper` (launchd) / `scraper.timer` |
+| `scraper.run` (`make snapshot`) | captura nacional de cartelera, ambas cadenas (descarga en paralelo, 15–30 min) | 07:30, 13:30, 20:30 | `snapshot`, `cinema`, `current_showtime`, `event` (incl. `expired`), crudo | `scraper` (launchd) / `scraper.timer` |
 | `sample --occupancy` (`make occupancy`) | plano a T−60 (preventa), Cinépolis | a mano | `occupancy_sample` (`minutes_to_start` ≥ 0) | manual |
-| `sample --post-start` (`make seats`) | plano 15–75 min tras el inicio, Cinépolis (asistencia final) | cada hora | `occupancy_sample` (`minutes_to_start` < 0) | `seats` (launchd) / `seats.timer` |
+| `sample --post-start` (`make seats`) | plano 15–75 min tras el inicio, Cinépolis (asistencia final), solo plazas de `AC_SEATS_PLAZAS` | cada hora | `occupancy_sample` (`minutes_to_start` < 0) | `seats` (launchd) / `seats.timer` |
 | `sample --prices` (`make prices`) | boletos por cine, formato, tipo de día | diario | `price_sample` | `daily` (launchd) / `prices.timer` |
 | `sample --concessions` (`make concessions`) | menú de dulcería con precio, Cinépolis | diario; cada cine se renueva a los 7 días | `concession_price` | idem |
 | `scraper.delivery` (`make delivery`) | dulcería a domicilio, ambas cadenas, Rappi y DiDi Food | diario 15:00; cada tienda a los 7 días | `delivery_price` | `delivery` (launchd) / `delivery.timer` |
-| `sample --capacity` | aforo por sala, Cinépolis | mensual | `auditorium` | `capacity.timer`; Cinemex a mano |
+| `sample --capacity` | aforo por sala, Cinépolis, en `AC_SEATS_PLAZAS`; `PLAZAS=all` = pasada nacional única a mano (hecha 2026-09-12, también Cinemex) | mensual | `auditorium` | `capacity.timer`; Cinemex a mano |
 | `sample --occupancy --chain cinemex --per-level` | calibración del semáforo | diario 19:07, opt-in | `occupancy_sample` | timer apagado o a mano |
 | `sync.run` (`make sync`) | copia lo nuevo de SQLite a PostgreSQL y reconstruye la historia de funciones desde el crudo (identidad + versiones) | :22 y :52 | Postgres: `snapshot`, `cinema`, `movie`, `showtime`, `showtime_state`, `event`, muestreos, `auditorium`, `sync_watermark`; `logs/sync_status.json` | `sync` (launchd) / `sync.timer` |
 | `scraper.health` (`make health`) | salud de la captura: capturas programadas, fallos, muestreos; las mismas funciones alimentan en vivo la página Operaciones | diario | `logs/health.log` | `daily` (launchd) / `health.timer` |
@@ -189,7 +195,9 @@ flowchart TB
 
 ## 4. Identidades y llaves que cruzan todo
 
-- **Cine**: Cinépolis por `slug` (`cinepolis-universidad-cdmx`), Cinemex por id numérico. Ambos con lat/lng.
+- **Cine**: Cinépolis por `slug` (`cinepolis-universidad-cdmx`), Cinemex por id numérico. Ambos con lat/lng, `city_id`
+  (Cinépolis ciudad, Cinemex área) y, en Cinemex, `state_id`; dimensión `cinema` en SQLite y en Postgres.
+- **Plaza**: clave de `scraper/plazas.py` (`cdmx`, `gdl`, `mty`) = unión de `city_id` de ambas cadenas. `None` es nacional.
 - **Función**: `show_id`. En Cinemex es el id nacional de sesión; en Cinépolis `slug-del-cine:sessionId`,
   porque el `sessionId` de Vista solo es único por cine.
 - **Sala**: `(chain, cinema_id, screen)`, llave de `auditorium`.

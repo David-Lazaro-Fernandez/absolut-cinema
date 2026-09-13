@@ -55,10 +55,10 @@ def _slot_name(key):
     return SLOT_SHORT[key].replace("P.M.", "PM").replace("A.M.", "AM")
 
 
-def _title_finding(conn, d0, d1, hours=None):
+def _title_finding(conn, d0, d1, hours=None, plaza=None):
     """¿Dónde la apuesta por sala (butacas) cuenta otra historia que la apuesta por funciones?"""
-    movies = movies_by_chain(conn, d0, d1, limit=60, hours=hours)
-    seats = {c: {r["title_norm"]: r for r in offered_by_title(conn, d0, d1, limit=60, chain=c, hours=hours)} for c in (US, THEM)}
+    movies = movies_by_chain(conn, d0, d1, limit=60, hours=hours, plaza=plaza)
+    seats = {c: {r["title_norm"]: r for r in offered_by_title(conn, d0, d1, limit=60, chain=c, hours=hours, plaza=plaza)} for c in (US, THEM)}
     if not seats[US] or not seats[THEM]:
         return None
     best, score = None, 0
@@ -119,8 +119,8 @@ def _title_finding(conn, d0, d1, hours=None):
     return {"topic": "titulo", "title": title, "body": body, "action": action, "support": support[:4] + support[4:6]}
 
 
-def _concentration_finding(conn, d0, d1, movies, hours=None):
-    cc = {r["chain"]: r for r in concentration(conn, d0, d1, hours=hours)}
+def _concentration_finding(conn, d0, d1, movies, hours=None, plaza=None):
+    cc = {r["chain"]: r for r in concentration(conn, d0, d1, hours=hours, plaza=plaza)}
     if US not in cc or THEM not in cc:
         return None
     cu, ct = cc[US], cc[THEM]
@@ -151,10 +151,10 @@ def _concentration_finding(conn, d0, d1, movies, hours=None):
     ]}
 
 
-def _slot_finding(conn, d0, d1, hours=None):
+def _slot_finding(conn, d0, d1, hours=None, plaza=None):
     if not is_full_day(hours):
         return None   # con la franja recortada, la "franja ganadora" pierde el sentido comparativo
-    slots = {r["chain"]: r for r in showtimes_by_slot(conn, d0, d1)}
+    slots = {r["chain"]: r for r in showtimes_by_slot(conn, d0, d1, plaza=plaza)}
     if US not in slots or THEM not in slots or not slots[US]["total"] or not slots[THEM]["total"]:
         return None
     su, st_ = slots[US], slots[THEM]
@@ -183,7 +183,7 @@ def _slot_finding(conn, d0, d1, hours=None):
         action = (f"Decisión: sostener la ventaja {_slot_phrase(key)} y vigilar su ocupación" if evening else
                   f"Decisión: ¿mover parte de la oferta de {_slot_name(key)} a {_slot_name(source)}?")
     support = []
-    hm = heatmap_day_slot(conn, d0, d1)
+    hm = heatmap_day_slot(conn, d0, d1, plaza=plaza)
     days = sorted({r["weekday"] for r in hm})
     if 1 < len(days) <= 2:
         for r in hm:
@@ -197,8 +197,8 @@ def _slot_finding(conn, d0, d1, hours=None):
     return {"topic": "franjas", "title": title, "body": body, "action": action, "support": support[:4]}
 
 
-def _format_finding(conn, d0, d1, kp, hours=None):
-    mx = {(r["dimension"], r["chain"], r["bucket"]): r["share"] for r in mix(conn, d0, d1, hours=hours)}
+def _format_finding(conn, d0, d1, kp, hours=None, plaza=None):
+    mx = {(r["dimension"], r["chain"], r["bucket"]): r["share"] for r in mix(conn, d0, d1, hours=hours, plaza=plaza)}
     gaps = [(mx.get(("format", US, b), 0) - mx.get(("format", THEM, b), 0), b) for b in FORMAT_LABEL if b != "traditional"]
     g, b = max(gaps, key=lambda x: abs(x[0]))
     if abs(g) < FORMAT_MIN_PP:
@@ -276,21 +276,22 @@ def _exclusive_finding(movies):
                        [{"label": _short(m["title"], 22), "value": _pct(m["share_cinepolis"]), "cmx": False} for m in only_them[:2]]}
 
 
-def findings(conn, d0=None, d1=None, top=3, hours=None):
+def findings(conn, d0=None, d1=None, top=3, hours=None, plaza=None):
     """Hasta `top` hallazgos, en orden de prioridad: título por butacas, concentración, dulcería (información de
-    valor directo para el cliente), franjas, formato, exclusivas. Cada uno solo entra si cruza su umbral."""
+    valor directo para el cliente), franjas, formato, exclusivas. Cada uno solo entra si cruza su umbral. `plaza`
+    acota la cartelera; la dulcería a domicilio no depende de la plaza (Rappi y DiDi se leen en CDMX)."""
     d0 = d0 or today()
     d1 = d1 or d0
-    kp = {r["chain"]: r for r in kpis(conn, d0, d1, hours=hours)}
+    kp = {r["chain"]: r for r in kpis(conn, d0, d1, hours=hours, plaza=plaza)}
     if US not in kp or THEM not in kp:
         return []
-    movies = movies_by_chain(conn, d0, d1, limit=200, hours=hours)
+    movies = movies_by_chain(conn, d0, d1, limit=200, hours=hours, plaza=plaza)
     out = []
-    for fn in (lambda: _title_finding(conn, d0, d1, hours=hours),
-               lambda: _concentration_finding(conn, d0, d1, movies, hours=hours),
+    for fn in (lambda: _title_finding(conn, d0, d1, hours=hours, plaza=plaza),
+               lambda: _concentration_finding(conn, d0, d1, movies, hours=hours, plaza=plaza),
                lambda: _concession_finding(conn),
-               lambda: _slot_finding(conn, d0, d1, hours=hours),
-               lambda: _format_finding(conn, d0, d1, kp, hours=hours),
+               lambda: _slot_finding(conn, d0, d1, hours=hours, plaza=plaza),
+               lambda: _format_finding(conn, d0, d1, kp, hours=hours, plaza=plaza),
                lambda: _exclusive_finding(movies)):
         f = fn()
         if f:
@@ -300,18 +301,18 @@ def findings(conn, d0=None, d1=None, top=3, hours=None):
     return out
 
 
-def conclusions(conn, d0=None, d1=None, shown=8, total=15, hours=None):
+def conclusions(conn, d0=None, d1=None, shown=8, total=15, hours=None, plaza=None):
     """Frase de apertura de cada sección de evidencia (Capa 2)."""
     d0 = d0 or today()
     d1 = d1 or d0
     out = {}
-    kp = {r["chain"]: r for r in kpis(conn, d0, d1, hours=hours)}
+    kp = {r["chain"]: r for r in kpis(conn, d0, d1, hours=hours, plaza=plaza)}
     us, them = kp.get(US), kp.get(THEM)
     if not us or not them:
         return out
 
     # Resumen general: volumen total y cuánto concentra el Top del reporte del cliente.
-    summary = general_summary(conn, d0, d1, hours=hours)
+    summary = general_summary(conn, d0, d1, hours=hours, plaza=plaza)
     titles = [r for r in summary if r["kind"] == "title"]
     tot = summary[-1]
     top_us, top_them = sum(r["share_cinemex"] for r in titles), sum(r["share_cinepolis"] for r in titles)
@@ -321,7 +322,7 @@ def conclusions(conn, d0=None, d1=None, shown=8, total=15, hours=None):
                       f"{_pct(top_us)} de nuestra parrilla y {_pct(top_them)} de la suya.")
 
     # Películas: sobre-indexamos / ellos apuestan más / exclusivas, sobre las `total` con más funciones.
-    top_movies = movies_by_chain(conn, d0, d1, limit=total, hours=hours)
+    top_movies = movies_by_chain(conn, d0, d1, limit=total, hours=hours, plaza=plaza)
     shared = [m for m in top_movies if m["shows_cinemex"] and m["shows_cinepolis"]]
     more = sorted([m for m in shared if m["gap_pp"] >= 1], key=lambda m: -m["gap_pp"])[:2]
     less = sorted([m for m in shared if m["gap_pp"] <= -1], key=lambda m: m["gap_pp"])[:2]
@@ -345,7 +346,7 @@ def conclusions(conn, d0=None, d1=None, shown=8, total=15, hours=None):
     out["peliculas_note"] = f"Mostrando las {shown} con mayor diferencia; el resto no mueve decisiones."
 
     # Franjas: dónde ganamos y dónde perdemos.
-    slots = {r["chain"]: r for r in showtimes_by_slot(conn, d0, d1, hours=hours)}
+    slots = {r["chain"]: r for r in showtimes_by_slot(conn, d0, d1, hours=hours, plaza=plaza)}
     su, st_ = slots[US], slots[THEM]
     h0, h1 = hours or FULL_DAY
     gaps = {k: 100.0 * su[k] / su["total"] - 100.0 * st_[k] / st_["total"] for k, lo, hi, _ in SLOTS
@@ -363,7 +364,7 @@ def conclusions(conn, d0=None, d1=None, shown=8, total=15, hours=None):
     out["franjas"] = out["franjas"][0].upper() + out["franjas"][1:]
 
     # Formatos e idioma.
-    mx = {(r["dimension"], r["chain"], r["bucket"]): r["share"] for r in mix(conn, d0, d1, hours=hours)}
+    mx = {(r["dimension"], r["chain"], r["bucket"]): r["share"] for r in mix(conn, d0, d1, hours=hours, plaza=plaza)}
     fg = [(mx.get(("format", US, b), 0) - mx.get(("format", THEM, b), 0), b) for b in FORMAT_LABEL if b != "traditional"]
     g, b = max(fg, key=lambda x: abs(x[0]))
     u, t = mx.get(("format", US, b), 0), mx.get(("format", THEM, b), 0)

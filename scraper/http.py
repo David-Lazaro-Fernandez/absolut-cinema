@@ -37,7 +37,7 @@ def request_json(url, *, method="GET", headers=None, body=None, retries=None):
     if body is not None:
         data = json.dumps(body).encode("utf-8")
         hdrs["Content-Type"] = "application/json"
-    raw = _request(url, method=method, headers=hdrs, data=data, retries=retries, pause=config.PAUSE_BETWEEN_CALLS)
+    raw = _request(url, method=method, headers=hdrs, data=data, retries=retries, pause=_pause_for(url))
     try:
         return json.loads(raw)
     except json.JSONDecodeError as e:
@@ -56,6 +56,12 @@ def request_text(url, *, headers=None, retries=None, pause=None):
 
 MAX_REDIRECTS = 3
 _OPENERS = {}
+
+
+def _pause_for(url):
+    """Pausa tras cada llamada a `url`: la del host en `config.PAUSE_BY_HOST` o la general."""
+    host = urllib.parse.urlparse(url).hostname or ""
+    return config.PAUSE_BY_HOST.get(host, config.PAUSE_BETWEEN_CALLS)
 
 
 def _proxy_for(url):

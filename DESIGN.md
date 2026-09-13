@@ -107,7 +107,9 @@ Al entrar o salir la página se recarga completa (≈1 s): es lo que exige la co
 ### Barra de cuenta
 
 Con sesión, la barra lateral abre con "Sesión de **Nombre**", correo y rol en gris (`.cuenta`) y el botón píldora
-"Cerrar sesión", seguido de un divisor; debajo van los filtros de la página. La página Usuarios reutiliza la sección de
+"Cerrar sesión", seguido de un divisor; debajo van los filtros de la página: en la cartelera y la dulcería, primero
+"Zona" (radio con las plazas que tienen cines en la base y "Nacional"; CDMX por defecto), luego periodo y franja. El
+encabezado dice "Cartelera CDMX" o "Cartelera nacional" según la zona (`labels.plaza_title`). La página Usuarios reutiliza la sección de
 evidencia (`seccion`) para los dos bloques (nueva cuenta, administrar una cuenta) y la tabla estándar para la lista. El
 explorador Datos usa `st.dataframe` a 560 px de alto con orden y búsqueda nativos, precios con formato `$`, y un botón
 de descarga CSV.

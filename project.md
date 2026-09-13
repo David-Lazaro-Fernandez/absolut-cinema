@@ -44,6 +44,12 @@ el producto de inteligencia competitiva (Cinemex vs Cinépolis). Fecha: 2026-09-
   `scraper.health` en vivo, corridas recientes con su error, Postgres (latencia, tamaños, marcas de agua), sync, servidor
   (commit, despliegue, respaldo, disco) y la cola de cada log. Lógica en `scraper/health.py` y `archive/status.py`. Declara
   como pendientes los fallos por llamada a las APIs (no se registran) y las métricas de RDS (CloudWatch).
+- 2026-09-11: **captura nacional**. El scraper deja de ser de una plaza: Cinemex por estado (`cinemas/state/{id}/movies/`,
+  endpoint no documentado, 31 estados) y Cinépolis por todas sus ciudades (154, `cityId` y `timezone` por cine); las dos
+  cadenas se descargan en paralelo. Cada función lleva `datetime_utc` (siete zonas horarias) y su geografía (`city_id`,
+  `state_id`); nueva dimensión `cinema` en SQLite y `scraper/plazas.py` con las plazas comparables (CDMX, Guadalajara,
+  Monterrey). El dashboard gana el filtro de zona (CDMX por defecto, Nacional) y la página Operaciones el registro de
+  cobertura por ciudad y área. Los planos de asientos se acotan a `AC_SEATS_PLAZAS` (ver "Captura nacional").
 
 ## Cómo se encontró
 
@@ -205,7 +211,10 @@ Variables de ejemplo:
 
 Respuesta verificada: tres fechas, funciones agrupadas por idioma
 (`ESP` / `ESPAÑOL`, `SUB` / `SUBTITULADA`, `ORIGINAL`), cada una con `sessionId`, hora local,
-sala y formato. `format.name` vale `2D` o `3D`; `experience.name` vale `XE`, `4DX`, `IMAX`,
+sala y formato. **`datetime` es la hora local de cada cine sin importar el parámetro `timezone`** (verificado
+2026-09-11 con un lote Tijuana + CDMX pedido con `America/Mexico_City` y con `America/Tijuana`: respuestas idénticas), así
+que un lote de 30 cines puede mezclar zonas horarias; la zona de cada cine sale del catálogo de `locations` y con ella
+el scraper calcula `datetime_utc`. El tope de 30 cines por llamada se confirmó ese día (error 105 con 31 y con 40). `format.name` vale `2D` o `3D`; `experience.name` vale `XE`, `4DX`, `IMAX`,
 `SCREENX`, `XESCREENX`, `SP` (Sala Premium) o `SJ` (Sala Junior). Las salas VIP son cines
 aparte con slug `cinepolis-vip-…`.
 
@@ -236,20 +245,25 @@ Existen además `https://api-beta.cinemex.com/rest/v2.38/` y `https://api-stagin
 | --- | --- |
 | `cinemas/` | 278 cines: `id, name, lat, lng, platinum, area{id,name}, state{id,name}, attributes, status` |
 | `cinemas/area/{areaId}` | cines de un área |
+| `states/` | 31 estados con sus áreas: `id, name, short_name, areas[{id, name, state_id}]` (verificado 2026-09-11) |
+| `cinemas/state/{stateId}` | cines de un estado (CDMX: 87) |
+| `cinemas/state/{stateId}/movies/?include_dates=1&initial=1` / `&date=` | cartelera de **todos los cines del estado** para un día; es la unidad de la captura nacional (verificado 2026-09-11: CDMX 87 cines en una llamada de 12 s, `dates` de 38 fechas) |
 | `movies/`, `movies/area/{areaId}` | catálogo: `info.genre, rating, duration ("2h 55m"), distributor, original_title`, `popularity` |
 | `cinemas/area/{areaId}/movies/?include_dates=1&initial=1` | cartelera de **todos los cines del área** para el día inicial |
 | `cinemas/area/{areaId}/movies/?include_dates=1&date=YYYY-MM-DD` | idem para una fecha |
 
-No existe `cinemas/{id}/movies/` (405): la unidad de consulta es el **área**, no el cine.
+No existe `cinemas/{id}/movies/` (405): la unidad de consulta es el **área** o el **estado**, no el cine.
 `sessions/{id}` sí existe y trae boletos con precio (ver "Asientos y precios"). Otros GET vistos en el
-bundle y no probados: `movies/coming/`, `sessions/now/nearCinema/`, `states/`, `cinemas/state/{id}`,
-`landings/page/{slug}/showtimes`. El checkout es `POST buy/selectTickets`, `buy/selectSeats`,
+bundle y no probados: `movies/coming/`, `sessions/now/nearCinema/`, `landings/page/{slug}/showtimes`. El checkout es `POST buy/selectTickets`, `buy/selectSeats`,
 `buy/complete`, etc.
 
 ### Modelo de datos
 
 Los identificadores son **numéricos**. CDMX es `state.id = 8` ("CDMX y Área Metropolitana") con seis
-áreas: Centro (15), Nor-oriente (16), Norte (17), Oriente (18), Poniente (19), Sur (20); 87 cines.
+áreas: Centro (15), Nor-oriente (16), Norte (17), Oriente (18), Poniente (19), Sur (20); 87 cines. El país son 31
+estados y ~100 áreas para 278 cines (2026-09-11); el estado 8 incluye municipios del Estado de México (Neza, Chalco,
+Ecatepec…) que Cinépolis lista como ciudades aparte, y "Estado de México" (10) solo tiene Toluca, Metepec, Lerma y
+Atlacomulco. Cada cine del payload trae `state{id,name}` y `area{id,name}`: de ahí salen `state_id` y `city_id`.
 
 Respuesta de cartelera: `{dates: [...30 fechas], cinemas: [{...cine, movies: [{...película,
 versions: [{id, label, type, sessions: [...]}]}]}]}`.
@@ -282,7 +296,8 @@ versions: [{id, label, type, sessions: [...]}]}]}]}`.
 
 ### Costos observados
 
-Área Sur (17 cines, un día): 442 funciones, 1.5 MB, ~8 s. Con `date=` sin cartelera publicada, ~1.5 s.
+Área Sur (17 cines, un día): 442 funciones, 1.5 MB, ~8 s. Con `date=` sin cartelera publicada, ~1.5 s. Estado 8
+completo (87 cines, un día): ~12 s; un estado de 2 cines, 1.5 s.
 
 ## Asientos y precios (verificado 2026-09-08)
 
@@ -454,7 +469,7 @@ Petición del cliente tras la primera revisión: entender los precios de dulcer�
   secretos y monitoreo) para el plan 1 con SQLite y el plan 2 con PostgreSQL.
 - `project.md`: este documento.
 
-## Scraper de snapshots (piloto CDMX)
+## Scraper de snapshots (nacional desde el 2026-09-11; piloto CDMX del 2026-09-07 al 2026-09-11)
 
 Sin dependencias fuera de la librería estándar. Se ejecuta con `/usr/bin/python3 -m scraper.run`
 (opciones `--chain cinepolis|cinemex`, `--no-raw`) y lo lanza launchd tres veces al día con
@@ -464,26 +479,47 @@ privacidad de macOS, "Operation not permitted"). Si el repo se mueve, regenerar 
 recargarlo con `launchctl bootout` + `launchctl bootstrap`.
 
 - `scraper/config.py`: claves (sobreescribibles con `CINEPOLIS_API_KEY`, `CINEMEX_CONSUMER_KEY`,
-  `CINEMEX_BASE_URL`), plaza piloto, lotes, horizonte de días.
-- `scraper/cinepolis.py`: por lotes de 30 cines pide `movies(now-playing)` y luego `billboard` por
-  película. CDMX: 74 cines, ~165–172 llamadas, 1–2 min con solo la semana en curso publicada y
-  **6–7 min** en cuanto publican la siguiente (mismas llamadas, más fechas por respuesta). Cada fila
-  lleva el cine en el `show_id` (ver "Identidad de la función").
-- `scraper/cinemex.py`: por área pide `initial=1` (trae la lista de fechas) y luego cada fecha hasta
-  14 días adelante. CDMX: 6 áreas, ~90 llamadas, 1–3.5 min. Recorta sinopsis, pósters y mapas de
-  asientos antes de guardar el crudo.
-- `scraper/normalize.py`: esquema común por función (`chain, show_id, cinema_id, movie_id,
-  title_norm, date, datetime_local, screen, language ∈ spanish|subtitled|original|other,
-  format, experience, premium_tier, availability, …`).
-- `scraper/store.py`: SQLite en `data/snapshots.db`: `snapshot` (metadatos y errores),
-  `current_showtime` (estado vigente por cadena, con `first_seen`), `event` (diff con `before_json`
-  / `after_json`), más `auditorium`, `occupancy_sample` y `price_sample` del muestreo. Crudo
-  comprimido en `data/raw/{chain}/{fecha}/{HHMMSS}Z.json.gz`.
+  `CINEMEX_BASE_URL`), alcance (`AC_CINEPOLIS_CITIES`, `AC_CINEMEX_STATES`; vacío = nacional), plazas del muestreo de
+  planos (`AC_SEATS_PLAZAS`), lotes, horizonte de días. `PILOT_TIMEZONE` es la zona de **referencia** (qué día es "hoy",
+  horas programadas), ya no la de las funciones.
+- `scraper/plazas.py`: qué ciudades de Cinépolis y qué áreas de Cinemex forman cada plaza comparable (`cdmx`, `gdl`,
+  `mty`), curado el 2026-09-11 por distancia al centroide metropolitano. `cdmx` = ciudad `cdmx` + áreas 15–20 (igual que
+  el piloto, para no mover las cifras); Cinépolis lista aparte 28 cines de la zona metropolitana (Neza, Ecatepec,
+  Coacalco, Cuautitlán, Chalco…) que Cinemex sí mete en su estado 8: ampliar la plaza a metrópoli es una decisión
+  pendiente con el cliente.
+- `scraper/cinepolis.py`: `cities` (1 llamada) → `cinemas` por ciudad (154 llamadas, con `cityId`, `vistaId` y `timezone`)
+  → lotes de 30 cines por slug, sin agrupar por zona horaria, con `movies(now-playing)` y luego `billboard` por
+  película. Nacional (medido 2026-09-11 desde la Mac): 154 ciudades, 494 cines con cartelera, 136,210 funciones,
+  975 llamadas, **10.7 min** a 0.15 s de pausa (~17 min con la pausa de 0.6 s que rige desde el 2026-09-12, ver
+  "Consideraciones"). Piloto CDMX: 74 cines, ~136–180 llamadas, 1.5–3.5 min. Cada fila lleva el cine en el
+  `show_id` (ver "Identidad de la función").
+- `scraper/cinemex.py`: `states/` (1 llamada) → por estado pide `initial=1` (trae la lista de fechas) y luego cada
+  fecha hasta 14 días adelante. Nacional (medido 2026-09-11): 31 estados, 277 cines, 69,321 funciones, 466 llamadas,
+  **8.9 min**. Piloto CDMX: el estado 8 en 15 llamadas, ~2 min (antes 6 áreas, 90 llamadas). Recorta sinopsis, pósters
+  y mapas de asientos antes de guardar el crudo.
+- `scraper/run.py`: `begin_snapshot` de ambas cadenas, **descarga en paralelo** (dos hilos, solo red) y escritura en
+  serie en el hilo principal (segundos), así la captura nacional convive con el pase de butacas de :50 sin dos
+  escritores. Una captura es todo o nada por cadena: un estado o ciudad que falla (tras `RETRIES`) tira la cadena,
+  porque un snapshot parcial produciría miles de `removed` falsos.
+- `scraper/normalize.py`: esquema común por función (`chain, show_id, cinema_id, city_id, state_id, movie_id,
+  title_norm, date, datetime_local, datetime_utc, screen, language ∈ spanish|subtitled|original|other,
+  format, experience, premium_tier, availability, …`) y la dimensión de cines (`cinemas`: `city_id`, `state_id`,
+  `timezone`, `vista_id`). Acepta los crudos del piloto (Cinemex por `areas`, Cinépolis con `city_id` a nivel captura)
+  y los nacionales (`states`, `cityId` por cine), porque el archivo se reconstruye desde los crudos viejos.
+  `datetime_utc`: Cinemex desde el offset del propio `datetime`; Cinépolis con la zona IANA del cine.
+- `scraper/store.py`: SQLite en `data/snapshots.db`: `snapshot` (metadatos y errores), `cinema` (dimensión: geografía,
+  zona horaria, vistaId; por aquí se filtran por plaza las tablas de muestreo), `current_showtime` (estado vigente por
+  cadena, con `first_seen`), `event` (diff con `before_json` / `after_json`), más `auditorium`, `occupancy_sample` y
+  `price_sample` del muestreo. `migrate` añade con `ALTER TABLE` las columnas nuevas de `COLUMNS` a una base ya creada.
+  Crudo comprimido en `data/raw/{chain}/{fecha}/{HHMMSS}Z.json.gz` (nacional: ~2 MB por cadena y captura).
+  `current_showtime` nacional: ~205 mil filas (CDMX eran ~47 mil); la primera captura nacional dejó 160 mil eventos
+  `added` de línea base y la base pasó de 85 a 368 MB.
 - `scraper/http.py`: reintenta 429, 408 (Cinépolis: "downstream duration timeout" del gateway, visto
   el 2026-09-08) y 5xx con espera progresiva.
 - Programación: los plists de `scraper/` y los units de `deploy/` ejecutan targets de `make`
   (`snapshot`, `seats`, `daily`, `delivery`). Ver "Programación de tareas".
-- `scraper/diff.py`: compara por `show_id`: `added`, `removed` (solo si faltaban >30 min para empezar),
+- `scraper/diff.py`: compara por `show_id`: `added`, `removed` (solo si faltaban >30 min para empezar, medido en UTC
+  con `datetime_utc`; sin él, con la zona de referencia),
   `expired` (desapareció porque ya empezó o estaba por empezar; desde el 2026-09-09 deja evento con la fila
   completa y su `first_seen`, para poder reconstruir la cartelera de un día pasado: sin él las funciones
   concluidas no dejaban rastro fuera del crudo), `moved` (hora o sala, misma fecha), `changed`
@@ -534,8 +570,8 @@ primero si hiciera falta.
 
 | Trabajo (`make …`) | Cadencia | Mac (launchd) | Servidor (systemd) |
 | --- | --- | --- | --- |
-| `snapshot`: captura de cartelera | 07:30, 13:30, 20:30 | `com.absolut-cinema.scraper` | `absolut-cinema-scraper.timer` |
-| `seats`: planos post-inicio (asistencia final) | cada hora, :50 | `com.absolut-cinema.seats` | `absolut-cinema-seats.timer` |
+| `snapshot`: captura nacional de cartelera (15–30 min) | 07:30, 13:30, 20:30 | `com.absolut-cinema.scraper` | `absolut-cinema-scraper.timer` (`TimeoutStartSec=45min`) |
+| `seats`: planos post-inicio (asistencia final), solo `AC_SEATS_PLAZAS` | cada hora, :50 | `com.absolut-cinema.seats` | `absolut-cinema-seats.timer` |
 | `daily`: salud + precios + dulcería Cinépolis | diario 06:00 | `com.absolut-cinema.daily` | `health.timer` 08:07 y `prices.timer` 06:07 |
 | `delivery`: dulcería a domicilio (Rappi, DiDi Food) | diario 15:00 (tiendas abiertas) | `com.absolut-cinema.delivery` | `delivery.timer` 15:07 |
 | `capacity REFRESH=1`: aforo Cinépolis | mensual | a mano | `capacity.timer` día 1 04:07 |
@@ -545,7 +581,8 @@ primero si hiciera falta.
 
 `scraper/health.py` (`make health`) revisa por cadena la edad de la última captura (umbral 12 h: el hueco nocturno
 normal es de 11 h), que cada captura programada de la ventana tenga un snapshot bueno a ±30 min, capturas
-fallidas, muestras de ocupación T−60 y post-inicio, precios de 7 días y que los pases semanales de dulcería no
+fallidas, que la última captura buena no traiga menos del 90 % de los cines del máximo de la semana (un estado o
+ciudad que responde 200 vacío no se ve de otra forma), muestras de ocupación T−60 y post-inicio, precios de 7 días y que los pases semanales de dulcería no
 lleven más de 8 días sin renovarse; escribe una línea en `data/logs/health.log` y sale con 1 si hay problemas
 (así el timer queda como fallido en `systemctl list-timers`). Los timers diarios van a :07 y `store.connect` tiene
 `timeout=60` para convivir con una captura en curso (SQLite en WAL, un escritor a la vez). Hay pruebas unitarias
@@ -629,6 +666,18 @@ Semántica: las participaciones se calculan **dentro** de la franja; por eso con
 franjas, la fila prime/evening de los indicadores y el mapa de calor solo muestra las franjas incluidas. El encabezado
 y el pie dicen qué franja está activa. El Resumen general no obedece este filtro: muestra sus dos cortes lado a lado.
 
+### Filtro de zona (2026-09-11)
+
+Primer bloque de la barra lateral en la cartelera y la dulcería (`ui/common.py::plaza_selector`): radio con las plazas
+de `scraper/plazas.py` que tienen cines en la base más "Nacional"; CDMX por defecto, así las cifras del piloto no se
+mueven con la captura nacional. Entra como `plaza=` en `queries._window` (junto con `hours`) y en todas las funciones
+de `analytics/` que agregan `current_showtime`; las tablas de muestreo (planos, precios, dulcería, aforo) se acotan a
+través de la dimensión `cinema` (`analytics/plaza.py::plaza_cinema_where`). `plaza=None` no añade SQL. La calibración
+del semáforo de Cinemex es nacional (el color significa lo mismo en todos los cines). El encabezado dice "Cartelera
+CDMX" o "Cartelera nacional" (`labels.plaza_title`). La página Operaciones muestra el registro de cobertura por ciudad y
+área (`analytics.plaza_coverage`: cines y funciones por cadena y `city_id`, con su plaza), que es la base para decidir
+qué plazas entran al muestreo de planos.
+
 ### Capa 2 · Evidencia por pregunta
 
 Cuatro secciones blancas; cada una abre con la conclusión (`analytics.conclusions`) y cierra con "Cómo leerla"
@@ -637,8 +686,8 @@ colapsado:
 0. **¿Cómo se reparte la programación de la semana?** (2026-09-09) La tabla del reporte diario del cliente
    (`analytics/summary.py::general_summary`): Top 11 películas + Resto + Total, por cadena cines, funciones y % de la
    programación, Δ funciones (Cinemex − Cinépolis), Δ pp y la razón Cinépolis/Cinemex, en dos pestañas "Todo el día"
-   y "Después de las 6 PM". Alcance CDMX y semana de cine, así que no coincide con la tabla nacional por semana ISO
-   del cliente; se dice en "Cómo leerla". Las diferencias van en tinta, no en rojo/verde (el rojo es Cinemex).
+   y "Después de las 6 PM". Alcance la plaza elegida (o nacional) y semana de cine, así que no coincide con la tabla
+   nacional por semana ISO del cliente; se dice en "Cómo leerla". Las diferencias van en tinta, no en rojo/verde (el rojo es Cinemex).
 1. **¿A qué películas les damos más pantalla?** Dumbbell de share por película con Δ pp; muestra las 8 de mayor
    diferencia entre las 15 más programadas y un interruptor para ver las 15.
 2. **¿Estamos en el horario donde vive la taquilla?** Mapa de calor día × franja con Δ pp (rojo: Cinemex pone
@@ -719,9 +768,9 @@ contra el crudo (misma cantidad de funciones distintas; la reconstrucción "tal 
 intermedias) y en eventos (mismos ids). Destino hoy: Postgres 16 en Docker local (`make pg-up pg-schema`); RDS después
 cambiando `AC_PG_DSN`. Diseño en `docs/postgres-esquema.md`, operación en `deploy/README.md`.
 
-**Decisiones abiertas con el cliente:** alcance nacional (hoy solo CDMX; multiplica ~7× las llamadas y exige muestrear
-los planos en vez de censarlos), entrega de su tablero de dulcería y de su taquilla por función, si el entregable vive en
-su cuenta de AWS (RDS) o en DigitalOcean.
+**Decisiones abiertas con el cliente:** entrega de su tablero de dulcería y de su taquilla por función, si el entregable
+vive en su cuenta de AWS (RDS) o en DigitalOcean, qué plazas entran al muestreo de planos y si `cdmx` se amplía a
+metrópoli (ver "Captura nacional").
 
 ### Etapa 1 del archivo histórico: hecha (2026-09-09)
 
@@ -731,8 +780,48 @@ snapshot sin cerrar más viejo de 2 h se copia como fallido; Postgres es append-
 SQLite no se propagan); particiones mensuales bajo demanda, sin DEFAULT; `cinema.city_id` sale del crudo (Cinépolis
 `cdmx`, Cinemex el id de estado `8`). El sync escribe `data/logs/sync_status.json` y `scraper.health` lo vigila.
 
-**Etapa 2 (siguiente):** portar `analytics/` a Postgres con tipos nativos, encender el filtro de plaza para lo nacional,
-y mover el destino a RDS cuando el cliente confirme la cuenta.
+**Etapa 2 (siguiente):** portar `analytics/` a Postgres con tipos nativos (el filtro de plaza ya existe sobre SQLite y
+`cinema.city_id` en Postgres ya guarda la misma llave) y mover el destino a RDS cuando el cliente confirme la cuenta.
+
+### Captura nacional: hecha (2026-09-11)
+
+Lo que cambió y por qué está en el resumen y en "Scraper de snapshots". Decisiones que quedaron:
+
+- **Los planos de asientos no se censan a nivel nacional.** Cinépolis publica ~6.7× las funciones de CDMX; el pase
+  post-inicio nacional serían ~14 mil planos al día (~9 h de API). Se acotan a las plazas de `AC_SEATS_PLAZAS` (hoy
+  `cdmx`), y **la lista se decide con datos**: tras una semana de captura nacional, la tabla de cobertura de Operaciones
+  dice qué ciudades y áreas concentran funciones; el cliente pedirá probablemente CDMX, Guadalajara y Monterrey (David,
+  2026-09-11). Precios de boleto y menús de dulcería de Cinépolis sí van nacionales (una llamada por combinación o cine).
+- **Filtro de plaza en el dashboard desde esta fase**, CDMX por defecto, para que las cifras del piloto no cambien al
+  desplegar. La plaza `cdmx` se define igual que el piloto aunque sea asimétrica (Cinemex 87 cines con la zona
+  metropolitana; Cinépolis 74 sin Neza, Ecatepec, Coacalco, Cuautitlán, Chalco…, 28 cines en ciudades aparte).
+- **Zonas horarias.** `datetime_utc` en cada función y `starts_at_utc` en `showtime_state`; `from_now` y `closing_kind`
+  comparan en UTC. "Hoy" y las horas programadas siguen en la zona de referencia (`PILOT_TIMEZONE`): el desfase de día
+  solo existe entre las 00:00 y las 02:00 CDMX para los cines del noroeste y se acepta.
+- **Todo o nada por cadena**: un estado o ciudad que falla tira la captura de esa cadena; `scraper.health` avisa además
+  si la última captura buena trae menos del 90 % de los cines del máximo semanal.
+
+Primera captura nacional (2026-09-11 18:37 CDMX, desde la Mac): 11 min con las dos cadenas en paralelo. Registro
+inicial por plaza (funciones vigentes, Cinemex / Cinépolis): CDMX 23,423 / 22,039; Guadalajara 2,391 / 9,946; Monterrey
+3,967 / 9,289; resto del país 39,540 / 94,936. Cinépolis concentra el 16 % de sus funciones en la ciudad `cdmx`, 7 % en
+Guadalajara y 6.8 % en Monterrey; le siguen Puebla (3.1 %), Querétaro, Tijuana, Cd. Juárez y Mérida (~2 % cada una).
+Cinemex pesa mucho más en CDMX (34 % de sus funciones en el estado 8) y poco en Guadalajara (10 cines).
+
+**Aforo nacional, una sola pasada (decisión de David, 2026-09-12).** El aforo de una sala casi no cambia, así que salas y
+butacas de todo el país se miden **una vez**, a mano, con `make capacity PLAZAS=all` (Cinépolis, planos de solo lectura:
+3,416 salas pendientes, ~2.5 h) y `make capacity-cinemex PLAZAS=all` (Cinemex, abre una orden de checkout por sala:
+1,595 salas pendientes, ~1 h); `--plazas` en `scraper.sample` cambia el alcance solo de esa corrida y no toca los timers,
+que siguen acotados a `AC_SEATS_PLAZAS`. `--workers N` (`SAMPLE_WORKERS`, 1 por defecto) pide N planos a la vez desde la
+misma IP, cada hilo con su `SAMPLE_PAUSE`, y escribe en el hilo principal: la parte de Cinemex se relanzó con 3 hilos
+para pasar de ~2 h a ~40 min. Resultado de Cinépolis: 4,034 de 4,045 salas en 493 cines (16 fallos: función retirada o
+error transitorio de Vista, se recogen al repetir). Los planos medidos viven en la base de la Mac: para que el servidor
+los tenga sin volver a pedirlos, se copia la tabla `auditorium` (`INSERT OR IGNORE`), no se repite la pasada. Sin esa pasada, el explorador "Cines y salas" mostraba cero salas para los cines
+fuera de CDMX: no eran lecturas fallidas, nunca se habían pedido. Lanzada desde la Mac la noche del 2026-09-11.
+
+Pendientes: fijar `AC_SEATS_PLAZAS` con el registro de la primera semana; ampliar `cdmx` a metrópoli si el cliente
+quiere simetría; retención de `event` en SQLite (crece ~5×; el archivo es Postgres); la dulcería a domicilio sigue en
+CDMX (Rappi y DiDi van por ciudad); un caché del catálogo de ciudades de Cinépolis si las 155 llamadas por captura
+molestan (hoy ~2 min).
 
 ### Paso 2: Resumen general narrado con la IA del cliente (planeado el 2026-09-11, sin construir)
 

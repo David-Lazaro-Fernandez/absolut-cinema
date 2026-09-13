@@ -5,6 +5,9 @@ Uso:
   python3 -m scraper.sample --occupancy                    # Cinépolis: planos a 45–75 min de empezar (preventa; a mano)
   python3 -m scraper.sample --post-start                   # Cinépolis: planos 15–75 min después de empezar (cada hora);
                                                            # es la asistencia final y el target del modelo de consumo
+  Los planos (--capacity, --occupancy, --post-start) solo miran las plazas de config.SEATS_PLAZAS (AC_SEATS_PLAZAS,
+  por defecto cdmx); --plazas gdl,mty las cambia para esa corrida y --plazas all recorre todos los cines capturados
+  (la pasada nacional única de aforo, a mano: decisión 2026-09-12). Precios y dulcería van sobre todos los cines.
   python3 -m scraper.sample --occupancy --chain cinemex --per-level 100 --lead 60 --tolerance 45
                                                            # Cinemex: calibración del semáforo, N por nivel, una vez
   python3 -m scraper.sample --prices [--limit N]           # boletos de una función por cine, formato y tipo de día
@@ -22,10 +25,11 @@ import json
 import sys
 import time
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from . import cinemex, cinepolis, config, store
+from . import cinemex, cinepolis, config, plazas, store
 from .http import ApiError, request_json
 from .normalize import format_bucket
 
@@ -69,10 +73,28 @@ def utc_now():
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+def _plaza_filter(chain, column="cinema_id", scope=config.SEATS_PLAZAS):
+    """Cláusula `AND …` que deja solo las funciones de las plazas de `scope` (por defecto `config.SEATS_PLAZAS`; decisión
+    2026-09-11: los planos no se censan a nivel nacional). `scope=None` no filtra: es la pasada nacional única de aforo,
+    que se lanza a mano. Devuelve (sql, params); la membresía está en `scraper.plazas` y la geografía de cada cine en
+    la tabla `cinema`."""
+    if scope is None:
+        return "", []
+    keys = plazas.city_ids_for(scope, chain)
+    if not keys:
+        return " AND 0", []
+    marks = ",".join("?" for _ in keys)
+    return f" AND {column} IN (SELECT cinema_id FROM cinema WHERE chain = ? AND city_id IN ({marks}))", [chain, *keys]
+
+
+def _scope_label(scope):
+    return "nacional" if scope is None else ",".join(scope)
+
+
 # --- Cinépolis --------------------------------------------------------------------------------------
-def vista_ids(stats=None):
-    """{slug: vistaId} de los cines de la plaza (1 llamada a locations)."""
-    return {c["id"]: str(c["vistaId"]) for c in cinepolis.list_cinemas(stats=stats)}
+def vista_ids(conn):
+    """{slug: vistaId} de todos los cines de Cinépolis vistos en las capturas (tabla `cinema`)."""
+    return {r[0]: r[1] for r in conn.execute("SELECT cinema_id, vista_id FROM cinema WHERE chain = 'cinepolis' AND vista_id IS NOT NULL")}
 
 
 def seat_layout(session_id, vista_id, stats=None, attempts=3):
@@ -204,15 +226,35 @@ def summarize_prices(tickets):
 CAPACITY_CANDIDATES = 3   # funciones distintas a probar por sala si la primera ya no existe (404 / 101)
 
 
-def capacity_pass(conn, chain="cinepolis", refresh=False, dry_run=False, limit=None):
+def _measure_screen(chain, key, candidates, vids, stats):
+    """Plano de una sala probando sus funciones en orden. Devuelve (key, plano | None, función usada, último error).
+    Solo red: corre en un hilo del pase de aforo."""
+    lay, last_err, used = None, None, None
+    for r in candidates:
+        try:
+            lay = layout_for(chain, r, vids, stats)
+        except ApiError as e:
+            last_err = e
+            time.sleep(config.SAMPLE_BACKOFF)
+            continue
+        time.sleep(config.SAMPLE_PAUSE)
+        if lay:
+            used = r; break
+    return key, lay, used, last_err
+
+
+def capacity_pass(conn, chain="cinepolis", refresh=False, dry_run=False, limit=None, scope=config.SEATS_PLAZAS, workers=None):
     """Un plano por (cine, sala). Prueba hasta CAPACITY_CANDIDATES funciones futuras de la sala, de la
-    más próxima en adelante, porque el snapshot puede listar funciones que la cadena ya retiró."""
-    stats = {"calls": 0}
-    vids = vista_ids(stats) if chain == "cinepolis" else {}
+    más próxima en adelante, porque el snapshot puede listar funciones que la cadena ya retiró. `scope=None` recorre
+    todos los cines capturados: la pasada nacional única que deja consultables salas y butacas de todo el país.
+    `workers` hilos piden planos a la vez (por defecto `config.SAMPLE_WORKERS`); la base se escribe en este hilo."""
+    stats = {"calls": 0}   # contador aproximado con varios hilos: solo informa
+    vids = vista_ids(conn) if chain == "cinepolis" else {}
     now = now_local().strftime("%Y-%m-%dT%H:%M:%S")
-    rows = conn.execute("""
+    scope_sql, scope_params = _plaza_filter(chain, scope=scope)
+    rows = conn.execute(f"""
         SELECT cinema_id, screen, show_id, datetime_local FROM current_showtime
-        WHERE chain = ? AND datetime_local >= ? ORDER BY cinema_id, screen, datetime_local""", (chain, now)).fetchall()
+        WHERE chain = ? AND datetime_local >= ?{scope_sql} ORDER BY cinema_id, screen, datetime_local""", (chain, now, *scope_params)).fetchall()
     by_screen = {}
     for r in rows:
         by_screen.setdefault((r["cinema_id"], r["screen"]), []).append(r)
@@ -220,31 +262,24 @@ def capacity_pass(conn, chain="cinepolis", refresh=False, dry_run=False, limit=N
     todo = [k for k in by_screen if refresh or k not in have]
     if limit:
         todo = todo[:limit]
-    log(f"capacity {chain}: {len(by_screen)} salas con funciones, {len(todo)} por muestrear{' (dry-run)' if dry_run else ''}")
+    workers = workers or config.SAMPLE_WORKERS
+    log(f"capacity {chain} [{_scope_label(scope)}]: {len(by_screen)} salas con funciones, {len(todo)} por muestrear, "
+        f"{workers} hilo(s){' (dry-run)' if dry_run else ''}")
     ok = fail = 0
-    for key in todo:
-        if dry_run:
-            continue
-        lay, last_err, used = None, None, None
-        for r in by_screen[key][:CAPACITY_CANDIDATES]:
-            try:
-                lay = layout_for(chain, r, vids, stats)
-            except ApiError as e:
-                last_err = e
-                time.sleep(config.SAMPLE_BACKOFF)
+    if dry_run:
+        todo = []
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        results = pool.map(lambda key: _measure_screen(chain, key, by_screen[key][:CAPACITY_CANDIDATES], vids, stats), todo)
+        for key, lay, used, last_err in results:
+            if not lay:
+                fail += 1
+                log(f"capacity FAIL {chain} {key[0]} sala {key[1]}: {last_err or 'sin plano'}"[:300])
                 continue
-            time.sleep(config.SAMPLE_PAUSE)
-            if lay:
-                used = r; break
-        if not lay:
-            fail += 1
-            log(f"capacity FAIL {chain} {key[0]} sala {key[1]}: {last_err or 'sin plano'}"[:300])
-            continue
-        session_id = used["show_id"].rsplit(":", 1)[-1]
-        conn.execute("""INSERT OR REPLACE INTO auditorium (chain, cinema_id, screen, seats, broken, areas_json, session_id, sampled_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                     (chain, key[0], key[1], lay["seats"], lay["broken"], json.dumps(lay["areas"], ensure_ascii=False), session_id, utc_now()))
-        conn.commit(); ok += 1
+            session_id = used["show_id"].rsplit(":", 1)[-1]
+            conn.execute("""INSERT OR REPLACE INTO auditorium (chain, cinema_id, screen, seats, broken, areas_json, session_id, sampled_at)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                         (chain, key[0], key[1], lay["seats"], lay["broken"], json.dumps(lay["areas"], ensure_ascii=False), session_id, utc_now()))
+            conn.commit(); ok += 1
     log(f"capacity {chain} ok={ok} fail={fail} calls={stats['calls']}")
     return fail == 0
 
@@ -258,18 +293,19 @@ def calibration_progress(conn, chain="cinemex"):
         "SELECT COALESCE(availability, '') FROM occupancy_sample WHERE chain = ?", (chain,)))
 
 
-def occupancy_pass(conn, chain="cinepolis", lead=60, tolerance=15, dry_run=False, limit=None, per_level=None):
+def occupancy_pass(conn, chain="cinepolis", lead=60, tolerance=15, dry_run=False, limit=None, per_level=None, scope=config.SEATS_PLAZAS):
     """Plano de cada función que empieza en [lead−tol, lead+tol] minutos y aún no se muestreó en esa ventana.
     Con `per_level` toma como mucho N funciones por nivel de `availability` (calibración del semáforo)."""
     stats = {"calls": 0}
     now = now_local()
     lo, hi = now + timedelta(minutes=lead - tolerance), now + timedelta(minutes=lead + tolerance)
-    rows = conn.execute("""
+    scope_sql, scope_params = _plaza_filter(chain, "s.cinema_id", scope)
+    rows = conn.execute(f"""
         SELECT s.* FROM current_showtime s
-        WHERE s.chain = ? AND s.datetime_local BETWEEN ? AND ?
+        WHERE s.chain = ? AND s.datetime_local BETWEEN ? AND ?{scope_sql}
           AND NOT EXISTS (SELECT 1 FROM occupancy_sample o WHERE o.chain = s.chain AND o.show_id = s.show_id
                           AND o.minutes_to_start BETWEEN ? AND ?)
-        ORDER BY s.datetime_local""", (chain, lo.strftime("%Y-%m-%dT%H:%M:%S"), hi.strftime("%Y-%m-%dT%H:%M:%S"),
+        ORDER BY s.datetime_local""", (chain, lo.strftime("%Y-%m-%dT%H:%M:%S"), hi.strftime("%Y-%m-%dT%H:%M:%S"), *scope_params,
                                         lead - tolerance - 5, lead + tolerance + 5)).fetchall()
     if per_level:
         have = calibration_progress(conn, chain)
@@ -286,13 +322,14 @@ def occupancy_pass(conn, chain="cinepolis", lead=60, tolerance=15, dry_run=False
     if limit:
         rows = rows[:limit]
     levels = f" por nivel {dict(Counter(r['availability'] or '' for r in rows))}" if per_level else ""
-    log(f"occupancy {chain}: {len(rows)} funciones entre {lo:%H:%M} y {hi:%H:%M}{levels}{' (dry-run)' if dry_run else ''}")
+    log(f"occupancy {chain} [{_scope_label(scope)}]: {len(rows)} funciones entre {lo:%H:%M} y {hi:%H:%M}{levels}{' (dry-run)' if dry_run else ''}")
     if not rows or dry_run:
         return True
     return _take_layouts(conn, chain, rows, stats, "occupancy")
 
 
-def post_start_pass(conn, chain="cinepolis", after=config.POST_START_AFTER_MIN, tolerance=config.POST_START_TOLERANCE_MIN, dry_run=False, limit=None):
+def post_start_pass(conn, chain="cinepolis", after=config.POST_START_AFTER_MIN, tolerance=config.POST_START_TOLERANCE_MIN, dry_run=False, limit=None,
+                    scope=config.SEATS_PLAZAS):
     """Plano de cada función que empezó hace [after−tol, after+tol] minutos y aún no tiene muestra post-inicio.
 
     Es la asistencia final (la venta sigue creciendo después del arranque: prueba del 2026-09-08, de 2 a 6
@@ -304,13 +341,14 @@ def post_start_pass(conn, chain="cinepolis", after=config.POST_START_AFTER_MIN, 
     now = now_local()
     lo, hi = now - timedelta(minutes=after + tolerance), now - timedelta(minutes=after - tolerance)
     w = (lo.strftime("%Y-%m-%dT%H:%M:%S"), hi.strftime("%Y-%m-%dT%H:%M:%S"))
-    rows = conn.execute("""
+    scope_sql, scope_params = _plaza_filter(chain, scope=scope)
+    rows = conn.execute(f"""
         SELECT chain, show_id, cinema_id, screen, movie_id, movie_title, datetime_local, availability
-        FROM current_showtime WHERE chain = ? AND datetime_local BETWEEN ? AND ?
+        FROM current_showtime WHERE chain = ? AND datetime_local BETWEEN ? AND ?{scope_sql}
         UNION
         SELECT chain, show_id, cinema_id, screen, movie_id, movie_title, datetime_local, availability
-        FROM occupancy_sample WHERE chain = ? AND datetime_local BETWEEN ? AND ? AND minutes_to_start >= 0
-        ORDER BY datetime_local""", (chain, *w, chain, *w)).fetchall()
+        FROM occupancy_sample WHERE chain = ? AND datetime_local BETWEEN ? AND ? AND minutes_to_start >= 0{scope_sql}
+        ORDER BY datetime_local""", (chain, *w, *scope_params, chain, *w, *scope_params)).fetchall()
     done = {r[0] for r in conn.execute(
         "SELECT show_id FROM occupancy_sample WHERE chain = ? AND minutes_to_start < 0 AND datetime_local BETWEEN ? AND ?",
         (chain, *w))}
@@ -321,7 +359,7 @@ def post_start_pass(conn, chain="cinepolis", after=config.POST_START_AFTER_MIN, 
         seen.add(r["show_id"]); picked.append(r)
     if limit:
         picked = picked[:limit]
-    log(f"post-start {chain}: {len(picked)} funciones iniciadas entre {lo:%H:%M} y {hi:%H:%M}{' (dry-run)' if dry_run else ''}")
+    log(f"post-start {chain} [{_scope_label(scope)}]: {len(picked)} funciones iniciadas entre {lo:%H:%M} y {hi:%H:%M}{' (dry-run)' if dry_run else ''}")
     if not picked or dry_run:
         return True
     return _take_layouts(conn, chain, picked, stats, "post-start")
@@ -329,7 +367,7 @@ def post_start_pass(conn, chain="cinepolis", after=config.POST_START_AFTER_MIN, 
 
 def _take_layouts(conn, chain, rows, stats, label):
     """Pide el plano de cada función y guarda una fila en occupancy_sample (y el aforo de la sala si falta)."""
-    vids = vista_ids(stats) if chain == "cinepolis" else {}
+    vids = vista_ids(conn) if chain == "cinepolis" else {}
     ok = fail = 0
     for r in rows:
         try:
@@ -383,7 +421,7 @@ def price_pass(conn, days=7, limit=None, dry_run=False):
     log(f"prices: {len(todo)} combinaciones pendientes, {len(items)} en esta pasada{' (dry-run)' if dry_run else ''}")
     if dry_run:
         return True
-    vids = vista_ids(stats) if any(k[0] == "cinepolis" for k, _ in items) else {}
+    vids = vista_ids(conn) if any(k[0] == "cinepolis" for k, _ in items) else {}
     ok = fail = 0
     for (chain, cinema_id, bucket, day_type), r in items:
         try:
@@ -414,7 +452,7 @@ def concessions_pass(conn, chain="cinepolis", days=config.CONCESSIONS_REFRESH_DA
     stats = {"calls": 0}
     since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="seconds")
     recent = {r[0] for r in conn.execute("SELECT DISTINCT cinema_id FROM concession_price WHERE chain = ? AND sampled_at >= ?", (chain, since))}
-    vids = vista_ids(stats)
+    vids = vista_ids(conn)
     todo = [(slug, vid) for slug, vid in sorted(vids.items()) if slug not in recent]
     if limit:
         todo = todo[:limit]
@@ -454,21 +492,26 @@ def main(argv=None):
     ap.add_argument("--tolerance", type=int, default=None, help="ocupación: ±min (15 con --lead, config.POST_START_TOLERANCE_MIN con --after)")
     ap.add_argument("--after", type=int, default=config.POST_START_AFTER_MIN, help="post-start: minutos después del inicio (ventana ±tolerance)")
     ap.add_argument("--refresh", action="store_true", help="capacity: volver a medir salas ya conocidas")
+    ap.add_argument("--plazas", default=None,
+                    help="planos: plazas a recorrer separadas por coma, o 'all' para todos los cines capturados (por defecto AC_SEATS_PLAZAS)")
+    ap.add_argument("--workers", type=int, default=None, help="capacity: hilos que piden planos a la vez (por defecto AC_SAMPLE_WORKERS)")
     ap.add_argument("--limit", type=int)
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args(argv)
     if not (a.capacity or a.occupancy or a.post_start or a.prices or a.concessions):
         ap.error("indica --capacity, --occupancy, --post-start, --prices y/o --concessions")
+    scope = config.SEATS_PLAZAS if a.plazas is None else (None if a.plazas.strip().lower() == "all" else tuple(p.strip() for p in a.plazas.split(",") if p.strip()))
     conn = store.connect()
     ok = True
     t0 = time.time()
     if a.capacity:
-        ok &= capacity_pass(conn, chain=a.chain, refresh=a.refresh, dry_run=a.dry_run, limit=a.limit)
+        ok &= capacity_pass(conn, chain=a.chain, refresh=a.refresh, dry_run=a.dry_run, limit=a.limit, scope=scope, workers=a.workers)
     if a.occupancy:
         ok &= occupancy_pass(conn, chain=a.chain, lead=a.lead, tolerance=a.tolerance or 15, dry_run=a.dry_run,
-                             limit=a.limit, per_level=a.per_level)
+                             limit=a.limit, per_level=a.per_level, scope=scope)
     if a.post_start:
-        ok &= post_start_pass(conn, chain=a.chain, after=a.after, tolerance=a.tolerance or config.POST_START_TOLERANCE_MIN, dry_run=a.dry_run, limit=a.limit)
+        ok &= post_start_pass(conn, chain=a.chain, after=a.after, tolerance=a.tolerance or config.POST_START_TOLERANCE_MIN, dry_run=a.dry_run,
+                              limit=a.limit, scope=scope)
     if a.prices:
         ok &= price_pass(conn, limit=a.limit, dry_run=a.dry_run)
     if a.concessions:

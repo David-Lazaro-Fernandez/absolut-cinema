@@ -63,6 +63,7 @@ def main(argv=None):
     try:
         with pg.connect() as conn:
             cur = conn.cursor()
+            pg.migrate(cur); conn.commit()
             if a.dry_run:
                 status["lag"] = lag(sq, cur); status["ok"] = True
                 log(f"sync dry-run: pendiente {status['lag']}")

@@ -6,15 +6,17 @@ if not config.DB_PATH.exists():
     st.info("Aún no hay datos: la base no existe todavía. Ver la página de cartelera.")
     st.stop()
 
+plaza = plaza_selector()
 today_s = analytics.today()
 this_w0, this_w1 = analytics.cinema_week(today_s)
-concl = load_raw("conclusions", d0=this_w0, d1=this_w1, shown=SHOWN_MOVIES, total=TOTAL_MOVIES)
-hallazgos = [f for f in load_raw("findings", d0=this_w0, d1=this_w1, top=6) if f["topic"] == "dulceria"]
+concl = load_raw("conclusions", d0=this_w0, d1=this_w1, shown=SHOWN_MOVIES, total=TOTAL_MOVIES, plaza=plaza)
+hallazgos = [f for f in load_raw("findings", d0=this_w0, d1=this_w1, top=6, plaza=plaza) if f["topic"] == "dulceria"]
 
-md("""
+md(f"""
 <div class="enc">
   <h1>Dulcería: <span>Cinemex</span> frente a Cinépolis</h1>
   <div class="meta">
+    <span><strong>Zona:</strong> {esc(PLAZA_LABEL[plaza] if plaza else NATIONAL_LABEL)}</span>
     <span><strong>Sala:</strong> menú en línea de Cinépolis por complejo</span>
     <span><strong>A domicilio:</strong> Rappi y DiDi Food, ambas cadenas</span>
     <span>Nuestro tablero de sala llega con tus datos</span>
@@ -33,7 +35,7 @@ capa(2, "Evidencia", "Precio en sala por complejo (Cinépolis) y comparación a 
 with seccion("dulceria"):
     pregunta("¿Cómo compite nuestra dulcería con la de Cinépolis?", concl.get("dulceria", ""),
              "En sala solo tenemos el menú de Cinépolis; nuestra lista llega con tus datos. La comparación directa es a domicilio, plataforma contra plataforma.")
-    cs = load("concession_summary")
+    cs = load("concession_summary", plaza=plaza)
     dv = load("delivery_summary")
     if cs.empty and dv.empty:
         st.info("Aún no hay lecturas de dulcería.")
@@ -71,11 +73,11 @@ with seccion("dulceria"):
                 table(["Producto comparable", "Cinemex", "Nuestro producto", "Cinépolis", "Su producto", "Δ Cinépolis vs Cinemex"], rows_, num_cols=(1, 3, 5))
         with g2:
             if not cs.empty and has(cs.iloc[0].cinemas):
-                bk = load("concession_basket")
+                bk = load("concession_basket", plaza=plaza)
                 B = {r.product_name: r for r in bk.itertuples()}
                 st.markdown(f"**En sala: {CHAIN_LABEL['cinepolis']} fija el precio por complejo**")
                 prod = st.selectbox("Producto", [x for x in analytics.BASKET if x in B], key="conc_prod", label_visibility="collapsed")
-                pc = load("concession_product_by_cinema", product_name=prod)
+                pc = load("concession_product_by_cinema", product_name=prod, plaza=plaza)
                 if not pc.empty:
                     pc["vip"] = pc["cinema_type"].map(CINEMA_TYPE_LABEL)
                     med = float(B[prod].median_price)
@@ -91,11 +93,11 @@ with seccion("dulceria"):
                        f'{int(B[prod].distinct_prices)} precios distintos; la línea punteada es la mediana (${med:,.0f}).</p>')
         with st.expander("Detalle: canasta de Cinépolis por complejo, catálogo a domicilio y tiendas"):
             if not cs.empty and has(cs.iloc[0].cinemas):
-                bk = load("concession_basket")
+                bk = load("concession_basket", plaza=plaza)
                 table(["Producto", "Complejos", "Mediana", "Mínimo", "Máximo", "Máx. vs mín.", "Precios distintos"],
                       [[r.product_name, n(r.cinemas), (f"${r.median_price:,.0f}", "cnp"), f"${r.min_price:,.0f}", f"${r.max_price:,.0f}",
                         f"+{r.spread_pct:.0f} %", n(r.distinct_prices)] for r in bk.itertuples()], num_cols=range(1, 7))
-                bc = load("concession_by_cinema")
+                bc = load("concession_by_cinema", plaza=plaza)
                 cols = ["cinema_name", "products", "median_price"] + [x for x in analytics.BASKET if x in bc.columns]
                 st.dataframe(pretty(bc[cols]), width="stretch", hide_index=True, height=300)
             if not dv.empty:

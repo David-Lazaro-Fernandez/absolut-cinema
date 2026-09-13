@@ -11,15 +11,17 @@ import json
 from scraper.normalize import TRACKED_FIELDS  # mismos campos que el diff del scraper y el archivo histórico
 
 from .db import rows
+from .plaza import plaza_where
 
 CLOSING_KINDS = ("removed", "expired")
 
 
-def cinemas(conn, chain="cinemex"):
+def cinemas(conn, chain="cinemex", plaza=None):
     """Cines con cartelera vigente: `cinema_id`, `cinema_name`, ordenados por nombre."""
-    return rows(conn, """
-        SELECT cinema_id, MAX(cinema_name) cinema_name FROM current_showtime WHERE chain = ?
-        GROUP BY cinema_id ORDER BY cinema_name""", (chain,))
+    where, params = plaza_where(plaza)
+    return rows(conn, f"""
+        SELECT cinema_id, MAX(cinema_name) cinema_name FROM current_showtime WHERE chain = ?{where}
+        GROUP BY cinema_id ORDER BY cinema_name""", (chain, *params))
 
 
 def dates_known(conn, chain, cinema_id):

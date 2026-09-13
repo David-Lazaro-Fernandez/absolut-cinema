@@ -12,6 +12,21 @@ def connect(dsn=None):
     return psycopg.connect(dsn or config.PG_DSN)
 
 
+# Columnas añadidas después del esquema inicial (deploy/postgres/schema.sql las trae; una base ya creada las recibe aquí).
+_ADDED_COLUMNS = (
+    ("showtime_state", "starts_at_utc", "timestamptz"),   # hora UTC de la función: cierre exacto en cualquier zona horaria
+    ("cinema", "state_id", "text"),                       # estado de Cinemex (city_id pasó a ser el área)
+    ("cinema", "timezone", "text"),                       # zona IANA del cine (solo la publica Cinépolis)
+)
+
+
+def migrate(cur):
+    """Cambios de esquema aditivos e idempotentes sobre una base ya creada (`ADD COLUMN IF NOT EXISTS`)."""
+    for table, column, kind in _ADDED_COLUMNS:
+        cur.execute(sql.SQL("ALTER TABLE {} ADD COLUMN IF NOT EXISTS {} {}")
+                    .format(sql.Identifier(table), sql.Identifier(column), sql.SQL(kind)))
+
+
 def watermark(cur, source_table):
     """Último id (o id de snapshot) ya copiado de esa tabla origen; 0 si nunca se copió."""
     cur.execute("SELECT last_id FROM sync_watermark WHERE source_table = %s", (source_table,))

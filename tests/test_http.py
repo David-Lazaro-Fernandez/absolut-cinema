@@ -40,6 +40,13 @@ def test_without_egress_proxy_everything_goes_direct(monkeypatch):
     assert http._proxy_for("https://api-g.cinepolis.com/v2/billboards/graphql") is None
 
 
+def test_pause_is_per_host_with_a_general_default(monkeypatch):
+    monkeypatch.setattr(http.config, "PAUSE_BY_HOST", {"api-g.cinepolis.com": 0.6})
+    monkeypatch.setattr(http.config, "PAUSE_BETWEEN_CALLS", 0.15)
+    assert http._pause_for("https://api-g.cinepolis.com/v2/billboards/graphql") == 0.6
+    assert http._pause_for("https://api.cinemex.com/rest/v2.37.2/cinemas/") == 0.15
+
+
 def test_egress_proxy_applies_only_to_listed_hosts(monkeypatch):
     monkeypatch.setattr(http.config, "EGRESS_PROXY", "http://127.0.0.1:8118")
     monkeypatch.setattr(http.config, "EGRESS_PROXY_HOSTS", ("api-g.cinepolis.com",))

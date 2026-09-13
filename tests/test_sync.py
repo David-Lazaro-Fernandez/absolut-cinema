@@ -74,8 +74,28 @@ def test_refresh_open_applies_plan():
     assert set(st) == {("b", "2026-09-10"), ("c", "2026-09-10")} and st[("b", "2026-09-10")]["datetime_local"] == "2026-09-10T12:45:00"
 
 
-def test_cinema_cities_from_raw():
-    cp = {"city_id": "cdmx", "cinemas": [{"id": "cinepolis-x"}, {"id": "cinepolis-y"}]}
-    assert state.cinema_cities("cinepolis", cp) == {"cinepolis-x": "cdmx", "cinepolis-y": "cdmx"}
-    cx = {"areas": [{"days": [{"data": {"cinemas": [{"id": 26, "state": {"id": 8}}, {"id": 27}]}}]}]}
-    assert state.cinema_cities("cinemex", cx) == {"26": "8", "27": None}
+def test_cinema_places_from_pilot_raw():
+    """Crudos del piloto CDMX: Cinépolis con la ciudad a nivel captura, Cinemex por área."""
+    cp = {"city_id": "cdmx", "cinemas": [{"id": "cinepolis-x", "timezone": "America/Mexico_City"}, {"id": "cinepolis-y"}]}
+    assert state.cinema_places("cinepolis", cp) == {
+        "cinepolis-x": {"city_id": "cdmx", "state_id": None, "timezone": "America/Mexico_City"},
+        "cinepolis-y": {"city_id": "cdmx", "state_id": None, "timezone": None}}
+    cx = {"areas": [{"days": [{"data": {"cinemas": [{"id": 26, "state": {"id": 8}, "area": {"id": 15}}, {"id": 27}]}}]}]}
+    assert state.cinema_places("cinemex", cx) == {"26": {"city_id": "15", "state_id": "8", "timezone": None},
+                                                  "27": {"city_id": None, "state_id": None, "timezone": None}}
+
+
+def test_cinema_places_from_national_raw():
+    """Crudos nacionales: Cinépolis con `cityId` por cine, Cinemex por estado."""
+    cp = {"city_ids": ["cdmx", "tijuana"], "cinemas": [{"id": "cinepolis-carrousel-tijuana", "cityId": "tijuana", "timezone": "America/Tijuana"}]}
+    assert state.cinema_places("cinepolis", cp)["cinepolis-carrousel-tijuana"] == {"city_id": "tijuana", "state_id": None, "timezone": "America/Tijuana"}
+    cx = {"states": [{"state_id": 14, "days": [{"data": {"cinemas": [{"id": 300, "state": {"id": 14}, "area": {"id": 35}}]}}]}]}
+    assert state.cinema_places("cinemex", cx) == {"300": {"city_id": "35", "state_id": "14", "timezone": None}}
+
+
+def test_close_uses_utc_when_available():
+    """Una función de Tijuana (UTC−7) que aún no ha empezado allá no se da por concluida con la hora de CDMX."""
+    taken = "2026-09-09T21:10:00+00:00"                       # 15:10 CDMX, 14:10 Tijuana
+    tj = row("t", "2026-09-09T15:00:00", datetime_utc="2026-09-09T22:00:00+00:00")   # 15:00 Tijuana = 22:00 UTC, faltan 50 min
+    p = state.plan("cinepolis", open_state(tj), [], taken)
+    assert [(prev["show_id"], kind) for prev, kind in p["close"]] == [("t", "removed")]

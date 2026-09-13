@@ -29,7 +29,6 @@ from analytics.labels import (  # noqa: E402
     CHAIN_COLOR,
     CHAIN_LABEL,
     CINEMA_TYPE_LABEL,
-    CITY_LABEL,
     COLUMN_LABEL,
     DATA_TEXT,
     DATASET_HELP,
@@ -52,11 +51,13 @@ from analytics.labels import (  # noqa: E402
     LANGUAGE_BUCKETS,
     LANGUAGE_LABEL,
     LINE,
+    NATIONAL_LABEL,
     NEUTRAL,
     OK,
     OPS_TEXT,
     PAPER,
     PLATFORM_LABEL,
+    PLAZA_LABEL,
     RED,
     RED_RAMP,
     RED_SOFT,
@@ -68,9 +69,11 @@ from analytics.labels import (  # noqa: E402
     VS_NOW_LABEL,
     WARN,
     WEEKDAY_LABEL,
+    ZONE_TEXT,
     date_es,
     hour_mark,
     hours_label,
+    plaza_title,
     range_es,
     range_short,
     time_12,
@@ -90,7 +93,7 @@ FIRST_SNAPSHOT = date(2026, 9, 7)          # inicio de la historia; los paneles 
 SHOWN_MOVIES, TOTAL_MOVIES = 8, 15         # dumbbell: las de mayor diferencia, y todas al pedirlo
 FONT = "Archivo, system-ui, sans-serif"
 
-PAGE_TITLE = "Cartelera CDMX · Cinemex frente a Cinépolis"
+PAGE_TITLE = ZONE_TEXT["page_title"]
 
 def inject_css():
     """Tema (colores, radios, familia) en .streamlit/config.toml. Aquí lo que el tema no cubre: la fuente variable
@@ -213,6 +216,19 @@ table.mk td.mal {{ color: {WARN}; font-weight: 700; }}
 
 
 # --- utilidades ------------------------------------------------------------------------------------
+def plaza_selector():
+    """Barra lateral "Zona": la plaza a comparar (clave de scraper/plazas.py) o None para nacional. Solo ofrece las plazas
+    con cines en la base; CDMX por defecto. La elección vive en `st.session_state["plaza"]` y se comparte entre páginas."""
+    options = [r["plaza"] for r in load_raw("plazas")] + [None]
+    st.sidebar.header(ZONE_TEXT["header"])
+    if st.session_state.get("plaza", "cdmx") not in options:
+        st.session_state["plaza"] = options[0]
+    plaza = st.sidebar.radio(ZONE_TEXT["select"], options, key="plaza", label_visibility="collapsed",
+                             format_func=lambda p: PLAZA_LABEL.get(p, p) if p else NATIONAL_LABEL)
+    st.sidebar.caption(ZONE_TEXT["caption"])
+    return plaza
+
+
 @st.cache_data(ttl=TTL)
 def load(fn_name, **kwargs):
     conn = analytics.connect()
@@ -342,7 +358,7 @@ def pretty(df, index=None):
     if "vs_now" in df.columns:
         df["vs_now"] = df["vs_now"].map(VS_NOW_LABEL).fillna(df["vs_now"])
     for col, labels in (("role", ROLE_LABEL), ("closed_kind", STATUS_LABEL), ("language", LANGUAGE_LABEL),
-                        ("platform", PLATFORM_LABEL), ("city_id", CITY_LABEL)):
+                        ("platform", PLATFORM_LABEL), ("plaza", PLAZA_LABEL)):
         if col in df.columns:
             df[col] = df[col].map(labels).fillna(df[col])
     for col in ("sampled_at", "detected_at", "first_seen", "first_seen_at", "closed_at", "last_seen", "last_login_at",

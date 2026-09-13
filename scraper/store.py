@@ -5,7 +5,7 @@ import sqlite3
 from datetime import datetime
 
 from . import config
-from .normalize import COLUMNS
+from .normalize import CINEMA_COLUMNS, COLUMNS
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS snapshot (
@@ -47,6 +47,16 @@ CREATE INDEX IF NOT EXISTS idx_event_show ON event (chain, show_id);
 -- Reconstrucción de la cartelera de un cine y un día en un momento dado (analytics/history.py).
 CREATE INDEX IF NOT EXISTS idx_event_board ON event (chain, cinema_id, date, id);
 CREATE INDEX IF NOT EXISTS idx_current_cinema ON current_showtime (chain, cinema_id, date);
+-- Dimensión de cines vista en las capturas: la llave geográfica de cada API (`city_id`: Cinépolis ciudad, Cinemex área),
+-- el estado de Cinemex, la zona horaria (solo Cinépolis la publica) y el vistaId de Cinépolis. Por aquí se acotan por
+-- plaza las tablas de muestreo, que no llevan geografía propia.
+CREATE TABLE IF NOT EXISTS cinema (
+  chain TEXT NOT NULL, cinema_id TEXT NOT NULL, name TEXT, lat REAL, lng REAL,
+  city_id TEXT, state_id TEXT, timezone TEXT, vista_id TEXT,
+  first_seen TEXT NOT NULL, last_seen TEXT NOT NULL,
+  PRIMARY KEY (chain, cinema_id)
+);
+CREATE INDEX IF NOT EXISTS idx_cinema_city ON cinema (chain, city_id);
 -- Aforo por sala (Cinépolis desde el plano de asientos; Cinemex llegará del cliente).
 CREATE TABLE IF NOT EXISTS auditorium (
   chain TEXT NOT NULL, cinema_id TEXT NOT NULL, screen TEXT NOT NULL,
@@ -89,6 +99,18 @@ CREATE INDEX IF NOT EXISTS idx_delivery_store ON delivery_price (platform, store
 """ % ",\n  ".join(f"{c} TEXT" if c not in ("lat", "lng", "duration_min") else f"{c} REAL" for c in COLUMNS if c not in ("chain", "show_id"))
 
 ROW_COLUMNS = [c for c in COLUMNS if c not in ("chain", "show_id")]
+CINEMA_ROW_COLUMNS = [c for c in CINEMA_COLUMNS if c not in ("chain", "cinema_id")]
+
+
+def migrate(conn):
+    """Cambios de esquema aditivos sobre una base ya creada: columnas de `COLUMNS` que aún no existen en
+    `current_showtime` (la base de producción tiene historia desde el 2026-09-07 y no se recrea)."""
+    have = {r["name"] for r in conn.execute("PRAGMA table_info(current_showtime)")}
+    for col in ROW_COLUMNS:
+        if col not in have:
+            kind = "REAL" if col in ("lat", "lng", "duration_min") else "TEXT"
+            conn.execute(f"ALTER TABLE current_showtime ADD COLUMN {col} {kind}")
+    conn.commit()
 
 
 def connect():
@@ -97,6 +119,7 @@ def connect():
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.executescript(SCHEMA)
+    migrate(conn)
     return conn
 
 
@@ -139,6 +162,17 @@ def replace_current(conn, chain, snapshot_id, rows, previous, taken_at):
         first_seen = prev["first_seen"] if prev and prev.get("first_seen") else taken_at
         data.append([chain, r["show_id"], snapshot_id, first_seen] + [r.get(c) for c in ROW_COLUMNS])
     conn.executemany(f"INSERT INTO current_showtime ({', '.join(cols)}) VALUES ({placeholders})", data)
+
+
+def upsert_cinemas(conn, cinemas, taken_at):
+    """Alta o refresco de la dimensión de cines (`normalize.cinemas`): conserva `first_seen` y no pisa con NULL lo que
+    ya se sabía (Cinemex no publica zona horaria; un cine sin coordenadas un día las recupera al siguiente)."""
+    cols = ["chain", "cinema_id"] + CINEMA_ROW_COLUMNS + ["first_seen", "last_seen"]
+    sets = ", ".join(f"{c} = COALESCE(excluded.{c}, cinema.{c})" for c in CINEMA_ROW_COLUMNS)
+    conn.executemany(
+        f"""INSERT INTO cinema ({', '.join(cols)}) VALUES ({', '.join('?' for _ in cols)})
+            ON CONFLICT (chain, cinema_id) DO UPDATE SET {sets}, last_seen = excluded.last_seen""",
+        [[c["chain"], c["cinema_id"]] + [c.get(k) for k in CINEMA_ROW_COLUMNS] + [taken_at, taken_at] for c in cinemas])
 
 
 def insert_events(conn, events):

@@ -53,9 +53,23 @@ FORMAT_LABEL = {"premium": "Premium / VIP", "large": "Gran formato", "3d4d": "3D
 LANGUAGE_LABEL = {"spanish": "Español", "subtitled": "Subtitulada", "original": "Español", "other": "Otro"}
 PLATFORM_LABEL = {"rappi": "Rappi", "didi": "DiDi Food"}
 CINEMA_TYPE_LABEL = {"vip": "VIP", "traditional": "Tradicional"}
-# Plaza: cada cadena la nombra distinto (Cinépolis por slug de ciudad, Cinemex por id de estado). Hoy solo CDMX; al
-# abrir más plazas se amplía con el catálogo de ciudades de cada API.
-CITY_LABEL = {"cdmx": "CDMX", "8": "CDMX"}
+# Plazas (claves de scraper/plazas.py) y el alcance nacional (`plaza=None` en analytics). El título de la cartelera
+# nombra la plaza elegida; en nacional dice "nacional".
+PLAZA_LABEL = {"cdmx": "CDMX", "gdl": "Guadalajara", "mty": "Monterrey"}
+NATIONAL_LABEL = "Nacional"
+ZONE_TEXT = {
+    "header": "Zona",
+    "select": "Plaza a comparar",
+    "caption": "Las participaciones se calculan solo con los cines de la plaza elegida; en Nacional entran todos los capturados.",
+    "title": "Cartelera {plaza}",
+    "title_national": "Cartelera nacional",
+    "page_title": "Cartelera · Cinemex frente a Cinépolis",
+}
+
+
+def plaza_title(plaza):
+    """'Cartelera CDMX' | 'Cartelera nacional', para el encabezado de la cartelera."""
+    return ZONE_TEXT["title"].format(plaza=PLAZA_LABEL[plaza]) if plaza else ZONE_TEXT["title_national"]
 
 LANGUAGE_BUCKETS = ["spanish", "subtitled"]
 
@@ -302,7 +316,8 @@ DATA_TEXT = {
     "no_history": "El archivo histórico aún no tiene esta tabla poblada.",
 }
 COLUMN_LABEL.update({
-    "city_id": "Plaza", "lat": "Latitud", "lng": "Longitud", "last_seen": "Última vez vista", "first_seen_at": "Publicada",
+    "city_id": "Ciudad / área", "state_id": "Estado", "plaza": "Plaza", "sample_cinema": "Cine de muestra", "timezone": "Zona horaria",
+    "lat": "Latitud", "lng": "Longitud", "last_seen": "Última vez vista", "first_seen_at": "Publicada",
     "broken": "Fuera de servicio", "show_date": "Fecha", "starts_at": "Inicio", "language": "Idioma", "format": "Formato",
     "experience": "Experiencia", "premium_tier": "Nivel premium", "closed_at": "Cerrada", "closed_kind": "Cierre",
     "general_price": "Precio general", "fee_price": "Cargo por servicio", "sub_category": "Subcategoría",
@@ -335,6 +350,7 @@ OPS_TEXT = {
     "last_age": "Antigüedad",
     "last_result": "Resultado",
     "last_shows": "Funciones leídas",
+    "last_cinemas": "Cines leídos (máximo 7 días)",
     "captures": "Capturas en la ventana",
     "expected": "Programadas",
     "missing": "Programadas sin captura",
@@ -347,6 +363,12 @@ OPS_TEXT = {
     "calibration": "Calibración del semáforo",
     "no_snapshots": "Sin capturas",
     "none": "Ninguna",
+    # Registro por geografía.
+    "coverage": "Cobertura por ciudad y área",
+    "coverage_lead": "Funciones vigentes y cines por cadena y llave geográfica de cada API (Cinépolis ciudad, Cinemex área), con la "
+                     "plaza a la que pertenecen. Es el registro para decidir qué plazas entran al muestreo de planos (AC_SEATS_PLAZAS).",
+    "coverage_seats": "Planos de asientos acotados a: {plazas}",
+    "coverage_no_plaza": "—",
     # Corridas.
     "runs": "Corridas recientes",
     "runs_lead": "Cada corrida de scraper.run por cadena: resultado, volumen, llamadas a la API y duración. El error literal cuando falló.",

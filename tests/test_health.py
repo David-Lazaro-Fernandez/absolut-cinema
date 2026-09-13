@@ -37,6 +37,20 @@ def test_recent_runs_is_windowed_and_newest_first(conn):
     assert len(health.recent_runs(conn, days=30)) == 3
 
 
+def test_check_flags_a_coverage_drop(conn):
+    """Una captura buena con muchos menos cines que el máximo de la semana es un estado o ciudad que llegó vacío."""
+    now = datetime.now(timezone.utc)
+    for days_ago, n_cinemas in ((3, 499), (2, 499), (1, 430)):
+        at = (now - timedelta(days=days_ago)).isoformat(timespec="seconds")
+        conn.execute("INSERT INTO snapshot (chain, taken_at, finished_at, ok, n_shows, n_cinemas) VALUES ('cinepolis', ?, ?, 1, 1000, ?)",
+                     (at, at, n_cinemas))
+    report = health.check(conn, hours=24, now=now)
+    assert report["chains"]["cinepolis"]["last_cinemas"] == 430 and report["chains"]["cinepolis"]["peak_cinemas_7d"] == 499
+    assert any("cobertura incompleta" in p for p in report["problems"])
+    conn.execute("UPDATE snapshot SET n_cinemas = 495 WHERE n_cinemas = 430")
+    assert not any("cobertura" in p for p in health.check(conn, hours=24, now=now)["problems"])
+
+
 def test_log_tail_reads_last_lines(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "LOG_DIR", tmp_path)
     (tmp_path / "run.log").write_text("".join(f"línea {i}\n" for i in range(1, 501)), encoding="utf-8")

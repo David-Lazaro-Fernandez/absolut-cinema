@@ -21,15 +21,15 @@ def _lc(label):
     return label[0].lower() + label[1:]
 
 
-def headlines(conn, d0=None, d1=None, min_shows=20, top=3):
+def headlines(conn, d0=None, d1=None, min_shows=20, top=3, plaza=None):
     """Lista de dicts {topic, text}. Topics: volumen, franjas, peliculas, exclusivas, idioma,
     formato, concentracion, cambios."""
     d0 = d0 or today()
     d1 = d1 or d0
-    _, _, from_hhmm = _window(d0, d1)
+    _, _, from_hhmm = _window(d0, d1, plaza=plaza)
     out = []
 
-    kp = {r["chain"]: r for r in kpis(conn, d0, d1)}
+    kp = {r["chain"]: r for r in kpis(conn, d0, d1, plaza=plaza)}
     us, them = kp.get(US), kp.get(THEM)
     if from_hhmm and d0 == d1:
         when = f"hoy a partir de las {time_12(from_hhmm)}"
@@ -62,7 +62,7 @@ def headlines(conn, d0=None, d1=None, min_shows=20, top=3):
                     f"desde las 6:00 P.M.), frente al {round(them['pct_prime'])}% de {THEM_NAME}: "
                     + (f"{abs(d):.1f} puntos {'más' if d > 0 else 'menos'} de nuestra parrilla en el bloque donde vive la taquilla."
                        if abs(d) >= 1 else "la misma apuesta por el bloque donde vive la taquilla.")})
-    slots = {r["chain"]: r for r in showtimes_by_slot(conn, d0, d1)}
+    slots = {r["chain"]: r for r in showtimes_by_slot(conn, d0, d1, plaza=plaza)}
     su, st = slots[US], slots[THEM]
     peak_us = max(SLOTS, key=lambda s: su[s[0]])
     peak_them = max(SLOTS, key=lambda s: st[s[0]])
@@ -80,7 +80,7 @@ def headlines(conn, d0=None, d1=None, min_shows=20, top=3):
     out.append({"topic": "franjas", "text": text})
 
     # 3. Películas
-    movies = [m for m in movies_by_chain(conn, d0, d1, limit=200) if m["shows_total"] >= min_shows]
+    movies = [m for m in movies_by_chain(conn, d0, d1, limit=200, plaza=plaza) if m["shows_total"] >= min_shows]
     shared = [m for m in movies if m["shows_cinemex"] and m["shows_cinepolis"]]
     more = sorted([m for m in shared if m["gap_pp"] >= 2], key=lambda m: -m["gap_pp"])[:top]
     less = sorted([m for m in shared if m["gap_pp"] <= -2], key=lambda m: m["gap_pp"])[:top]
@@ -92,7 +92,7 @@ def headlines(conn, d0=None, d1=None, min_shows=20, top=3):
     if shared:
         lead = max(shared, key=lambda m: m["shows_total"])
         out.append({"topic": "peliculas", "text":
-                    f"La película con más funciones en la plaza es {lead['title'].strip()}: se lleva el "
+                    f"La película con más funciones es {lead['title'].strip()}: se lleva el "
                     f"{round(lead['share_cinemex'])}% de nuestra programación ({_fmt(lead['shows_cinemex'])} funciones) y el "
                     f"{round(lead['share_cinepolis'])}% de la de {THEM_NAME} ({_fmt(lead['shows_cinepolis'])})."})
     if more:
@@ -116,7 +116,7 @@ def headlines(conn, d0=None, d1=None, min_shows=20, top=3):
     out.append({"topic": "idioma", "text":
                 f"El {round(us['pct_subtitled'])}% de nuestras funciones son subtituladas; en {THEM_NAME} es el "
                 f"{round(them['pct_subtitled'])}%."})
-    mx = {(r["dimension"], r["chain"], r["bucket"]): r["share"] for r in mix(conn, d0, d1)}
+    mx = {(r["dimension"], r["chain"], r["bucket"]): r["share"] for r in mix(conn, d0, d1, plaza=plaza)}
     fmt_gaps = [(mx.get(("format", US, b), 0) - mx.get(("format", THEM, b), 0), b) for b in FORMAT_LABEL]
     g, b = max(fmt_gaps, key=lambda x: abs(x[0]))
     if abs(g) >= 2:
@@ -125,7 +125,7 @@ def headlines(conn, d0=None, d1=None, min_shows=20, top=3):
                     f"nuestras funciones frente a {round(mx.get(('format', THEM, b), 0))}% en {THEM_NAME}."})
 
     # 5. Concentración
-    cc = {r["chain"]: r for r in concentration(conn, d0, d1)}
+    cc = {r["chain"]: r for r in concentration(conn, d0, d1, plaza=plaza)}
     if US in cc and THEM in cc:
         cu, ct = cc[US], cc[THEM]
         who = "nosotros" if cu["top3_pct"] > ct["top3_pct"] else THEM_NAME
@@ -136,7 +136,7 @@ def headlines(conn, d0=None, d1=None, min_shows=20, top=3):
                     f"{_fmt(ct['titles_per_cinema'])} {THEM_NAME}."})
 
     # 6. Cambios de las últimas 24 h
-    ev = {(r["chain"], r["kind"]): r["n"] for r in events_by_kind(conn, 24) if r["kind"] != "availability"}
+    ev = {(r["chain"], r["kind"]): r["n"] for r in events_by_kind(conn, 24, plaza=plaza) if r["kind"] != "availability"}
     parts = []
     for chain, who in ((THEM, THEM_NAME), (US, "nosotros")):
         bits = [f"{n} {(KIND_PLURAL if n != 1 else KIND_LABEL)[k].lower()}"

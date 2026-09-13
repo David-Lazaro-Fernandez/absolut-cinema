@@ -1,21 +1,22 @@
-"""Página principal: la cartelera en tres capas (hallazgos → evidencia → apéndice) con los filtros de periodo y
+"""Página principal: la cartelera en tres capas (hallazgos → evidencia → apéndice) con los filtros de zona, periodo y
 franja horaria en la barra lateral. La dulcería vive en su propia página (views/dulceria.py)."""
 from ui.common import *  # noqa: F401,F403
 
-# --- barra lateral: periodo y alcance -------------------------------------------------------------------
+# --- barra lateral: zona, periodo y franja ---------------------------------------------------------------
 today_s = analytics.today()
 today_d = date.fromisoformat(today_s)
 if not config.DB_PATH.exists():
     # Recién desplegado: el scraper aún no ha creado la base. Aviso claro en lugar del traceback.
     now_hm = datetime.now(TZ).strftime("%H:%M")
     nxt = next((hm for hm in config.SNAPSHOT_HOURS if hm > now_hm), config.SNAPSHOT_HOURS[0])
-    md('<div class="enc"><h1>Cartelera CDMX: <span>Cinemex</span> frente a Cinépolis</h1></div>')
+    md(f'<div class="enc"><h1>{esc(plaza_title(None))}: <span>Cinemex</span> frente a Cinépolis</h1></div>')
     st.info(f"Aún no hay datos: la base {config.DB_PATH} no existe. La cartelera se captura a las "
             f"{', '.join(time_12(hm) for hm in config.SNAPSHOT_HOURS)}; la siguiente captura es a las {time_12(nxt)} y tarda de 2 a 5 "
             "minutos. Para no esperar: `make snapshot` (o `systemctl start absolut-cinema-scraper.service` en el servidor), o copia "
             "`data/` desde la máquina donde ya corre. Esta página se refresca sola.")
     st.stop()
-cov = load("coverage")
+plaza = plaza_selector()
+cov = load("coverage", plaza=plaza)
 if cov.empty:
     st.info("La base existe pero todavía no tiene funciones capturadas. Revisa `data/logs/run.log`.")
     st.stop()
@@ -57,14 +58,10 @@ full_day = analytics.is_full_day(hours)
 if not full_day:
     st.sidebar.caption(f"Solo funciones que empiezan {hours_label(hours)}. Las participaciones se calculan dentro de esa franja.")
 
-st.sidebar.header("Zona")
-st.sidebar.selectbox("Alcance geográfico", ["Toda la ciudad"], disabled=True)
-st.sidebar.caption("Zonas de choque y mercados cautivos se habilitan al emparejar los cines de ambas cadenas por distancia.")
-
 st.sidebar.header("Cómo leer las cifras")
 st.sidebar.markdown(
-    "Todo se compara en **porcentaje de la programación de cada cadena** (share), no en totales: Cinemex tiene "
-    "más cines que Cinépolis en la plaza. Las diferencias entre porcentajes van en **puntos porcentuales (pp)**."
+    "Todo se compara en **porcentaje de la programación de cada cadena** (share), no en totales: las cadenas tienen "
+    "distinto número de cines y salas en cada zona. Las diferencias entre porcentajes van en **puntos porcentuales (pp)**."
     + (" Para hoy solo se cuentan funciones que aún no han empezado, en ambas cadenas." if includes_today else ""))
 with st.sidebar.expander("Glosario"):
     st.markdown(
@@ -96,9 +93,9 @@ for chain, r in health.groupby("chain").first().iterrows():
     age_min = (now_utc - datetime.fromisoformat(last_good)).total_seconds() / 60 if last_good else None
     if r.ok != 1 or age_min is None or age_min > MAX_AGE_MIN:
         stale.append((CHAIN_LABEL.get(chain, chain), age_min, r.error if r.ok != 1 else None))
-kp = load("kpis", d0=d0, d1=d1, hours=hours)
+kp = load("kpis", d0=d0, d1=d1, hours=hours, plaza=plaza)
 if kp.empty or len(kp) < 2:
-    md('<div class="enc"><h1>Cartelera CDMX: <span>Cinemex</span> frente a Cinépolis</h1></div>')
+    md(f'<div class="enc"><h1>{esc(plaza_title(plaza))}: <span>Cinemex</span> frente a Cinépolis</h1></div>')
     st.info(f"No hay cartelera publicada de ambas cadenas para {range_es(d0, d1)}.")
     st.stop()
 K = kp.set_index("chain")
@@ -107,7 +104,7 @@ last_capture = min(datetime.fromisoformat(r.taken_at) for _, r in last_ok.iterro
 
 md(f"""
 <div class="enc">
-  <h1>Cartelera CDMX: <span>Cinemex</span> frente a Cinépolis</h1>
+  <h1>{esc(plaza_title(plaza))}: <span>Cinemex</span> frente a Cinépolis</h1>
   <div class="meta">
     <span><strong>Periodo:</strong> {esc(range_short(d0, d1))}</span>
     {"" if full_day else f"<span><strong>Franja:</strong> {esc(hours_label(hours))}</span>"}
@@ -134,7 +131,7 @@ for name, age_min, err in stale:
 capa(1, "Lo que importa hoy",
      "Hallazgos redactados como decisión, cada uno con sus números de soporte. Si un dato no cambia una decisión "
      "esta semana, no vive aquí.", roja=True)
-hallazgos = load_raw("findings", d0=d0, d1=d1, hours=hours)
+hallazgos = load_raw("findings", d0=d0, d1=d1, hours=hours, plaza=plaza)
 if not hallazgos:
     st.info("Ninguna diferencia cruza el umbral de relevancia en este periodo. La evidencia completa está en la Capa 2.")
 for f in hallazgos:
@@ -145,7 +142,7 @@ if any(f["topic"] == "dulceria" for f in hallazgos):
 # ============ CAPA 2 ============
 capa(2, "Evidencia por pregunta",
      "Cada sección abre con la conclusión; el gráfico es la prueba, no el mensaje. Las guías de lectura van colapsadas.")
-concl = load_raw("conclusions", d0=d0, d1=d1, shown=SHOWN_MOVIES, total=TOTAL_MOVIES, hours=hours)
+concl = load_raw("conclusions", d0=d0, d1=d1, shown=SHOWN_MOVIES, total=TOTAL_MOVIES, hours=hours, plaza=plaza)
 
 # --- Resumen general (formato del reporte diario del cliente) ------------------------------------------
 with seccion("resumen"):
@@ -153,7 +150,7 @@ with seccion("resumen"):
     tab_labels = list(HOUR_PRESETS)[:2]   # "Todo el día" y "Después de las 6 PM", lado a lado como en su reporte
     for tab, label in zip(st.tabs(tab_labels), tab_labels):
         with tab:
-            gs = load("general_summary", d0=d0, d1=d1, hours=HOUR_PRESETS[label])
+            gs = load("general_summary", d0=d0, d1=d1, hours=HOUR_PRESETS[label], plaza=plaza)
             if gs.empty:
                 st.info("Sin funciones en el periodo.")
                 continue
@@ -190,7 +187,7 @@ with seccion("peliculas"):
     show_all = st.session_state.get("all_movies", False)
     pregunta("¿A qué películas les damos más pantalla que Cinépolis?", concl.get("peliculas", ""),
              None if show_all else concl.get("peliculas_note"))
-    battle = load("movies_by_chain", d0=d0, d1=d1, limit=60, hours=hours)
+    battle = load("movies_by_chain", d0=d0, d1=d1, limit=60, hours=hours, plaza=plaza)
     battle["title"] = battle["title"].str.strip()
     top = battle.head(TOTAL_MOVIES).copy()
     # Orden por magnitud de la diferencia; una exclusiva pesa lo que su propio share.
@@ -239,7 +236,7 @@ with seccion("peliculas"):
 # --- Horarios: heatmap ---------------------------------------------------------------------------------
 with seccion("horarios"):
     pregunta("¿Estamos en el horario donde vive la taquilla?", concl.get("franjas", ""))
-    hm = load("heatmap_day_slot", d0=d0, d1=d1, hours=hours)
+    hm = load("heatmap_day_slot", d0=d0, d1=d1, hours=hours, plaza=plaza)
     if hm.empty:
         st.info("Sin funciones en el periodo.")
     else:
@@ -274,7 +271,7 @@ with seccion("horarios"):
 # --- Formatos e idioma: barras -------------------------------------------------------------------------
 with seccion("formatos"):
     pregunta("¿Con qué formatos e idiomas competimos?", concl.get("formatos", ""))
-    mx = load("mix", d0=d0, d1=d1, hours=hours)
+    mx = load("mix", d0=d0, d1=d1, hours=hours, plaza=plaza)
     if not mx.empty:
         mx["Cadena"] = mx["chain"].map(CHAIN_LABEL)
         m1, m2 = st.columns([3, 2])
@@ -311,8 +308,8 @@ capa(3, "Detalle y apéndice",
      "Todo colapsado con una línea de resumen visible: quien lo necesita lo abre, quien no, no paga el costo visual.")
 
 # --- Indicadores del periodo (el antiguo KPI strip) --------------------------------------------------
-offered = load("offered_seats", d0=d0, d1=d1, hours=hours).set_index("chain")
-cc = load("concentration", d0=d0, d1=d1, hours=hours).set_index("chain") if True else None
+offered = load("offered_seats", d0=d0, d1=d1, hours=hours, plaza=plaza).set_index("chain")
+cc = load("concentration", d0=d0, d1=d1, hours=hours, plaza=plaza).set_index("chain") if True else None
 cm = offered.loc["cinemex"] if "cinemex" in offered.index else None
 cp = offered.loc["cinepolis"] if "cinepolis" in offered.index else None
 resumen = f"{us.shows_per_cinema:.1f} vs {them.shows_per_cinema:.1f} funciones por cine y día"
@@ -349,7 +346,7 @@ with apendice("kpis", "Indicadores del periodo", resumen):
 # --- Cambios en la cartelera publicada -----------------------------------------------------------------
 # Los cambios del competidor valen como comportamiento semanal, no como alerta: Cinemex programa por semana de cine.
 CARTELERA_KINDS = [k for k in KINDS if k != "availability"]   # la ocupación es una medida, no un cambio de cartelera
-by_kind = load("events_by_kind", since_hours=24 * 7)
+by_kind = load("events_by_kind", since_hours=24 * 7, plaza=plaza)
 ev = {(r.chain, r.kind): int(r.n) for r in by_kind.itertuples()} if not by_kind.empty else {}
 g = lambda c, k: ev.get((c, k), 0)  # noqa: E731
 resumen = (f"7 días: {g('cinemex', 'removed'):,} canceladas nuestras vs {g('cinepolis', 'removed'):,} de Cinépolis · "
@@ -364,14 +361,14 @@ with apendice("cambios", "¿Cómo ha movido Cinépolis su cartelera esta semana?
        "eso es publicación, no cambios sobre lo ya anunciado. Se lee como comportamiento semanal del competidor (cuánto cancela, "
        "de qué títulos, cuándo publica), no como alerta: la programación se decide por semana de cine.</p>")
     kinds = st.multiselect("Registro por función", CARTELERA_KINDS, default=CARTELERA_KINDS, format_func=lambda k: KIND_LABEL[k])
-    events = load("recent_events", limit=300, kinds=kinds or None)
+    events = load("recent_events", limit=300, kinds=kinds or None, plaza=plaza)
     if events.empty:
         st.info("Sin cambios de ese tipo.")
     else:
         st.dataframe(pretty(events.drop(columns=["show_id", "date"])), width="stretch", hide_index=True, height=360)
 
 # --- Precios ---------------------------------------------------------------------------------------------
-pr = load("prices")
+pr = load("prices", plaza=plaza)
 if not pr.empty:
     P = {(r.chain, r.format_bucket, r.day_type): r.median_price for r in pr.itertuples()}
 
@@ -402,7 +399,7 @@ if not pr.empty:
                      width="stretch", hide_index=True)
 
 # --- Salas y butacas por complejo -------------------------------------------------------------------
-cap = load("capacity_summary")
+cap = load("capacity_summary", plaza=plaza)
 if not cap.empty:
     C = cap.set_index("chain")
     resumen = " · ".join(f"{CHAIN_LABEL[c]}: {int(r.screens)} salas, {int(r.seats):,} butacas, sala típica de {int(r.avg_seats)}"
@@ -415,7 +412,7 @@ if not cap.empty:
            'fuera de servicio). Butacas físicas, no ofertadas.</p>')
         chain_sel = st.radio("Cadena", CHAINS, format_func=lambda c: CHAIN_LABEL[c], horizontal=True, key="cap_chain")
         c1, c2 = st.columns([3, 2])
-        bt = load("offered_by_title", d0=d0, d1=d1, limit=TOTAL_MOVIES, chain=chain_sel, hours=hours)
+        bt = load("offered_by_title", d0=d0, d1=d1, limit=TOTAL_MOVIES, chain=chain_sel, hours=hours, plaza=plaza)
         with c1:
             st.markdown(f"**Funciones frente a butacas por película ({CHAIN_LABEL[chain_sel]})**")
             if bt.empty:
@@ -443,7 +440,7 @@ if not cap.empty:
                    'sus butacas ofertadas. Cuando el cuadro queda a la derecha, la película va en salas más grandes que el promedio.</p>')
         with c2:
             st.markdown("**Salas y butacas por complejo**")
-            bc = load("capacity_by_cinema", chain=chain_sel)
+            bc = load("capacity_by_cinema", chain=chain_sel, plaza=plaza)
             st.dataframe(pretty(bc[["cinema_name", "screens", "seats", "avg_seats", "min_seats", "max_seats"]]),
                          width="stretch", hide_index=True, height=420)
 
@@ -455,7 +452,7 @@ with apendice("historia", "Historial de una función y cartelera tal como estaba
        'septiembre de 2026; antes, las funciones ya concluidas no dejaban rastro.</p>')
     h1, h2, h3, h4 = st.columns([1, 2, 1.4, 1])
     chain_h = h1.selectbox("Cadena", CHAINS, format_func=lambda c: CHAIN_LABEL[c], key="h_chain")
-    cins = load("cinemas", chain=chain_h)
+    cins = load("cinemas", chain=chain_h, plaza=plaza)
     cine_h = h2.selectbox("Cine", cins.cinema_id.tolist(), format_func=dict(zip(cins.cinema_id, cins.cinema_name)).get, key="h_cine")
     dates_h = load("dates_known", chain=chain_h, cinema_id=cine_h).date.tolist()
     fecha_h = h3.selectbox("Fecha", dates_h, index=dates_h.index(today_s) if today_s in dates_h else max(len(dates_h) - 1, 0),
@@ -504,7 +501,7 @@ with apendice("historia", "Historial de una función y cartelera tal como estaba
                    'está publicada. Mueve el control para ver la cartelera en capturas anteriores.</p>')
 
 # --- Ocupación muestreada -----------------------------------------------------------------------------
-occ = load("occupancy_summary")
+occ = load("occupancy_summary", plaza=plaza)
 cal = load("semaphore_calibration", chain="cinemex")
 n_samples = int(occ.samples.sum()) if not occ.empty else 0
 weighted = 100.0 * occ.sold.sum() / occ.seats.sum() if n_samples and occ.seats.sum() else 0.0
@@ -525,7 +522,7 @@ with apendice("ocupacion", "Ocupación medida tras el inicio de cada función", 
                     "(una pasada única, por la tarde-noche, cuando existen los tres niveles) el semáforo se convierte en % vendido "
                     "estimado para todas sus funciones.")
     else:
-        est = load("estimated_occupancy", d0=d0, d1=d1, chain="cinemex", hours=hours)
+        est = load("estimated_occupancy", d0=d0, d1=d1, chain="cinemex", hours=hours, plaza=plaza)
         if not est.empty and has(est.iloc[0].seats_occupied_est):
             e = est.iloc[0]
             st.markdown(f"**Cinemex.** {int(e.seats_occupied_est):,} butacas ocupadas estimadas de {int(e.seats_offered):,} ofertadas en el "
@@ -535,7 +532,7 @@ with apendice("ocupacion", "Ocupación medida tras el inicio de cada función", 
                      width="stretch", hide_index=True)
     if n_samples:
         st.markdown("**Últimas funciones medidas (Cinépolis)**")
-        st.dataframe(pretty(load("occupancy_recent", limit=30)), width="stretch", hide_index=True, height=300)
+        st.dataframe(pretty(load("occupancy_recent", limit=30, plaza=plaza)), width="stretch", hide_index=True, height=300)
     md('<p class="nota">Se promueve a Capa 2 cuando la tabla de calibración tenga niveles de color con muestras suficientes. '
        'Mientras tanto no compite por atención.</p>')
 

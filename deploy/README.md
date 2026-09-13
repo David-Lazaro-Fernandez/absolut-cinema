@@ -69,6 +69,14 @@ systemctl start absolut-cinema-health.service      # reporte de salud ahora (tam
 cat /opt/absolut-cinema/data/logs/health.log       # una línea por día
 ```
 
+**Alcance de la captura.** Nacional por defecto (Cinépolis ~155 ciudades, Cinemex 31 estados; las dos cadenas se
+descargan en paralelo y la captura tarda ~17 min desde la Mac con el ritmo frenado de Cinépolis, algo más desde el servidor vía WARP;
+`TimeoutStartSec=45min` en `absolut-cinema-scraper.service`). Para
+acotarla, `AC_CINEPOLIS_CITIES` y `AC_CINEMEX_STATES` en el `.env`. Los planos de asientos (`seats.timer`) solo se toman
+en las plazas de `AC_SEATS_PLAZAS` (por defecto `cdmx`; claves de `scraper/plazas.py`): se amplía cuando el registro de
+cobertura de la página Operaciones diga qué plazas pesan. Al cambiar el `.env`, `systemctl daemon-reload` no hace falta
+(lo leen los units al arrancar cada corrida).
+
 Actualizar código: lo hace solo el despliegue diario (sección siguiente). Para forzarlo ahora: `make deploy` como root
 (o `systemctl start absolut-cinema-deploy.service`). Los timers toman el código nuevo en su siguiente ejecución.
 

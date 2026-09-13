@@ -1,4 +1,4 @@
-"""Cliente de la API GraphQL de Cinépolis y snapshot de una ciudad."""
+"""Cliente de la API GraphQL de Cinépolis y snapshot de un conjunto de ciudades (por defecto, todas)."""
 import json
 from collections import Counter
 from datetime import datetime, timezone
@@ -12,10 +12,17 @@ HEADERS = {
     "language": "ES",
 }
 
+CITIES_QUERY = """
+query Cities($country: String!) {
+  cities(country_id: $country) {
+    edges { node { id name timezone lat lng } }
+  }
+}"""
+
 CINEMAS_QUERY = """
 query Cinemas($country: String!, $city: String!) {
   cinemas(country_id: $country, city_id: $city) {
-    edges { node { id name vistaId timezone businessType lat lng } }
+    edges { node { id cityId name vistaId timezone businessType lat lng } }
   }
 }"""
 
@@ -51,10 +58,29 @@ def gql(url, query, variables, stats=None):
     return data["data"]
 
 
-def list_cinemas(city_id=config.CINEPOLIS_CITY_ID, stats=None):
+def list_cities(stats=None):
+    """Ciudades del país: [{id, name, timezone, lat, lng}] (154 el 2026-09-11)."""
+    data = gql(config.CINEPOLIS_LOCATIONS_URL, CITIES_QUERY, {"country": config.CINEPOLIS_COUNTRY}, stats)
+    return [e["node"] for e in data["cities"]["edges"]]
+
+
+def list_cinemas(city_id, stats=None):
+    """Cines de una ciudad, con `cityId` y `timezone`. La API no tiene listado nacional: exige la ciudad."""
     data = gql(config.CINEPOLIS_LOCATIONS_URL, CINEMAS_QUERY,
                {"country": config.CINEPOLIS_COUNTRY, "city": city_id}, stats)
-    return [e["node"] for e in data["cinemas"]["edges"]]
+    out = [e["node"] for e in data["cinemas"]["edges"]]
+    for c in out:
+        c.setdefault("cityId", city_id)
+    return out
+
+
+def all_cinemas(city_ids=None, stats=None):
+    """Cines de las ciudades dadas (por defecto todas, ~155 llamadas), ordenados por slug."""
+    city_ids = list(city_ids or config.CINEPOLIS_CITIES) or sorted(c["id"] for c in list_cities(stats))
+    out = []
+    for city_id in city_ids:
+        out.extend(list_cinemas(city_id, stats))
+    return sorted(out, key=lambda c: c["id"]), city_ids
 
 
 def movies_for(cinema_ids, category="now-playing", stats=None):
@@ -87,16 +113,19 @@ def chunks(items, size):
         yield items[i:i + size]
 
 
-def snapshot(city_id=config.CINEPOLIS_CITY_ID):
-    """Crudo completo de la ciudad: cines, catálogo de películas y horarios por lote."""
+def snapshot(city_ids=None):
+    """Crudo completo: cines de cada ciudad, catálogo de películas y horarios por lotes de 30 cines.
+
+    Los lotes no se agrupan por zona horaria: `billboard` devuelve cada función en la hora local de su cine sin
+    importar el parámetro `timezone` (verificado 2026-09-11 con un lote Tijuana + CDMX); se manda el de la mayoría."""
     stats = {"calls": 0}
-    cinemas = list_cinemas(city_id, stats)
-    slugs = sorted(c["id"] for c in cinemas)
+    cinemas, city_ids = all_cinemas(city_ids, stats)
+    slugs = [c["id"] for c in cinemas]
     tz_counts = Counter(c.get("timezone") for c in cinemas if c.get("timezone"))
     tz = tz_counts.most_common(1)[0][0] if tz_counts else config.PILOT_TIMEZONE
 
     raw = {
-        "chain": "cinepolis", "city_id": city_id, "timezone": tz,
+        "chain": "cinepolis", "city_ids": city_ids, "timezone": tz,
         "taken_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "cinemas": cinemas, "movies": {}, "billboards": [],
     }

@@ -15,7 +15,8 @@ dilo explícitamente en vez de hacerlo a medias.
 ## 1. Panorama
 
 Inteligencia competitiva de cartelera para **Cinemex** (el cliente) frente a **Cinépolis** (el
-competidor), plaza piloto CDMX. Tres capas, sin mezclarse:
+competidor). La captura es **nacional** (desde el 2026-09-11); el dashboard compara dentro de una **plaza** (CDMX por
+defecto, la del piloto) o a nivel nacional. Tres capas, sin mezclarse:
 
 | Capa | Carpeta | Dependencias | Escribe |
 | --- | --- | --- | --- |
@@ -25,6 +26,7 @@ competidor), plaza piloto CDMX. Tres capas, sin mezclarse:
 | Archivo histórico | `sync/` | `.venv` (psycopg) | PostgreSQL (`AC_PG_DSN`) y `data/logs/sync_status.json` |
 | Acceso | `auth/` | `.venv` (psycopg, boto3) | PostgreSQL, **solo el esquema `app`** (cuentas, sesiones, enlaces, auditoría) con el rol `absolut_app` |
 | Archivo, lectura | `archive/` | `.venv` (psycopg) | nada (abre Postgres en `default_transaction_read_only`) |
+| Sitio público | `marketing/` | Node/Next.js, **proyecto independiente** (su propio `package.json`) | nada (sitio estático, `output: 'export'`) |
 
 ### Reglas de arquitectura (no negociables sin discutirlo)
 
@@ -50,9 +52,20 @@ competidor), plaza piloto CDMX. Tres capas, sin mezclarse:
   `scraper.config`, `scraper.normalize` y `scraper.diff` (stdlib), pero el scraper jamás importa `sync/`. Las reglas de
   "qué cuenta como cambio" y "cómo se cierra una función" viven en `scraper/diff.py` (`changed_fields`,
   `closing_kind`) y `scraper/normalize.py` (`TRACKED_FIELDS`); scraper, dashboard y sync las comparten y no se duplican.
+- **La geografía tiene una sola fuente: `scraper/plazas.py`.** Qué ciudades de Cinépolis y qué áreas de Cinemex forman
+  una plaza se define ahí (stdlib) y lo comparten el muestreo de planos (`config.SEATS_PLAZAS`) y el filtro de plaza de
+  `analytics/` (`analytics/plaza.py`). Los planos de asientos **no se censan a nivel nacional**: solo entran las plazas
+  de `AC_SEATS_PLAZAS` (decisión 2026-09-11); precios y dulcería sí van sobre todos los cines capturados. La excepción es
+  el aforo por sala, que se midió una vez para todo el país a mano (`make capacity PLAZAS=all`, 2026-09-12) porque casi
+  no cambia; `--plazas` solo altera esa corrida, nunca un timer. Cada función
+  lleva `datetime_utc`: "ya empezó" (`from_now`, `closing_kind`) se decide con esa hora, no con la de CDMX, porque
+  México tiene siete zonas horarias.
 - **`app.py` vive en la raíz a propósito**: Streamlit solo recarga en caliente los módulos bajo la
   carpeta del script, así `ui/`, `views/`, `analytics/`, `archive/`, `auth/` y `scraper/` también se recargan al
   editarlos. No lo muevas.
+- **`marketing/` es un proyecto aparte** con su propio `package.json`: ninguna capa de Python lo importa y él no importa
+  nada del repo. Su identidad visual sí se hereda a mano de `DESIGN.md` y `analytics/labels.py` (ver
+  `marketing/design.md`), pero eso es documentación, no código compartido.
 
 ## 2. Principios de producto
 
@@ -67,7 +80,10 @@ Estos mandan sobre cualquier preferencia técnica.
    cadena. Cinemex y Cinépolis tienen distinto número de cines y salas; un absoluto engaña.
    Denominador actual: funciones. Cuando haya aforo completo pasará a butacas ofertadas.
 4. **Comparación justa del día en curso.** Cinépolis borra cada función al empezar y Cinemex la
-   conserva unas horas. Cualquier consulta que incluya hoy usa `from_now=True` (por defecto).
+   conserva unas horas. Cualquier consulta que incluya hoy usa `from_now=True` (por defecto), y el corte se hace en UTC
+   (`datetime_utc`), así una función de Tijuana no se da por empezada dos horas antes.
+7. **Se compara dentro del mismo alcance.** Una plaza (`plaza="cdmx"`, la del piloto y la del dashboard por defecto) o
+   todo el país (`plaza=None`); nunca una cadena en una plaza contra la otra en otra.
 5. **La semana de cine es jueves a miércoles.** Es lo que ambas cadenas publican completo. Usa
    `analytics.cinema_week()`, no `isocalendar()`.
 6. **Hablamos como Cinemex, en primera persona.** `US`/`THEM` en `analytics/labels.py`.
@@ -112,10 +128,14 @@ Los mismos nombres en todo el repo. Esto es sagrado; renombrar rompe la lectura 
 | `screen` | sala; la llave de aforo es `(chain, cinema_id, screen)` |
 | `minutes_to_start` | ≥ 0 preventa (T−60), < 0 asistencia (post-inicio) |
 | `pp` | puntos porcentuales (diferencias entre shares) |
+| `plaza` | zona metropolitana comparable, clave de `scraper/plazas.py` (`cdmx`, `gdl`, `mty`); `None` = nacional |
+| `city_id` | llave geográfica más fina de cada API: Cinépolis slug de ciudad (`cdmx`), Cinemex id de área (`"15"`) |
+| `state_id` | estado de Cinemex (`"8"`); NULL en Cinépolis |
+| `datetime_utc` | la hora de la función en UTC (ISO con `+00:00`); `datetime_local` sigue siendo la que publica la cadena |
 
 ### Consistencia de la API de `analytics/`
 
-Cada función nueva se parece a las que ya existen: `fn(conn, d0=None, d1=None, from_now=True)`,
+Cada función nueva se parece a las que ya existen: `fn(conn, d0=None, d1=None, from_now=True, hours=None, plaza=None)`,
 devuelve lista de dicts con claves en `snake_case` en inglés, y ordena de forma determinista
 (`ORDER BY` explícito siempre; sin `ORDER BY` el mismo dato puede pintar distinto entre recargas).
 Exporta en `analytics/__init__.py` y añádela a `__all__`. Antes de inventar una función nueva,
@@ -136,10 +156,6 @@ mira si extender una existente con un parámetro con nombre cubre el caso.
 
 ## 5. Captura (`scraper/`)
 
-- **Respeta el ritmo de las APIs ajenas.** `PAUSE_BETWEEN_CALLS`, `SAMPLE_PAUSE`, `SAMPLE_BACKOFF`,
-  `RETRIES` y el tope por corrida de la calibración existen porque las APIs devuelven errores
-  transitorios si se les aprieta. No los bajes para "ir más rápido"; si un flujo necesita otro
-  ritmo, añade una constante en `config.py` con un comentario que diga qué error evita.
 - **Todo lo configurable pasa por `scraper/config.py`** y admite sobreescritura por variable de
   entorno (`AC_DATA_DIR`, `CINEPOLIS_API_KEY`, `CINEMEX_BASE_URL`, `AC_EGRESS_PROXY`…). Nada de URLs, claves, ids de
   área o rutas escritos dentro de un módulo.
@@ -168,7 +184,8 @@ el timer lo note. Si añades un flujo de captura, añade su cobertura ahí.
 ## 6. Dashboard (`app.py`, `ui/`, `views/`)
 
 - Páginas con `st.navigation` (barra superior; en celular el CSS la fija abajo): `views/cartelera.py` (tres
-  capas con los filtros de periodo y franja en la barra lateral), `views/dulceria.py`, `views/datos.py` (explorador del
+  capas con los filtros de zona, periodo y franja en la barra lateral; la zona sale de `plaza_selector()` en `ui/common.py`
+  y viaja como `plaza=` en cada `load`), `views/dulceria.py`, `views/datos.py` (explorador del
   archivo en Postgres) y, solo para el rol admin, `views/usuarios.py` y `views/operaciones.py`. Un módulo que responde una
   pregunta propia del cliente y no depende del periodo va en su página; lo demás, en la cartelera. Las páginas
   hacen `from ui.common import *` a propósito: comparten un espacio de nombres de presentación.

@@ -72,6 +72,8 @@ if report:
         fila(OPS_TEXT["last_age"], lambda c: age_text(c["last_age_min"]), lambda c: "mal" if c["last_age_min"] > MAX_AGE_MIN else "")
         fila(OPS_TEXT["last_result"], lambda c: OPS_TEXT["ok"] if c["last_ok"] else OPS_TEXT["failed"], lambda c: "" if c["last_ok"] else "mal")
         fila(OPS_TEXT["last_shows"], lambda c: n(c["last_shows"]))
+        fila(OPS_TEXT["last_cinemas"], lambda c: f"{n(c['last_cinemas'])} ({n(c['peak_cinemas_7d'])})" if c.get("peak_cinemas_7d") else n(c.get("last_cinemas")),
+             lambda c: "mal" if c.get("peak_cinemas_7d") and (c.get("last_cinemas") or 0) < health.COVERAGE_MIN_RATIO * c["peak_cinemas_7d"] else "")
         fila(OPS_TEXT["captures"], lambda c: n(c["snapshots"]))
         fila(OPS_TEXT["expected"], lambda c: n(c["expected"]))
         fila(OPS_TEXT["missing"], lambda c: ", ".join(c["missing"]) if c["missing"] else OPS_TEXT["none"], lambda c: "mal" if c["missing"] else "")
@@ -83,6 +85,17 @@ if report:
         fila(OPS_TEXT["delivery_8d"], lambda c: n(c["delivery_stores_8d"]))
         fila(OPS_TEXT["calibration"], lambda c: ", ".join(f"{k}: {v}" for k, v in c["calibration"].items()) if "calibration" in c else "—")
         table([OPS_TEXT["signal"], *[CHAIN_LABEL[c] for c in chains]], rows)
+
+# --- cobertura por geografía: el registro para decidir dónde muestrear planos ---------------------------------
+if report:
+    with seccion("cobertura"):
+        encabezado("cobertura", OPS_TEXT["coverage"], OPS_TEXT["coverage_lead"])
+        md(f'<p class="nota">{esc(OPS_TEXT["coverage_seats"].format(plazas=", ".join(PLAZA_LABEL.get(p, p) for p in config.SEATS_PLAZAS)))}</p>')
+        cov = load("plaza_coverage")
+        if not cov.empty:
+            cov["plaza"] = cov["plaza"].fillna(OPS_TEXT["coverage_no_plaza"])
+            st.dataframe(pretty(cov[["chain", "plaza", "city_id", "state_id", "sample_cinema", "cinemas", "shows"]]),
+                         width="stretch", hide_index=True, height=min(500, 38 * (len(cov) + 1)))
 
 # --- corridas recientes ----------------------------------------------------------------------------------
 if report:

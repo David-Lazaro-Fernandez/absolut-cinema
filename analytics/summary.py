@@ -1,18 +1,18 @@
 """Resumen general en el formato que el cliente lee a diario: funciones por película y cadena, con
 participación de cada cadena, diferencia en funciones y en puntos, y la razón Cinépolis/Cinemex; Top N,
-"Resto" y "Total de programación". Alcance: la plaza capturada (CDMX), semana de cine jueves a miércoles.
+"Resto" y "Total de programación". Alcance: la plaza elegida (o nacional), semana de cine jueves a miércoles.
 """
 from .queries import _window, rows
 
 REST, TOTAL = "__resto__", "__total__"
 
 
-def general_summary(conn, d0=None, d1=None, from_now=True, hours=None, top=11):
+def general_summary(conn, d0=None, d1=None, from_now=True, hours=None, top=11, plaza=None):
     """Filas ordenadas: las `top` películas con más funciones (ambas cadenas), luego `kind='rest'` y `kind='total'`.
     Por fila: `shows_*`, `cinemas_*`, `share_*` (% de la programación de cada cadena en la ventana),
     `diff_shows` (Cinemex − Cinépolis), `diff_pp` (share Cinemex − share Cinépolis) y `ratio`
     (funciones Cinépolis / funciones Cinemex, None si Cinemex no la exhibe). `hours` recorta por hora de inicio."""
-    where, params, _ = _window(d0, d1, from_now, hours=hours)
+    where, params, _ = _window(d0, d1, from_now, hours=hours, plaza=plaza)
     data = rows(conn, f"""
         WITH base AS (SELECT chain, cinema_id, title_norm, movie_title FROM current_showtime WHERE {where}),
              tot AS (SELECT chain, COUNT(*) shows, COUNT(DISTINCT cinema_id) cinemas FROM base GROUP BY chain),

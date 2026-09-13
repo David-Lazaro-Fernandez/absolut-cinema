@@ -1,4 +1,4 @@
-"""Dashboard ejecutivo del piloto CDMX: Cinemex frente a Cinépolis.
+"""Dashboard ejecutivo: Cinemex frente a Cinépolis, por plaza o nacional.
 
 Entrada de Streamlit con navegación entre páginas (`views/`). La lista de páginas depende de la sesión: sin cookie
 válida solo existen entrar, olvidé mi contraseña y restablecer; con sesión, la cartelera en tres capas, la dulcería y

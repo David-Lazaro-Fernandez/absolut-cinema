@@ -64,6 +64,22 @@ def test_closing_kind_rules():
     assert diff.closing_kind(None, TAKEN) == "removed"
 
 
+def test_closing_kind_in_utc_for_other_timezones():
+    """Con `datetime_utc` la regla es exacta en cualquier zona; sin él se asume la zona de referencia (CDMX)."""
+    taken = "2026-09-09T21:10:00+00:00"                                    # 15:10 CDMX, 14:10 Tijuana
+    # 15:00 local en Tijuana = 22:00 UTC: faltan 50 min, es una cancelación. Con solo la hora local parecería concluida.
+    assert diff.closing_kind("2026-09-09T15:00:00", taken, "2026-09-09T22:00:00+00:00") == "removed"
+    assert diff.closing_kind("2026-09-09T15:00:00", taken) == "expired"
+    # 15:00 local en Cancún (UTC−5) = 20:00 UTC: empezó hace 70 min.
+    assert diff.closing_kind("2026-09-09T15:00:00", taken, "2026-09-09T20:00:00+00:00") == "expired"
+    assert diff.closing_kind("2026-09-09T15:00:00", taken, "no es una hora") == "removed"
+
+
+def test_diff_close_passes_datetime_utc():
+    prev = {"g": row("g", "2026-09-09T15:00:00", datetime_utc="2026-09-09T22:00:00+00:00")}
+    assert kinds(diff.diff("cinepolis", prev, {}, 2, 1, "2026-09-09T21:10:00+00:00")) == [("removed", "g")]
+
+
 def test_changed_fields_ignores_unknown_screen():
     a, b = row("f", "2026-09-10T12:00:00", screen=""), row("f", "2026-09-10T12:00:00", screen="4")
     assert diff.changed_fields(a, b, ("datetime_local", "screen")) == []

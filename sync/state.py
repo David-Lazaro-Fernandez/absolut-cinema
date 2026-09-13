@@ -17,7 +17,7 @@ from . import pg
 
 # Campos de la versión de estado, en el orden de la tabla showtime_state (sin las llaves ni la vigencia).
 STATE_FIELDS = ("datetime_local", "screen", "language", "language_raw", "format", "experience", "premium_tier",
-                "version_raw", "availability")
+                "version_raw", "availability", "datetime_utc")
 IDENTITY_FIELDS = ("cinema_id", "movie_id")
 # Lo que abre una versión nueva: todo lo rastreado menos la identidad, que se corrige en `showtime`.
 VERSION_FIELDS = tuple(f for f in TRACKED_FIELDS if f not in IDENTITY_FIELDS)
@@ -29,7 +29,7 @@ def load_open(cur, chain):
     cur.execute("""
         SELECT s.show_id, s.show_date, s.cinema_id, s.movie_id,
                st.starts_at, st.screen, st.language, st.language_raw, st.format, st.experience, st.premium_tier,
-               st.version_raw, st.availability
+               st.version_raw, st.availability, st.starts_at_utc
         FROM showtime s JOIN showtime_state st
           ON st.chain = s.chain AND st.show_id = s.show_id AND st.show_date = s.show_date AND st.valid_to IS NULL
         WHERE s.chain = %s::chain_t AND s.closed_at IS NULL""", (chain,))
@@ -40,7 +40,7 @@ def load_open(cur, chain):
             "show_id": show_id, "date": show_date.isoformat(), "cinema_id": r[2], "movie_id": r[3],
             "datetime_local": r[4].strftime("%Y-%m-%dT%H:%M:%S") if r[4] else None, "screen": r[5], "language": r[6],
             "language_raw": r[7], "format": r[8], "experience": r[9], "premium_tier": r[10], "version_raw": r[11],
-            "availability": r[12]}
+            "availability": r[12], "datetime_utc": r[13].isoformat(timespec="seconds") if r[13] else None}
     return out
 
 
@@ -67,25 +67,18 @@ def plan(chain, open_state, rows, taken_at):
             out["unchanged"] += 1
     for key, prev in open_state.items():
         if key not in seen:
-            out["close"].append((prev, closing_kind(prev.get("datetime_local"), taken_at)))
+            out["close"].append((prev, closing_kind(prev.get("datetime_local"), taken_at, prev.get("datetime_utc"))))
     return out
 
 
-def cinema_cities(chain, raw):
-    """{cinema_id: city_id} desde el crudo: Cinépolis trae la ciudad a nivel captura; Cinemex, el estado por cine."""
-    if chain == "cinepolis":
-        city = raw.get("city_id")
-        return {str(c.get("id")): city for c in raw.get("cinemas", [])}
-    out = {}
-    for area in raw.get("areas", []):
-        for day in area.get("days", []):
-            for c in (day.get("data") or {}).get("cinemas") or []:
-                state = (c.get("state") or {}).get("id")
-                out[str(c.get("id"))] = str(state) if state is not None else None
-    return out
+def cinema_places(chain, raw):
+    """{cinema_id: {city_id, state_id, timezone}} desde el crudo, con `scraper.normalize.cinemas`: la misma geografía que
+    guarda el scraper (Cinépolis ciudad; Cinemex área y estado). Acepta los crudos del piloto y los nacionales."""
+    return {c["cinema_id"]: {"city_id": c.get("city_id"), "state_id": c.get("state_id"), "timezone": c.get("timezone")}
+            for c in normalize.cinemas(chain, raw)}
 
 
-def apply(cur, chain, planned, taken_at, cities):
+def apply(cur, chain, planned, taken_at, places):
     """Escribe el plan de una captura (una transacción a cargo del llamador) y devuelve conteos."""
     t = pg.to_ts(taken_at)
     dates = [pg.to_date(r["date"]) for r in planned["new"] + planned["versions"]]
@@ -93,11 +86,14 @@ def apply(cur, chain, planned, taken_at, cities):
     pg.ensure_partitions(cur, "showtime_state", dates)
     # Catálogo: cines y películas vistos en esta captura.
     cur.executemany("""
-        INSERT INTO cinema (chain, cinema_id, name, lat, lng, city_id, first_seen, last_seen)
-        VALUES (%s::chain_t, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO cinema (chain, cinema_id, name, lat, lng, city_id, state_id, timezone, first_seen, last_seen)
+        VALUES (%s::chain_t, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON CONFLICT (chain, cinema_id) DO UPDATE SET name = EXCLUDED.name, lat = COALESCE(EXCLUDED.lat, cinema.lat),
-            lng = COALESCE(EXCLUDED.lng, cinema.lng), city_id = COALESCE(EXCLUDED.city_id, cinema.city_id), last_seen = EXCLUDED.last_seen""",
-        [(chain, cid, r.get("cinema_name") or cid, pg.to_float(r.get("lat")), pg.to_float(r.get("lng")), cities.get(str(cid)), t, t)
+            lng = COALESCE(EXCLUDED.lng, cinema.lng), city_id = COALESCE(EXCLUDED.city_id, cinema.city_id),
+            state_id = COALESCE(EXCLUDED.state_id, cinema.state_id), timezone = COALESCE(EXCLUDED.timezone, cinema.timezone),
+            last_seen = EXCLUDED.last_seen""",
+        [(chain, cid, r.get("cinema_name") or cid, pg.to_float(r.get("lat")), pg.to_float(r.get("lng")),
+          places.get(str(cid), {}).get("city_id"), places.get(str(cid), {}).get("state_id"), places.get(str(cid), {}).get("timezone"), t, t)
          for cid, r in planned["cinemas"].items()])
     cur.executemany("""
         INSERT INTO movie (chain, movie_id, title, title_norm, genre, rating, duration_min, distributor, first_seen, last_seen)
@@ -134,12 +130,12 @@ def apply(cur, chain, planned, taken_at, cities):
         reopened += 1 if cur.fetchone()[0] else 0
     cur.executemany("""
         INSERT INTO showtime_state (chain, show_id, show_date, valid_from, valid_to, starts_at, screen, language, language_raw,
-                                    format, experience, premium_tier, version_raw, availability)
-        VALUES (%s::chain_t, %s, %s, %s, NULL, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                    format, experience, premium_tier, version_raw, availability, starts_at_utc)
+        VALUES (%s::chain_t, %s, %s, %s, NULL, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON CONFLICT (chain, show_id, show_date, valid_from) DO NOTHING""",
         [(chain, r["show_id"], pg.to_date(r["date"]), t, pg.to_local(r["datetime_local"]), r.get("screen") or None,
           r.get("language") or None, r.get("language_raw") or None, r.get("format") or None, r.get("experience") or None,
-          r.get("premium_tier") or None, r.get("version_raw") or None, r.get("availability") or None)
+          r.get("premium_tier") or None, r.get("version_raw") or None, r.get("availability") or None, pg.to_ts(r.get("datetime_utc")))
          for r in planned["new"] + planned["versions"]])
     return {"new": len(planned["new"]) - reopened, "reopened": reopened, "closed": len(closing), "versions": len(planned["versions"]),
             "identity": len(planned["identity"]), "unchanged": planned["unchanged"]}
@@ -170,7 +166,7 @@ def process_snapshot(cur, snap, open_by_chain):
     if open_state is None:
         open_state = open_by_chain[chain] = load_open(cur, chain)
     planned = plan(chain, open_state, rows, snap["taken_at"])
-    counts = apply(cur, chain, planned, snap["taken_at"], cinema_cities(chain, raw))
+    counts = apply(cur, chain, planned, snap["taken_at"], cinema_places(chain, raw))
     refresh_open(open_state, planned)
     pg.set_watermark(cur, "showtime", snap["id"])
     counts["rows"] = len(rows)

@@ -1,4 +1,4 @@
-"""Cliente de la API REST de Cinemex y snapshot de un conjunto de áreas."""
+"""Cliente de la API REST de Cinemex y snapshot de un conjunto de estados (por defecto, todos)."""
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
@@ -24,14 +24,19 @@ def list_cinemas(stats=None):
     return get("cinemas/", stats=stats)
 
 
-def area_billboard(area_id, date=None, stats=None):
-    """Cartelera de todos los cines del área para un día. Sin `date` devuelve el día inicial."""
+def list_states(stats=None):
+    """Estados con sus áreas: [{id, name, areas: [{id, name, state_id}]}] (31 el 2026-09-11)."""
+    return get("states/", stats=stats)
+
+
+def state_billboard(state_id, date=None, stats=None):
+    """Cartelera de todos los cines del estado para un día. Sin `date` devuelve el día inicial."""
     params = {"include_dates": 1}
     if date:
         params["date"] = date
     else:
         params["initial"] = 1
-    return get(f"cinemas/area/{area_id}/movies/", params, stats)
+    return get(f"cinemas/state/{state_id}/movies/", params, stats)
 
 
 # Campos pesados que no aportan a la cartelera (sinopsis, pósters, colores, mapas de asientos).
@@ -44,7 +49,7 @@ _CINEMA_DROP = {"info", "image", "maintenance_message", "alt_cinemas", "candybar
 
 
 def _slim(payload):
-    """Quita del payload de área los campos que no describen funciones. Reduce ~10x el crudo."""
+    """Quita del payload los campos que no describen funciones. Reduce ~10x el crudo."""
     for c in payload.get("cinemas") or []:
         for k in _CINEMA_DROP:
             c.pop(k, None)
@@ -75,21 +80,22 @@ def _payload_date(payload):
     return counts.most_common(1)[0][0] if counts else None
 
 
-def snapshot(area_ids=None, days_ahead=config.CINEMEX_DAYS_AHEAD):
-    area_ids = area_ids or config.CINEMEX_AREA_IDS
+def snapshot(state_ids=None, days_ahead=config.CINEMEX_DAYS_AHEAD):
+    """Crudo completo: por estado, la cartelera de cada día desde hoy hasta `days_ahead`."""
     stats = {"calls": 0}
+    state_ids = list(state_ids or config.CINEMEX_STATES) or sorted(s["id"] for s in list_states(stats))
     today = datetime.now(ZoneInfo(config.PILOT_TIMEZONE)).date()
     horizon = today + timedelta(days=days_ahead)
     raw = {
-        "chain": "cinemex", "area_ids": area_ids,
+        "chain": "cinemex", "state_ids": state_ids,
         "taken_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "areas": [],
+        "states": [],
     }
-    for area_id in area_ids:
-        first = area_billboard(area_id, stats=stats)
+    for state_id in state_ids:
+        first = state_billboard(state_id, stats=stats)
         available = first.get("dates") or []
         wanted = [d for d in available if today.isoformat() <= d <= horizon.isoformat()]
-        # Por la tarde-noche cada área deja de listar el día en curso en `dates`, pero `date=hoy`
+        # Por la tarde-noche cada estado deja de listar el día en curso en `dates`, pero `date=hoy`
         # sigue devolviendo las funciones que faltan. Sin esto, el diff las daba por canceladas
         # (502 falsas "removed" el 2026-09-07 a las 19:00). Pedimos hoy siempre.
         if today.isoformat() not in wanted:
@@ -100,9 +106,9 @@ def snapshot(area_ids=None, days_ahead=config.CINEMEX_DAYS_AHEAD):
             days[first_date] = first
         for d in wanted:
             if d not in days:
-                days[d] = area_billboard(area_id, d, stats)
-        raw["areas"].append({
-            "area_id": area_id, "dates_available": available,
+                days[d] = state_billboard(state_id, d, stats)
+        raw["states"].append({
+            "state_id": state_id, "dates_available": available,
             "days": [{"date": d, "data": _slim(days[d])} for d in sorted(days)],
         })
     raw["calls"] = stats["calls"]

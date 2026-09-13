@@ -1,5 +1,5 @@
 [Unit]
-Description=absolut-cinema: snapshot de cartelera CDMX (Cinemex + Cinépolis)
+Description=absolut-cinema: snapshot nacional de cartelera (Cinemex + Cinépolis)
 After=network-online.target warp-svc.service privoxy.service
 Wants=network-online.target
 
@@ -9,8 +9,8 @@ User=absolut
 WorkingDirectory=/opt/absolut-cinema
 EnvironmentFile=-/etc/absolut-cinema.env
 ExecStart=/usr/bin/make -C /opt/absolut-cinema snapshot
-# Una captura tarda 2–7 min.
-TimeoutStartSec=12min
+# Una captura nacional tarda 15–30 min (las dos cadenas se descargan en paralelo).
+TimeoutStartSec=45min
 Nice=5
 StandardOutput=append:/opt/absolut-cinema/data/logs/systemd.out
 StandardError=append:/opt/absolut-cinema/data/logs/systemd.out

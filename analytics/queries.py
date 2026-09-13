@@ -6,18 +6,24 @@ que es lo que ambas cadenas publican completo.
 
 Comparación justa del día en curso: Cinépolis borra cada función cuando empieza y Cinemex la
 conserva unas horas más. Por eso, si la ventana incluye hoy, solo se cuentan funciones que aún
-no han empezado en ambas cadenas (`from_now`, activado por defecto).
+no han empezado en ambas cadenas (`from_now`, activado por defecto). "Ya empezó" se decide con la
+hora UTC de cada función (`datetime_utc`): México tiene siete zonas horarias y la de referencia
+(`config.PILOT_TIMEZONE`) solo fija qué día es "hoy".
+
+Alcance: `plaza` (clave de `scraper/plazas.py`) deja solo los cines de esa zona metropolitana;
+`None` es nacional. La comparación entre cadenas siempre es dentro del mismo alcance.
 
 Todas las medidas comparables son **shares** (% de la programación de cada cadena), nunca
 absolutos, porque cada cadena tiene distinto número de cines y salas. Denominador: funciones.
 Cuando exista aforo por sala el denominador pasará a butacas ofertadas."""
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from scraper import config
 
 from .db import rows
 from .labels import FULL_DAY, PRIME_START_HOUR, SLOTS
+from .plaza import plaza_cinema_where, plaza_where
 
 
 def now_local(tz=config.PILOT_TIMEZONE):
@@ -43,22 +49,26 @@ def is_full_day(hours):
     return hours is None or tuple(hours) == FULL_DAY
 
 
-def _window(d0, d1=None, from_now=True, hours=None):
-    """WHERE para [d0, d1]; si incluye hoy y from_now, excluye lo que ya empezó. `hours=(h0, h1)` deja solo
-    las funciones que empiezan entre esas horas (h1 exclusiva); con None o (0, 24) no añade nada.
-    Devuelve (sql, params, hhmm_desde | None)."""
+def _window(d0, d1=None, from_now=True, hours=None, plaza=None, alias=""):
+    """WHERE para [d0, d1]; si incluye hoy y from_now, excluye lo que ya empezó (en UTC, exacto en cualquier zona).
+    `hours=(h0, h1)` deja solo las funciones que empiezan entre esas horas locales (h1 exclusiva); con None o
+    (0, 24) no añade nada. `plaza` acota a los cines de esa plaza; None es nacional. `alias` es el prefijo de la
+    tabla ('s.') cuando la consulta hace JOIN. Devuelve (sql, params, hhmm_desde | None), con la hora de
+    referencia solo para rotular."""
     d0 = d0 or today()
     d1 = d1 or d0
     hhmm = None
     if from_now and d0 <= today() <= d1:
-        now = now_local()
-        where, params, hhmm = "date BETWEEN ? AND ? AND datetime_local >= ?", [d0, d1, now.strftime("%Y-%m-%dT%H:%M:%S")], now.strftime("%H:%M")
+        now_utc = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        where, params, hhmm = f"{alias}date BETWEEN ? AND ? AND {alias}datetime_utc >= ?", [d0, d1, now_utc], now_local().strftime("%H:%M")
     else:
-        where, params = "date BETWEEN ? AND ?", [d0, d1]
+        where, params = f"{alias}date BETWEEN ? AND ?", [d0, d1]
     if not is_full_day(hours):
-        where += f" AND {_HOUR} >= ? AND {_HOUR} < ?"
+        hour = _HOUR.replace("datetime_local", f"{alias}datetime_local")
+        where += f" AND {hour} >= ? AND {hour} < ?"
         params += [int(hours[0]), int(hours[1])]
-    return where, params, hhmm
+    pw, pp = plaza_where(plaza, alias)
+    return where + pw, params + pp, hhmm
 
 
 # Cubetas de formato en SQL, para que el dashboard y un API vean lo mismo.
@@ -80,17 +90,18 @@ def snapshot_health(conn, limit=20):
         FROM snapshot ORDER BY id DESC LIMIT ?""", (limit,))
 
 
-def coverage(conn):
+def coverage(conn, plaza=None):
     """Funciones publicadas por fecha y cadena. Sirve para saber qué semanas están completas."""
-    return rows(conn, """
+    where, params = plaza_where(plaza)
+    return rows(conn, f"""
         SELECT date, SUM(chain = 'cinemex') cinemex, SUM(chain = 'cinepolis') cinepolis
-        FROM current_showtime GROUP BY date ORDER BY date""")
+        FROM current_showtime WHERE 1 = 1{where} GROUP BY date ORDER BY date""", params)
 
 
-def kpis(conn, d0=None, d1=None, from_now=True, hours=None):
+def kpis(conn, d0=None, d1=None, from_now=True, hours=None, plaza=None):
     """Por cadena: cines, funciones, funciones por cine y día, películas, % subtituladas,
     % en horario prime (vie–dom desde 6 P.M.) y % de 6 P.M. en adelante cualquier día."""
-    where, params, _ = _window(d0, d1, from_now, hours=hours)
+    where, params, _ = _window(d0, d1, from_now, hours=hours, plaza=plaza)
     return rows(conn, f"""
         SELECT chain,
                COUNT(DISTINCT cinema_id)                                   cinemas,
@@ -108,19 +119,19 @@ def kpis(conn, d0=None, d1=None, from_now=True, hours=None):
 kpis_today = kpis   # compatibilidad
 
 
-def showtimes_by_slot(conn, d0=None, d1=None, from_now=True, hours=None):
+def showtimes_by_slot(conn, d0=None, d1=None, from_now=True, hours=None, plaza=None):
     """Funciones por franja horaria y cadena. Claves de franja en labels.SLOTS."""
-    where, params, _ = _window(d0, d1, from_now, hours=hours)
+    where, params, _ = _window(d0, d1, from_now, hours=hours, plaza=plaza)
     cols = ",\n".join(f"SUM({_HOUR} BETWEEN {lo} AND {hi - 1}) {key}" for key, lo, hi, _ in SLOTS)
     return rows(conn, f"""
         SELECT chain, {cols}, COUNT(*) total, COUNT(DISTINCT cinema_id) cinemas
         FROM current_showtime WHERE {where} GROUP BY chain ORDER BY chain""", params)
 
 
-def heatmap_day_slot(conn, d0=None, d1=None, from_now=True, hours=None):
+def heatmap_day_slot(conn, d0=None, d1=None, from_now=True, hours=None, plaza=None):
     """Share de la programación de cada cadena por día de la semana y franja (en % del total de
     la cadena en la ventana) y la diferencia en puntos (positivo = Cinemex pone más)."""
-    where, params, _ = _window(d0, d1, from_now, hours=hours)
+    where, params, _ = _window(d0, d1, from_now, hours=hours, plaza=plaza)
     slot_case = "CASE " + " ".join(f"WHEN {_HOUR} BETWEEN {lo} AND {hi - 1} THEN '{key}'" for key, lo, hi, _ in SLOTS) + " END"
     return rows(conn, f"""
         WITH base AS (SELECT chain, {_WEEKDAY} weekday, {slot_case} slot FROM current_showtime WHERE {where}),
@@ -134,11 +145,11 @@ def heatmap_day_slot(conn, d0=None, d1=None, from_now=True, hours=None):
         FROM cell c GROUP BY c.weekday, c.slot ORDER BY c.weekday, c.slot""", params)
 
 
-def movies_by_chain(conn, d0=None, d1=None, limit=60, from_now=True, hours=None):
+def movies_by_chain(conn, d0=None, d1=None, limit=60, from_now=True, hours=None, plaza=None):
     """Funciones por película y cadena, emparejadas por title_norm, con la participación (% de la
     programación de cada cadena) y la diferencia en puntos (`gap_pp`, positivo = Cinemex apuesta
     más). La tabla de equivalencias entre cadenas refinará el emparejamiento."""
-    where, params, _ = _window(d0, d1, from_now, hours=hours)
+    where, params, _ = _window(d0, d1, from_now, hours=hours, plaza=plaza)
     return rows(conn, f"""
         WITH base AS (SELECT * FROM current_showtime WHERE {where}),
              n_cin AS (SELECT chain, COUNT(DISTINCT cinema_id) n, COUNT(*) shows FROM base GROUP BY chain)
@@ -162,9 +173,9 @@ def movies_by_chain(conn, d0=None, d1=None, limit=60, from_now=True, hours=None)
         GROUP BY title_norm ORDER BY shows_total DESC LIMIT ?""", params + [limit])
 
 
-def mix(conn, d0=None, d1=None, from_now=True, hours=None):
+def mix(conn, d0=None, d1=None, from_now=True, hours=None, plaza=None):
     """Share de formato (premium / gran formato / 3D-4D / tradicional) e idioma por cadena."""
-    where, params, _ = _window(d0, d1, from_now, hours=hours)
+    where, params, _ = _window(d0, d1, from_now, hours=hours, plaza=plaza)
     return rows(conn, f"""
         WITH base AS (SELECT chain, {_FORMAT_CASE} fmt, {_LANG_CASE} lang FROM current_showtime WHERE {where}),
              tot AS (SELECT chain, COUNT(*) n FROM base GROUP BY chain)
@@ -178,10 +189,10 @@ def mix(conn, d0=None, d1=None, from_now=True, hours=None):
         ORDER BY 1, 2, 3""", params)
 
 
-def concentration(conn, d0=None, d1=None, from_now=True, hours=None):
+def concentration(conn, d0=None, d1=None, from_now=True, hours=None, plaza=None):
     """Por cadena: HHI de la parrilla (suma de shares² por título, 0–10,000), peso del Top 3 y
     títulos distintos por complejo."""
-    where, params, _ = _window(d0, d1, from_now, hours=hours)
+    where, params, _ = _window(d0, d1, from_now, hours=hours, plaza=plaza)
     return rows(conn, f"""
         WITH base AS (SELECT chain, cinema_id, title_norm FROM current_showtime WHERE {where}),
              tot AS (SELECT chain, COUNT(*) n FROM base GROUP BY chain),
@@ -197,7 +208,7 @@ def concentration(conn, d0=None, d1=None, from_now=True, hours=None):
         FROM tot t ORDER BY t.chain""", params)
 
 
-def recent_events(conn, limit=200, kinds=None, chain=None):
+def recent_events(conn, limit=200, kinds=None, chain=None, plaza=None):
     """Últimos cambios detectados. Por defecto excluye 'availability' (ruido de ocupación) y 'expired'
     (funciones que simplemente terminaron; solo sirven para reconstruir historia)."""
     where, params = [], []
@@ -209,6 +220,10 @@ def recent_events(conn, limit=200, kinds=None, chain=None):
     if chain:
         where.append("chain = ?")
         params.append(chain)
+    pw, pp = plaza_cinema_where(plaza, "e.")
+    if pw:
+        where.append(pw[len(" AND "):])
+        params.extend(pp)
     params.append(limit)
     return rows(conn, f"""
         SELECT e.detected_at, e.chain, e.kind, e.movie_title,
@@ -220,9 +235,10 @@ def recent_events(conn, limit=200, kinds=None, chain=None):
         WHERE {' AND '.join(where)} ORDER BY e.id DESC LIMIT ?""", params)
 
 
-def events_by_kind(conn, since_hours=24):
+def events_by_kind(conn, since_hours=24, plaza=None):
     """Conteo de eventos por cadena y tipo en las últimas N horas (sin 'expired', que no es un cambio)."""
-    return rows(conn, """
+    where, params = plaza_cinema_where(plaza)
+    return rows(conn, f"""
         SELECT chain, kind, COUNT(*) n
-        FROM event WHERE kind <> 'expired' AND detected_at >= strftime('%Y-%m-%dT%H:%M:%S', 'now', ? || ' hours')
-        GROUP BY chain, kind ORDER BY chain, n DESC""", (f"-{int(since_hours)}",))
+        FROM event WHERE kind <> 'expired' AND detected_at >= strftime('%Y-%m-%dT%H:%M:%S', 'now', ? || ' hours'){where}
+        GROUP BY chain, kind ORDER BY chain, n DESC""", (f"-{int(since_hours)}", *params))

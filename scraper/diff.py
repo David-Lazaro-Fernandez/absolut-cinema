@@ -1,21 +1,25 @@
 """Diff entre el estado anterior y el snapshot actual de una cadena, por id de función."""
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from . import config
 from .normalize import CHANGE_FIELDS, MOVE_FIELDS
 
 
-def closing_kind(datetime_local, taken_at):
+def closing_kind(datetime_local, taken_at, datetime_utc=None):
     """Cómo se cierra una función que dejó de estar publicada en la captura `taken_at` (ISO UTC): `expired` si ya
     había empezado o le faltaban `config.REMOVED_GRACE_MINUTES` o menos (terminó su vida normal), `removed` si aún
-    faltaba más (una cancelación). Con hora ilegible se considera `removed`."""
-    now_local = datetime.fromisoformat(taken_at).astimezone(ZoneInfo(config.PILOT_TIMEZONE)).replace(tzinfo=None)
+    faltaba más (una cancelación). Con `datetime_utc` la comparación es exacta en cualquier zona horaria; sin él
+    se asume la zona de referencia (`config.PILOT_TIMEZONE`). Con hora ilegible se considera `removed`."""
+    taken = datetime.fromisoformat(taken_at)
     try:
-        starts = datetime.fromisoformat(datetime_local)
+        if datetime_utc:
+            starts, now = datetime.fromisoformat(datetime_utc).astimezone(timezone.utc), taken.astimezone(timezone.utc)
+        else:
+            starts, now = datetime.fromisoformat(datetime_local), taken.astimezone(ZoneInfo(config.PILOT_TIMEZONE)).replace(tzinfo=None)
     except (TypeError, ValueError):
         return "removed"
-    return "expired" if starts <= now_local + timedelta(minutes=config.REMOVED_GRACE_MINUTES) else "removed"
+    return "expired" if starts <= now + timedelta(minutes=config.REMOVED_GRACE_MINUTES) else "removed"
 
 
 def changed_fields(prev, row, fields):
@@ -56,7 +60,7 @@ def diff(chain, previous, current, snapshot_id, prev_snapshot_id, taken_at):
     def close(show_id, prev):
         """La función dejó de estar publicada: `expired` o `removed` según `closing_kind`. Ambos guardan la fila
         completa en `before` para poder reconstruir la cartelera de ese día más tarde."""
-        ev(closing_kind(prev.get("datetime_local"), taken_at), show_id, prev, None)
+        ev(closing_kind(prev.get("datetime_local"), taken_at, prev.get("datetime_utc")), show_id, prev, None)
 
     for show_id, row in current.items():
         prev = previous.get(show_id)

@@ -15,6 +15,11 @@ USER_AGENT = (
 REQUEST_TIMEOUT = 60      # segundos por petición
 RETRIES = 3               # reintentos ante 5xx / 429 / red
 PAUSE_BETWEEN_CALLS = 0.15
+# Pausa por host, cuando difiere de la general. Cinépolis no ha devuelto un 429 nunca, pero la captura nacional medida el
+# 2026-09-11 iba a 90 llamadas/min hacia api-g.cinepolis.com y el pase de butacas de :50 suma al mismo host; el límite
+# habitual de una API pública es 100/min y no queremos descubrirlo. Con 0.6 s la captura sola queda en ~55/min (975
+# llamadas en ~17 min) y con el pase de butacas encima en ~70/min. Cinemex sirve desde caché y va a 50/min: se queda.
+PAUSE_BY_HOST = {"api-g.cinepolis.com": float(os.environ.get("AC_CINEPOLIS_PAUSE", "0.6"))}
 
 # Salida por proxy para los hosts que rechazan la IP del servidor. El WAF de Cloudflare de api-g.cinepolis.com
 # bloquea los rangos de AWS por ASN (verificado 2026-09-10 desde EC2 en us-east-1: 403 directo, 200 saliendo por
@@ -24,8 +29,25 @@ EGRESS_PROXY = os.environ.get("AC_EGRESS_PROXY", "")
 EGRESS_PROXY_HOSTS = tuple(h.strip() for h in os.environ.get("AC_EGRESS_PROXY_HOSTS", "api-g.cinepolis.com").split(",")
                            if h.strip())
 
-# Plaza piloto: CDMX. Ambas cadenas operan en America/Mexico_City.
+# Zona horaria de referencia: la del dashboard, de "hoy" y de las horas programadas. Cada función lleva además su
+# hora UTC (`datetime_utc`), porque México tiene siete zonas (Tijuana, Hermosillo, Cancún…) y "ya empezó" se decide
+# con esa, no con la de referencia.
 PILOT_TIMEZONE = "America/Mexico_City"
+
+
+def _csv(name):
+    """Lista desde una variable de entorno separada por comas; vacía si no está o está en blanco."""
+    return tuple(x.strip() for x in os.environ.get(name, "").split(",") if x.strip())
+
+
+# Alcance de la captura de cartelera: nacional por defecto. Para acotar (desarrollo, una plaza de prueba):
+# AC_CINEPOLIS_CITIES=cdmx AC_CINEMEX_STATES=8.
+CINEPOLIS_CITIES = _csv("AC_CINEPOLIS_CITIES")     # slugs de ciudad de Cinépolis (154 el 2026-09-11); vacío = todas
+CINEMEX_STATES = tuple(int(x) for x in _csv("AC_CINEMEX_STATES"))   # ids de estado de Cinemex (31); vacío = todos
+# Plazas cuyas funciones entran al muestreo de planos de asientos (post-inicio, aforo, preventa). Claves de
+# scraper/plazas.py. Decisión 2026-09-11: los planos no se censan a nivel nacional; se acotan a las plazas que pida
+# el cliente, elegidas con el registro inicial de funciones por plaza.
+SEATS_PLAZAS = _csv("AC_SEATS_PLAZAS") or ("cdmx",)
 
 # --- Cinépolis (GraphQL, ver project.md) ---
 CINEPOLIS_API_KEY = os.environ.get(
@@ -37,17 +59,14 @@ CINEPOLIS_TICKET_URL = "https://api-g.cinepolis.com/v1/ticket/graphql"          
 # Dulcería: lo consulta el microfrontend foods-menu-mf.cinepolis.com con la misma x-apikey (verificado 2026-09-08).
 CINEPOLIS_CONCESSIONS_URL = "https://api-g.cinepolis.com/v1/fab-struct-concession/graphql"
 CINEPOLIS_COUNTRY = "MX"
-CINEPOLIS_CITY_ID = "cdmx"        # id de ciudad en locations (74 cines el 2026-09-07)
-CINEPOLIS_BATCH_SIZE = 30         # la API rechaza más de 30 cines por llamada (error 105)
+CINEPOLIS_BATCH_SIZE = 30         # la API rechaza más de 30 cines por llamada (error 105; confirmado 2026-09-11 con 31 y 40)
 CINEPOLIS_PAGE_SIZE = 50
 
 # --- Cinemex (REST, ver project.md sección Cinemex) ---
 CINEMEX_BASE_URL = os.environ.get("CINEMEX_BASE_URL", "https://api.cinemex.com/rest/v2.37.2/")
 CINEMEX_CONSUMER_KEY = os.environ.get("CINEMEX_CONSUMER_KEY", "XXQha7vz4kdvoMSdixhN")
-CINEMEX_STATE_ID = 8              # "CDMX y Área Metropolitana"
-# Áreas del estado 8 el 2026-09-07: Centro, Nor-oriente, Norte, Oriente, Poniente, Sur (87 cines).
-CINEMEX_AREA_IDS = [15, 16, 17, 18, 19, 20]
-CINEMEX_DAYS_AHEAD = 14           # días hacia adelante a pedir por área (cubre la semana de cine siguiente)
+# La unidad de consulta de cartelera es el estado (`cinemas/state/{id}/movies/`, 31 estados el 2026-09-11); CDMX es el 8.
+CINEMEX_DAYS_AHEAD = 14           # días hacia adelante a pedir por estado (cubre la semana de cine siguiente)
 
 # Una función que desaparece del snapshot solo cuenta como "eliminada" si aún faltaban
 # más de estos minutos para que empezara; si no, simplemente expiró.
@@ -55,8 +74,12 @@ REMOVED_GRACE_MINUTES = 30
 
 # Muestreo de asientos (scraper/sample.py). La API de Vista detrás de Cinépolis responde errores
 # transitorios (116, 101305) si se le pide plano tras plano sin pausa.
-SAMPLE_PAUSE = 0.6        # segundos entre planos
+SAMPLE_PAUSE = 0.6        # segundos entre planos (por hilo)
 SAMPLE_BACKOFF = 5        # segundos tras un error
+# Hilos del pase de aforo (`sample --capacity`), todos desde la misma IP y cada uno con su SAMPLE_PAUSE. 1 en los
+# timers; la pasada nacional única se lanzó a mano con 3 (2026-09-12) para bajar de ~2 h a ~40 min por cadena. La
+# escritura en SQLite sigue en el hilo principal.
+SAMPLE_WORKERS = int(os.environ.get("AC_SAMPLE_WORKERS", "1"))
 
 # Captura de cartelera: tres veces al día (decisión del cliente, 2026-09-08). Hora local de la plaza.
 # Los planos de asientos siguen cada 15 min porque dependen de la hora de cada función.
