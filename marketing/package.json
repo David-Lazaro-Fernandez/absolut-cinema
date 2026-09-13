@@ -1,0 +1,22 @@
+{
+  "name": "matine-marketing",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Landing page pública de Matiné. Sitio estático, independiente del resto del repo (ver marketing/README.md).",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "^16.3.4",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "typescript": "^5.7.0"
+  }
+}
