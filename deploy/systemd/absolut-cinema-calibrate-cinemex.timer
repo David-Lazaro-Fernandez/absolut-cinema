@@ -1,0 +1,12 @@
+# Generado por `python3 -m jobs.units write` desde jobs/registry.py; no se edita a mano.
+[Unit]
+Description=absolut-cinema: calibrate-cinemex, 19:07
+
+[Timer]
+OnCalendar=*-*-* 19:07:00
+Persistent=false
+RandomizedDelaySec=2min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

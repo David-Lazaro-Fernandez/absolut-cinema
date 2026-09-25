@@ -23,9 +23,8 @@ defecto, la del piloto) o a nivel nacional. Tres capas, sin mezclarse:
 | Captura | `scraper/` | **solo stdlib**, `/usr/bin/python3` | `data/snapshots.db`, `data/raw/`, `data/logs/` |
 | Negocio | `analytics/` | **solo stdlib** | nada (abre la base en `mode=ro`) |
 | Presentación | `app.py` + `ui/` + `views/` | `.venv` (streamlit, pandas, altair) | nada |
-| Archivo histórico | `sync/` | `.venv` (psycopg) | PostgreSQL (`AC_PG_DSN`) y `data/logs/sync_status.json` |
-| Acceso | `auth/` | `.venv` (psycopg, boto3) | PostgreSQL, **solo el esquema `app`** (cuentas, sesiones, enlaces, auditoría) con el rol `absolut_app` |
-| Archivo, lectura | `archive/` | `.venv` (psycopg) | nada (abre Postgres en `default_transaction_read_only`) |
+| Acceso | `auth/` | `.venv` (`hashlib.scrypt`; boto3 solo para SES) | `data/app.db` (cuentas, sesiones, enlaces, auditoría), **nada más** |
+| Programación | `jobs/` | **solo stdlib**, `/usr/bin/python3` | `data/logs/jobs.jsonl`, `data/locks/`; genera `deploy/systemd/` |
 | Sitio público | `marketing/` | Node/Next.js, **proyecto independiente** (su propio `package.json`) | nada (sitio estático, `output: 'export'`) |
 
 ### Reglas de arquitectura (no negociables sin discutirlo)
@@ -39,19 +38,32 @@ defecto, la del piloto) o a nivel nacional. Tres capas, sin mezclarse:
 - **La presentación no lleva SQL ni lógica de negocio.** `app.py` es la entrada (configuración, CSS y
   `st.navigation`), `ui/common.py` los helpers compartidos y `views/*.py` una página por módulo. Solo pintan lo que
   devuelve `analytics/`. Si para una vista nueva hace falta un cálculo, va en `analytics/`, no en el dashboard.
-- **Un solo escritor** sobre `snapshots.db`. Todo lo que escribe corre en serie desde el mismo timer
+- **Un solo escritor** sobre `snapshots.db`. Todo lo que escribe corre en serie desde el mismo trabajo
   o en minutos distintos (`:07`). No añadas un proceso escritor sin ubicarlo en ese calendario.
-- **El dashboard nunca escribe datos.** `analytics.connect()` abre SQLite en `mode=ro` y `archive.connect()` abre
-  Postgres en solo lectura, a propósito. Lo único que escribe desde el dashboard es `auth/`, y solo en su esquema `app`
-  (cuentas, sesiones, enlaces de acceso, auditoría); las vistas no lo llaman directo, pasan por `ui/session.py` y
-  `load_auth`. `ui/session.py` es el único módulo que conoce la cookie de sesión.
-- **`sync/` es el único escritor del archivo histórico en PostgreSQL** (esquema `public`) y lo hace por marca de agua y
-  `ON CONFLICT DO NOTHING`: el archivo es append-only, nadie borra ahí de forma automática. `archive/` lo lee y `auth/`
-  escribe solo `app`; ninguno importa `sync/`, y `scraper/`, `analytics/` y `sync/` jamás importan `auth/` ni `archive/`.
-  `auth/` y `archive/` tampoco importan Streamlit. Lee SQLite en `mode=ro` y el crudo; puede importar
-  `scraper.config`, `scraper.normalize` y `scraper.diff` (stdlib), pero el scraper jamás importa `sync/`. Las reglas de
-  "qué cuenta como cambio" y "cómo se cierra una función" viven en `scraper/diff.py` (`changed_fields`,
-  `closing_kind`) y `scraper/normalize.py` (`TRACKED_FIELDS`); scraper, dashboard y sync las comparten y no se duplican.
+- **El calendario tiene una sola fuente: `jobs/registry.py`.** Cada trabajo programado tiene una llave en `jobs/keys.py`
+  (con su área, la capa dueña) y una entrada en el registro: pasos, horario, tope, reintentos y dónde corre. De ahí se
+  generan las unidades de systemd (`deploy/systemd/`, `make units`), los agentes de launchd (`make launchd-load`), las
+  capturas que espera `scraper.health` y la tabla de `ARCHITECTURE.md`; `make check` falla si lo generado no coincide.
+  El registro nombra el código de cada paso por módulo y lo lanza como subproceso con su intérprete (`python`, `venv`,
+  `bash`): `jobs/` no importa ninguna capa salvo `scraper.config`, y cualquiera puede importar `jobs.keys` y
+  `jobs.registry` para nombrar un trabajo.
+- **Solo SQLite, dos archivos con un escritor cada uno** (decisión 2026-09-25: sin Postgres ni RDS, por costo y por los
+  2 GB del servidor; el código anterior vive en el tag `pre-sqlite-only`). `data/snapshots.db` la escribe solo la
+  captura (`scraper/`); `data/app.db` la escribe solo `auth/`. No agregues un tercer escritor a ninguna sin ubicarlo aquí.
+- **El dashboard nunca escribe datos.** `analytics.connect()` abre `snapshots.db` en `mode=ro`, a propósito. Lo único
+  que escribe desde el dashboard es `auth/`, y solo en `app.db` (cuentas, sesiones, enlaces de acceso, auditoría); las
+  vistas no lo llaman directo, pasan por `ui/session.py` y `load_auth`. `ui/session.py` es el único módulo que conoce la
+  cookie de sesión. `scraper/` y `analytics/` jamás importan `auth/`, y `auth/` no importa Streamlit.
+- Las reglas de "qué cuenta como cambio" y "cómo se cierra una función" viven en `scraper/diff.py` (`changed_fields`,
+  `closing_kind`) y `scraper/normalize.py` (`TRACKED_FIELDS`); scraper y dashboard las comparten y no se duplican. El
+  crudo (`data/raw/`) es la fuente para reconstruir cualquier historia con esas mismas reglas.
+- **El estado de un cine sale de `scraper/states.py`** (clave de INEGI, `state_code`, común a ambas cadenas), calculado
+  por coordenadas con `scripts/cinema_states.py` y versionado en `scraper/cinema_states.csv`. No lo derives de la API:
+  la "ciudad" `cdmx` de Cinépolis y el "estado 8" de Cinemex cruzan la frontera con el Estado de México.
+- **Qué películas son la misma en ambas cadenas lo decide `scraper/titles.py`** (`title_key`, reglas explícitas más la
+  tabla versionada `scraper/title_pairs.csv`). Toda comparación de películas entre cadenas agrupa por
+  `title_key(title_norm)`, registrada en SQLite por `analytics.connect()`; no compares `title_norm` entre cadenas. Un par
+  dudoso se decide con `scripts/title_pairs.py`, nunca por parecido automático.
 - **La geografía tiene una sola fuente: `scraper/plazas.py`.** Qué ciudades de Cinépolis y qué áreas de Cinemex forman
   una plaza se define ahí (stdlib) y lo comparten el muestreo de planos (`config.SEATS_PLAZAS`) y el filtro de plaza de
   `analytics/` (`analytics/plaza.py`). Los planos de asientos **no se censan a nivel nacional**: solo entran las plazas
@@ -61,7 +73,7 @@ defecto, la del piloto) o a nivel nacional. Tres capas, sin mezclarse:
   lleva `datetime_utc`: "ya empezó" (`from_now`, `closing_kind`) se decide con esa hora, no con la de CDMX, porque
   México tiene siete zonas horarias.
 - **`app.py` vive en la raíz a propósito**: Streamlit solo recarga en caliente los módulos bajo la
-  carpeta del script, así `ui/`, `views/`, `analytics/`, `archive/`, `auth/` y `scraper/` también se recargan al
+  carpeta del script, así `ui/`, `views/`, `analytics/`, `auth/` y `scraper/` también se recargan al
   editarlos. No lo muevas.
 - **`marketing/` es un proyecto aparte** con su propio `package.json`: ninguna capa de Python lo importa y él no importa
   nada del repo. Su identidad visual sí se hereda a mano de `DESIGN.md` y `analytics/labels.py` (ver
@@ -130,7 +142,9 @@ Los mismos nombres en todo el repo. Esto es sagrado; renombrar rompe la lectura 
 | `pp` | puntos porcentuales (diferencias entre shares) |
 | `plaza` | zona metropolitana comparable, clave de `scraper/plazas.py` (`cdmx`, `gdl`, `mty`); `None` = nacional |
 | `city_id` | llave geográfica más fina de cada API: Cinépolis slug de ciudad (`cdmx`), Cinemex id de área (`"15"`) |
-| `state_id` | estado de Cinemex (`"8"`); NULL en Cinépolis |
+| `state_id` | estado de la API de Cinemex (`"8"`, "CDMX y Área Metropolitana"); NULL en Cinépolis |
+| `state_code` | estado de INEGI del cine (`"09"` CDMX, `"15"` Estado de México), ambas cadenas; `scraper/states.py` |
+| `title_key` | llave de título común a ambas cadenas (`scraper/titles.py`); las funciones de `analytics/` la devuelven como `title_norm` |
 | `datetime_utc` | la hora de la función en UTC (ISO con `+00:00`); `datetime_local` sigue siendo la que publica la cadena |
 
 ### Consistencia de la API de `analytics/`
@@ -170,6 +184,11 @@ mira si extender una existente con un parámetro con nombre cubre el caso.
   no se renombra.
 - Un fallo de una cadena no debe tumbar la corrida de la otra; el snapshot se registra con `ok=0` y
   `error`, y `scraper.health` lo reporta.
+- **Dentro de una cadena, la captura va por unidades** (`scraper/units.py`): Cinemex por estado de su API, Cinépolis por
+  lotes de hasta 30 cines agrupados por estado de INEGI. Una unidad que falla no tumba a las demás y **conserva el
+  estado anterior de sus cines**: ni eventos ni cierres (`diff.carry_over`, `diff.failed_cinemas`). Nunca escribas una unidad a medias: si una llamada de la unidad falla, se descarta la unidad entera. Los
+  errores del sistema (`AuthError`, `Blocked`, `RateLimited`) detienen la cadena. Cada unidad queda en `snapshot_unit`.
+- `current_showtime` se escribe por diferencia (`store.apply_current`): altas, cambios y cierres, no la tabla entera.
 
 ### Registro (logs)
 
@@ -179,20 +198,20 @@ inesperados. **No sobre-registres**: el ruido esconde los problemas reales. Un c
 puede resolver sin que importe se maneja en silencio.
 
 `scraper.health` es el que decide si la captura está sana y **sale con 1 si hay problemas** para que
-el timer lo note. Si añades un flujo de captura, añade su cobertura ahí.
+el timer lo note. Si añades un flujo de captura, añade su cobertura ahí y su entrada en `jobs/registry.py`.
 
 ## 6. Dashboard (`app.py`, `ui/`, `views/`)
 
 - Páginas con `st.navigation` (barra superior; en celular el CSS la fija abajo): `views/cartelera.py` (tres
   capas con los filtros de zona, periodo y franja en la barra lateral; la zona sale de `plaza_selector()` en `ui/common.py`
-  y viaja como `plaza=` en cada `load`), `views/dulceria.py`, `views/datos.py` (explorador del
-  archivo en Postgres) y, solo para el rol admin, `views/usuarios.py` y `views/operaciones.py`. Un módulo que responde una
+  y viaja como `plaza=` en cada `load`), `views/dulceria.py`, `views/datos.py` (explorador de
+  tablas de `snapshots.db`, `analytics/datasets.py`) y, solo para el rol admin, `views/usuarios.py` y `views/operaciones.py`. Un módulo que responde una
   pregunta propia del cliente y no depende del periodo va en su página; lo demás, en la cartelera. Las páginas
   hacen `from ui.common import *` a propósito: comparten un espacio de nombres de presentación.
 - **`views/operaciones.py` es la excepción documentada** a "ningún nombre interno llega al usuario": su público es quien
   opera la plataforma, así que muestra nombres de tablas, logs y módulos tal cual, y usa los colores de estado `OK` y
   `WARN` de `labels.py` (los únicos que no son rojo ni tinta). Su lógica vive en `scraper/health.py` (SQLite y `data/`,
-  stdlib) y `archive/status.py` (Postgres, solo lectura); entra por `load_health`, `load_ops` y `load_pg_raw`. Nada de
+  stdlib); entra por `load_health` y `load_ops`. Nada de
   esa página escribe ni ejecuta acciones: es un tablero de lectura, no una consola.
 - **La lista de páginas depende de la sesión** (`app.py`): sin cookie válida solo existen `views/login.py`,
   `views/olvide.py` y `views/restablecer.py` (navegación oculta). Streamlit resuelve la URL contra esa lista, así que una
@@ -202,9 +221,9 @@ el timer lo note. Si añades un flujo de captura, añade su cobertura ahí.
   `project.md`. Una sección de evidencia va siempre en el mismo orden: pregunta, conclusión,
   leyenda, gráfico, controles, "Cómo leerla". Reutiliza los helpers (`capa`, `seccion`, `pregunta`,
   `leerla`, `apendice`, `leyenda`, `table`, `chart`), no repliques el HTML.
-- **Todo dato entra por `load()` / `load_raw()`** (SQLite, `ttl=TTL`), **`load_pg()`** (archivo en Postgres, `ttl=TTL_PG`)
-  o **`load_auth()`** (cuentas, sin caché); los tres cierran la conexión. No abras conexiones sueltas ni llames a
-  `analytics`, `archive` o `auth` directamente en el cuerpo de la página.
+- **Todo dato entra por `load()` / `load_raw()`** (SQLite, `ttl=TTL`), **`load_dataset()`** (explorador,
+  `analytics.datasets`) o **`load_auth()`** (cuentas, sin caché); todos cierran la conexión. No abras conexiones sueltas
+  ni llames a `analytics` o `auth` directamente en el cuerpo de la página.
 - **El HTML crudo se escapa.** Cualquier texto que venga de la base y se pinte con
   `unsafe_allow_html=True` pasa por `esc()`.
 - **Paneles dependientes de historia**: si un panel necesita más días de los que hay desde
@@ -217,27 +236,29 @@ el timer lo note. Si añades un flujo de captura, añade su cobertura ahí.
 - **Toda variable entre comillas** (`"$BACKUP_BUCKET"`, `"$(dirname "$0")"`). Una ruta o un nombre
   sin comillar se rompe con un espacio.
 - `deploy/*.sh` son bash con `set -euo pipefail`: instalar o respaldar a medias es peor que fallar.
-- `scraper/*.sh` (los que lanza launchd) **no** llevan `set -e` a propósito: cada paso escribe su
-  log y una captura que falla no debe cancelar las siguientes del mismo tick. Mantén ese
-  comportamiento si añades un paso.
+- Los pasos de un trabajo del registro corren todos aunque uno falle (`jobs.run`, igual que `make -k`): cada paso escribe
+  su log y una captura que falla no debe cancelar las siguientes del mismo tick. El trabajo sí sale con error.
 - Nada de secretos en el repo. Van en `deploy/absolut-cinema.env` (con `.example` versionado).
-- Cada unidad de systemd/launchd nueva ejecuta **un target de `make`**, no un comando inline. Así
-  cualquier cosa que corre en automático se puede reproducir a mano igual.
-- Los servicios de escritura diarios corren en `:07`, las capturas de cartelera en `:30` y el pase de butacas en `:50`, para no chocar entre sí.
+- **Un trabajo programado nuevo es una llave en `jobs/keys.py` y una entrada en `jobs/registry.py`**, seguido de
+  `make units`. No se escriben unidades de systemd ni plists a mano: cada una ejecuta `make job KEY=llave`, así
+  cualquier cosa que corre en automático se reproduce a mano igual. El único servicio escrito a mano es el dashboard
+  (`deploy/absolut-cinema-dashboard.service`), porque es permanente, no programado.
+- Los servicios de escritura diarios corren en `:07`, las capturas de cartelera en `:30` y el pase de butacas en `:50`,
+  para no chocar entre sí.
 
 ## 8. Verificar un cambio
 
-`make check` es la compuerta: `ruff` (reglas en `pyproject.toml`), la comprobación de que `scraper/` y `analytics/`
+`make check` es la compuerta: `ruff` (reglas en `pyproject.toml`), la comprobación de que `scraper/`, `analytics/` y `jobs/`
 compilan e importan con el Python del sistema, y `pytest`. Lo corre el hook `pre-push` (`.githooks/`, se activa una
 vez por clon con `make hooks`) y el workflow de GitHub que mueve la rama `stable`; si falla en local no hay push, y si
 falla en CI no hay despliegue. `ruff` no bloquea por largo de línea ni por los `;` que agrupan pasos cortos (el repo los
 usa a propósito); sí por imports sin usar, nombres sin definir, orden de imports y llaves repetidas en un dict.
 
 La verificación principal es correr el flujo de verdad contra la base. Hay además pruebas unitarias en
-`tests/` (pytest, `requirements-dev.txt`, solo en el venv): lógica pura que no toca red (diff de snapshots, sync,
-parsers, seguridad de cuentas, filtros del explorador) y un recorrido por pantalla con `AppTest`
-(`tests/test_views.py`: acceso, cartelera, dulcería, datos y usuarios, por rol), que se omite donde no hay
-`data/snapshots.db` o el Postgres de desarrollo. Corre `.venv/bin/python -m pytest -q tests/` si tocas `scraper/diff.py`,
+`tests/` (pytest, `requirements-dev.txt`, solo en el venv): lógica pura que no toca red (diff de snapshots,
+parsers, cuentas sobre un `app.db` temporal, conjuntos del explorador) y un recorrido por pantalla con `AppTest`
+(`tests/test_views.py`: acceso, cartelera, dulcería, datos y usuarios, por rol). Las pantallas de acceso corren en
+cualquier máquina (crean su propio `app.db`); las de datos se omiten donde no hay `data/snapshots.db`. Corre `.venv/bin/python -m pytest -q tests/` si tocas `scraper/diff.py`,
 una vista o añades lógica pura; añade una prueba cuando el caso quepa en memoria y, si es una pantalla, en `test_views.py`. Antes de dar por bueno un cambio:
 
 ```sh
@@ -254,12 +275,12 @@ sqlite3 data/snapshots.db "SELECT * FROM snapshot ORDER BY id DESC LIMIT 4;"
 - **Verifica con el scraper del sistema, no con el venv**, para que un import accidental de una
   dependencia externa falle aquí y no en el servidor:
   `/usr/bin/python3 -c "import analytics, scraper.run, scraper.sample"`.
-- Los flujos que abren órdenes de checkout (`capacity-cinemex`, `calibrate-cinemex`) se lanzan **a
-  mano y con tope**. No los pongas en un automatismo ni subas su límite sin pedirlo.
-- Si añades una función a `analytics/` o `archive/`, imprímela una vez con datos reales antes de conectarla al
+- Ningún flujo abre órdenes de checkout: desde el 2026-09-25 el plano de Cinemex se lee del `GET sessions/{id}`
+  público. Si alguna vez hiciera falta un `POST` del checkout (`buy/*`), va **a mano y con tope**, nunca en un
+  automatismo, y se pide antes.
+- Si añades una función a `analytics/`, imprímela una vez con datos reales antes de conectarla al
   dashboard; es más rápido que depurar dentro de Streamlit.
-- Acceso: `make pg-up pg-schema auth-schema` deja el esquema `app` y el rol `absolut_app` en el Postgres local;
-  `make user-create EMAIL=… NAME=… ROLE=admin` imprime el enlace de invitación (con `AC_MAIL_BACKEND=console` también
+- Acceso: `data/app.db` se crea sola al primer uso; `make user-create EMAIL=… NAME=… ROLE=admin` imprime el enlace de invitación (con `AC_MAIL_BACKEND=console` también
   queda en `data/logs/mail.log`). Las páginas se pueden recorrer sin navegador con `streamlit.testing.v1.AppTest`
   parcheando `ui.session._raw_cookie`; lo que solo un navegador prueba es la cookie (entrar, refrescar, salir).
 
@@ -269,7 +290,8 @@ sqlite3 data/snapshots.db "SELECT * FROM snapshot ORDER BY id DESC LIMIT 4;"
 - Actualiza la documentación que el cambio invalide, en el archivo que le toca: `project.md`
   (APIs, modelo de datos, decisiones), `ARCHITECTURE.md` (flujo, servicios, cadencias), `DESIGN.md`
   (color, tipografía, componentes), `deploy/README.md` (operación), `README.md` (entrada).
-- Un servicio o target nuevo entra en el catálogo de `ARCHITECTURE.md` y en `make help`.
+- Un servicio nuevo entra en el catálogo de `ARCHITECTURE.md` y un target nuevo en `make help`; si es programado, entra en
+  `jobs/registry.py` y la tabla de `ARCHITECTURE.md` se regenera con `make units`.
 - Documenta con fecha lo que se verificó contra la API ajena (`verificado 2026-09-08`); estas APIs
   no tienen contrato y lo que hoy responde puede cambiar.
 - `data/` está fuera de git. No versiones la base, el crudo ni los logs.

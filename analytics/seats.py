@@ -1,8 +1,18 @@
 """Butacas, ocupación y precios a partir de las tablas de muestreo (scraper/sample.py).
 Cinépolis tiene aforo por sala desde los planos; Cinemex lo tendrá del cliente."""
+from datetime import datetime, timedelta, timezone
+
+from scraper.normalize import norm_title
+from scraper.titles import title_key
+
 from .db import rows
+from .labels import SLOTS
 from .plaza import plaza_cinema_where
-from .queries import _window
+from .queries import _FORMAT_CASE, _window
+
+# Tipo de día del muestreo de precios (scraper.sample.day_type_of), en SQL: vie–dom, mar–mié con precio reducido, lun y jue.
+_DAY_TYPE_CASE = """CASE WHEN strftime('%w', date) IN ('5', '6', '0') THEN 'weekend'
+                         WHEN strftime('%w', date) IN ('2', '3') THEN 'promo' ELSE 'weekday' END"""
 
 
 def capacity_summary(conn, plaza=None):
@@ -45,7 +55,7 @@ def offered_by_title(conn, d0=None, d1=None, from_now=True, limit=15, chain="cin
     where, params, _ = _window(d0, d1, from_now, hours=hours, plaza=plaza, alias="s.")
     return rows(conn, f"""
         WITH base AS (
-          SELECT s.title_norm, s.movie_title, a.seats
+          SELECT title_key(s.title_norm) title_norm, s.movie_title, a.seats
           FROM current_showtime s
           JOIN auditorium a ON a.chain = s.chain AND a.cinema_id = s.cinema_id AND a.screen = s.screen
           WHERE {where} AND s.chain = ?),
@@ -84,18 +94,88 @@ def occupancy_recent(conn, limit=50, chain="cinepolis", phase="post", plaza=None
 
 def prices(conn, days=14, plaza=None):
     """Precio de boleto general (mediana, mínimo y máximo) por cadena, cubeta de formato y tipo de día,
-    sobre las muestras de los últimos `days` días."""
+    sobre las muestras de los últimos `days` días, con la fecha de la muestra más reciente (`last_sampled`)."""
     where, params = plaza_cinema_where(plaza)
     return rows(conn, f"""
-        WITH p AS (SELECT chain, format_bucket, day_type, general_cents, cinema_id
+        WITH p AS (SELECT chain, format_bucket, day_type, general_cents, cinema_id, sampled_at
                    FROM price_sample WHERE general_cents IS NOT NULL
                      AND sampled_at >= strftime('%Y-%m-%dT%H:%M:%S', 'now', ? || ' days'){where}),
              ranked AS (SELECT *, ROW_NUMBER() OVER (PARTITION BY chain, format_bucket, day_type ORDER BY general_cents) rk,
                                COUNT(*) OVER (PARTITION BY chain, format_bucket, day_type) n FROM p)
         SELECT chain, format_bucket, day_type, MAX(n) samples, COUNT(DISTINCT cinema_id) cinemas,
                ROUND(AVG(CASE WHEN rk IN ((n + 1) / 2, (n + 2) / 2) THEN general_cents END) / 100.0, 0) median_price,
-               MIN(general_cents) / 100.0 min_price, MAX(general_cents) / 100.0 max_price
+               MIN(general_cents) / 100.0 min_price, MAX(general_cents) / 100.0 max_price, MAX(sampled_at) last_sampled
         FROM ranked GROUP BY chain, format_bucket, day_type ORDER BY chain, format_bucket, day_type""", (f"-{int(days)}", *params))
+
+
+def effective_ticket_price(conn, d0=None, d1=None, from_now=True, hours=None, plaza=None, days=14):
+    """Boleto promedio de cada cadena en la ventana: la mediana del boleto general de cada formato y tipo de día
+    (`prices`, últimos `days` días) ponderada por las funciones que la cadena programa en esa combinación. Es lo que
+    cuesta en promedio una función de su cartelera. Por cadena: `shows`, `shows_priced`, `pct_priced`, `avg_price`
+    (None si ninguna función tiene precio) y `last_sampled`. Orden: cadena."""
+    median = {(r["chain"], r["format_bucket"], r["day_type"]): r for r in prices(conn, days=days, plaza=plaza)}
+    where, params, _ = _window(d0, d1, from_now, hours=hours, plaza=plaza)
+    mix = rows(conn, f"""
+        SELECT chain, {_FORMAT_CASE} format_bucket, {_DAY_TYPE_CASE} day_type, COUNT(*) shows
+        FROM current_showtime WHERE {where} GROUP BY 1, 2, 3 ORDER BY 1, 2, 3""", params)
+    out = {}
+    for r in mix:
+        o = out.setdefault(r["chain"], {"chain": r["chain"], "shows": 0, "shows_priced": 0, "_amount": 0.0, "last_sampled": None})
+        o["shows"] += r["shows"]
+        p = median.get((r["chain"], r["format_bucket"], r["day_type"]))
+        if p and p["median_price"]:
+            o["shows_priced"] += r["shows"]
+            o["_amount"] += r["shows"] * p["median_price"]
+            o["last_sampled"] = max(o["last_sampled"] or "", p["last_sampled"])
+    for o in out.values():
+        amount = o.pop("_amount")
+        o["pct_priced"] = round(100.0 * o["shows_priced"] / o["shows"], 1) if o["shows"] else 0.0
+        o["avg_price"] = round(amount / o["shows_priced"], 1) if o["shows_priced"] else None
+    return [out[c] for c in sorted(out)]
+
+
+def occupancy_by_title(conn, days=7, chain="cinepolis", min_samples=20, plaza=None):
+    """Demanda por título según los planos tras el inicio de los últimos `days` días: % de butacas vendidas y el que
+    se esperaría por su horario (promedio de la cadena en la misma franja y tipo de día), y su cociente
+    (`demand_index`: 1 = lo normal para su horario, 1.5 = vende 50 % más). Así un título programado de noche no
+    parece más demandado solo por su hora. Por título normalizado con al menos `min_samples` funciones: `title_norm`,
+    `title`, `samples`, `sold_pct`, `expected_pct`, `demand_index`, `last_sampled`. Orden: `demand_index` desc."""
+    where, params = plaza_cinema_where(plaza)
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="seconds")
+    samples = rows(conn, f"""
+        SELECT movie_title, datetime_local, date(datetime_local) date, seats, sold, sampled_at
+        FROM occupancy_sample WHERE chain = ? AND minutes_to_start < 0 AND seats > 0 AND sold IS NOT NULL
+          AND sampled_at >= ?{where} ORDER BY id""", (chain, since, *params))
+    if not samples:
+        return []
+
+    def cell(r):
+        hour = int(r["datetime_local"][11:13])
+        weekend = datetime.fromisoformat(r["date"]).weekday() >= 4
+        return next(k for k, lo, hi, _ in SLOTS if lo <= hour < hi), weekend
+
+    by_cell = {}
+    for r in samples:
+        c = by_cell.setdefault(cell(r), [0, 0])
+        c[0] += r["sold"]
+        c[1] += r["seats"]
+    by_title = {}
+    for r in samples:
+        sold, seats = by_cell[cell(r)]
+        t = by_title.setdefault(title_key(norm_title(r["movie_title"])), {"title": r["movie_title"].strip(), "samples": 0, "sold": 0,
+                                                               "seats": 0, "expected": 0.0, "last_sampled": ""})
+        t["samples"] += 1
+        t["sold"] += r["sold"]
+        t["seats"] += r["seats"]
+        t["expected"] += r["seats"] * sold / seats
+        t["last_sampled"] = max(t["last_sampled"], r["sampled_at"])
+    out = [{"title_norm": k, "title": t["title"], "samples": t["samples"],
+            "sold_pct": round(100.0 * t["sold"] / t["seats"], 1),
+            "expected_pct": round(100.0 * t["expected"] / t["seats"], 1),
+            "demand_index": round(t["sold"] / t["expected"], 2) if t["expected"] else None,
+            "last_sampled": t["last_sampled"]}
+           for k, t in by_title.items() if t["samples"] >= min_samples]
+    return sorted(out, key=lambda r: (-(r["demand_index"] or 0), r["title_norm"]))
 
 
 def semaphore_calibration(conn, chain="cinemex", min_samples=5, plaza=None):

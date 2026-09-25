@@ -20,7 +20,26 @@ CREATE TABLE IF NOT EXISTS snapshot (
   calls INTEGER,
   duration_s REAL,
   raw_path TEXT,
-  error TEXT
+  error TEXT,
+  n_units INTEGER,
+  n_failed_units INTEGER
+);
+-- Unidades de una captura (scraper/units.py): un estado de Cinemex o un lote de cines de Cinépolis por estado de INEGI,
+-- con su resultado. Una unidad fallida conserva el estado anterior de sus cines (`carried`: funciones conservadas).
+CREATE TABLE IF NOT EXISTS snapshot_unit (
+  snapshot_id INTEGER NOT NULL,
+  chain TEXT NOT NULL,
+  unit TEXT NOT NULL,
+  label TEXT,
+  ok INTEGER NOT NULL,
+  error TEXT,
+  attempts INTEGER,
+  calls INTEGER,
+  duration_s REAL,
+  n_cinemas INTEGER,
+  n_shows INTEGER,
+  carried INTEGER,
+  PRIMARY KEY (snapshot_id, unit)
 );
 CREATE TABLE IF NOT EXISTS current_showtime (
   chain TEXT NOT NULL,
@@ -48,11 +67,12 @@ CREATE INDEX IF NOT EXISTS idx_event_show ON event (chain, show_id);
 CREATE INDEX IF NOT EXISTS idx_event_board ON event (chain, cinema_id, date, id);
 CREATE INDEX IF NOT EXISTS idx_current_cinema ON current_showtime (chain, cinema_id, date);
 -- Dimensión de cines vista en las capturas: la llave geográfica de cada API (`city_id`: Cinépolis ciudad, Cinemex área),
--- el estado de Cinemex, la zona horaria (solo Cinépolis la publica) y el vistaId de Cinépolis. Por aquí se acotan por
+-- el estado de Cinemex, el estado de INEGI de ambas cadenas (`state_code`), la zona horaria (solo Cinépolis la publica) y
+-- el vistaId de Cinépolis. Por aquí se acotan por
 -- plaza las tablas de muestreo, que no llevan geografía propia.
 CREATE TABLE IF NOT EXISTS cinema (
   chain TEXT NOT NULL, cinema_id TEXT NOT NULL, name TEXT, lat REAL, lng REAL,
-  city_id TEXT, state_id TEXT, timezone TEXT, vista_id TEXT,
+  city_id TEXT, state_id TEXT, state_code TEXT, timezone TEXT, vista_id TEXT,
   first_seen TEXT NOT NULL, last_seen TEXT NOT NULL,
   PRIMARY KEY (chain, cinema_id)
 );
@@ -88,6 +108,15 @@ CREATE TABLE IF NOT EXISTS concession_price (
   product_structure TEXT, promotion_type TEXT, active INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_conc_cinema ON concession_price (chain, cinema_id, sampled_at);
+-- Preventas de Cinemex: panel fijo de funciones por título, releídas a diario (scraper/presale.py).
+CREATE TABLE IF NOT EXISTS presale_sample (
+  id INTEGER PRIMARY KEY,
+  chain TEXT NOT NULL, show_id TEXT NOT NULL, movie_id TEXT, movie_title TEXT, title_norm TEXT,
+  cinema_id TEXT, screen TEXT, date TEXT, datetime_local TEXT, datetime_utc TEXT, release_date TEXT,
+  sampled_at TEXT NOT NULL, days_to_start REAL, seats INTEGER, sold INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_presale_show ON presale_sample (chain, show_id, sampled_at);
+CREATE INDEX IF NOT EXISTS idx_presale_title ON presale_sample (chain, title_norm, sampled_at);
 -- Dulcería a domicilio (Rappi, DiDi Food): catálogo por tienda; ver scraper/delivery.py.
 CREATE TABLE IF NOT EXISTS delivery_price (
   id INTEGER PRIMARY KEY,
@@ -99,17 +128,26 @@ CREATE INDEX IF NOT EXISTS idx_delivery_store ON delivery_price (platform, store
 """ % ",\n  ".join(f"{c} TEXT" if c not in ("lat", "lng", "duration_min") else f"{c} REAL" for c in COLUMNS if c not in ("chain", "show_id"))
 
 ROW_COLUMNS = [c for c in COLUMNS if c not in ("chain", "show_id")]
+_REAL_COLUMNS = ("lat", "lng", "duration_min")
 CINEMA_ROW_COLUMNS = [c for c in CINEMA_COLUMNS if c not in ("chain", "cinema_id")]
 
 
 def migrate(conn):
-    """Cambios de esquema aditivos sobre una base ya creada: columnas de `COLUMNS` que aún no existen en
-    `current_showtime` (la base de producción tiene historia desde el 2026-09-07 y no se recrea)."""
+    """Cambios de esquema aditivos sobre una base ya creada: columnas de `COLUMNS` y `CINEMA_COLUMNS` que aún no
+    existen en `current_showtime` y `cinema` (la base de producción tiene historia desde el 2026-09-07 y no se recrea)."""
     have = {r["name"] for r in conn.execute("PRAGMA table_info(current_showtime)")}
     for col in ROW_COLUMNS:
         if col not in have:
             kind = "REAL" if col in ("lat", "lng", "duration_min") else "TEXT"
             conn.execute(f"ALTER TABLE current_showtime ADD COLUMN {col} {kind}")
+    have = {r["name"] for r in conn.execute("PRAGMA table_info(snapshot)")}
+    for col in ("n_units", "n_failed_units"):
+        if col not in have:
+            conn.execute(f"ALTER TABLE snapshot ADD COLUMN {col} INTEGER")
+    have = {r["name"] for r in conn.execute("PRAGMA table_info(cinema)")}
+    for col in CINEMA_ROW_COLUMNS:
+        if col not in have:
+            conn.execute(f"ALTER TABLE cinema ADD COLUMN {col} {'REAL' if col in ('lat', 'lng') else 'TEXT'}")
     conn.commit()
 
 
@@ -152,16 +190,50 @@ def load_current(conn, chain):
     return row["id"], state
 
 
-def replace_current(conn, chain, snapshot_id, rows, previous, taken_at):
-    conn.execute("DELETE FROM current_showtime WHERE chain = ?", (chain,))
-    cols = ["chain", "show_id", "snapshot_id", "first_seen"] + ROW_COLUMNS
-    placeholders = ", ".join("?" for _ in cols)
-    data = []
+def _stored(col, value):
+    # El valor como lo guarda SQLite según la afinidad de la columna, para comparar con lo leído de la base sin que
+    # 3 contra "3" o 100 contra 100.0 cuenten como cambio.
+    if value is None:
+        return None
+    if col in _REAL_COLUMNS:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return value
+    return str(value)
+
+
+def apply_current(conn, chain, snapshot_id, rows, previous, taken_at, keep=()):
+    """Deja current_showtime igual que `rows` escribiendo solo la diferencia con `previous` (el estado cargado con
+    `load_current`): inserta las funciones nuevas, actualiza las que cambiaron en cualquier columna y borra las que ya
+    no están, salvo las de `keep` (funciones de una unidad fallida, que se conservan tal cual). `first_seen` se
+    conserva; `snapshot_id` es la última captura que escribió la fila. Devuelve {inserted, updated, deleted}."""
+    current = {r["show_id"] for r in rows}
+    gone = [(chain, sid) for sid in previous if sid not in current and sid not in keep]
+    conn.executemany("DELETE FROM current_showtime WHERE chain = ? AND show_id = ?", gone)
+    new, changed = [], []
     for r in rows:
         prev = previous.get(r["show_id"])
-        first_seen = prev["first_seen"] if prev and prev.get("first_seen") else taken_at
-        data.append([chain, r["show_id"], snapshot_id, first_seen] + [r.get(c) for c in ROW_COLUMNS])
-    conn.executemany(f"INSERT INTO current_showtime ({', '.join(cols)}) VALUES ({placeholders})", data)
+        values = [_stored(c, r.get(c)) for c in ROW_COLUMNS]
+        if prev is None:
+            new.append([chain, r["show_id"], snapshot_id, taken_at] + values)
+        elif any(_stored(c, prev.get(c)) != v for c, v in zip(ROW_COLUMNS, values)):
+            changed.append([snapshot_id] + values + [chain, r["show_id"]])
+    cols = ["chain", "show_id", "snapshot_id", "first_seen"] + ROW_COLUMNS
+    conn.executemany(f"INSERT INTO current_showtime ({', '.join(cols)}) VALUES ({', '.join('?' for _ in cols)})", new)
+    sets = ", ".join(f"{c} = ?" for c in ["snapshot_id"] + ROW_COLUMNS)
+    conn.executemany(f"UPDATE current_showtime SET {sets} WHERE chain = ? AND show_id = ?", changed)
+    return {"inserted": len(new), "updated": len(changed), "deleted": len(gone)}
+
+
+def insert_units(conn, chain, snapshot_id, units):
+    """Una fila por unidad de la captura (`scraper/units.py`), con las funciones leídas y conservadas de cada una."""
+    conn.executemany(
+        """INSERT INTO snapshot_unit (snapshot_id, chain, unit, label, ok, error, attempts, calls, duration_s,
+                                      n_cinemas, n_shows, carried)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        [(snapshot_id, chain, u["unit"], u.get("label"), int(bool(u.get("ok"))), u.get("error"), u.get("attempts"),
+          u.get("calls"), u.get("duration_s"), u.get("n_cinemas"), u.get("n_shows"), u.get("carried")) for u in units])
 
 
 def upsert_cinemas(conn, cinemas, taken_at):

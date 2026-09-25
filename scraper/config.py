@@ -14,6 +14,9 @@ USER_AGENT = (
 )
 REQUEST_TIMEOUT = 60      # segundos por petición
 RETRIES = 3               # reintentos ante 5xx / 429 / red
+# Reintentos de una unidad de captura completa (un estado de Cinemex, un lote de Cinépolis) que falló aun con los
+# reintentos por petición; se hacen al final de la pasada, cuando ya corrieron las demás (scraper/units.py).
+UNIT_RETRIES = 1
 PAUSE_BETWEEN_CALLS = 0.15
 # Pausa por host, cuando difiere de la general. Cinépolis no ha devuelto un 429 nunca, pero la captura nacional medida el
 # 2026-09-11 iba a 90 llamadas/min hacia api-g.cinepolis.com y el pase de butacas de :50 suma al mismo host; el límite
@@ -63,10 +66,14 @@ CINEPOLIS_BATCH_SIZE = 30         # la API rechaza más de 30 cines por llamada 
 CINEPOLIS_PAGE_SIZE = 50
 
 # --- Cinemex (REST, ver project.md sección Cinemex) ---
-CINEMEX_BASE_URL = os.environ.get("CINEMEX_BASE_URL", "https://api.cinemex.com/rest/v2.37.2/")
+CINEMEX_BASE_URL = os.environ.get("CINEMEX_BASE_URL", "https://api.cinemex.com/rest/v2.38/")
 CINEMEX_CONSUMER_KEY = os.environ.get("CINEMEX_CONSUMER_KEY", "XXQha7vz4kdvoMSdixhN")
 # La unidad de consulta de cartelera es el estado (`cinemas/state/{id}/movies/`, 31 estados el 2026-09-11); CDMX es el 8.
 CINEMEX_DAYS_AHEAD = 14           # días hacia adelante a pedir por estado (cubre la semana de cine siguiente)
+# Estados de Cinemex que se descargan a la vez. En serie iba a ~50 llamadas/min y 9 min la captura nacional; la API
+# sirve desde caché y nunca ha devuelto 429. Cada hilo respeta PAUSE_BETWEEN_CALLS. Cinépolis sigue en serie: su
+# ritmo lo fija PAUSE_BY_HOST, no el número de hilos.
+CINEMEX_WORKERS = int(os.environ.get("AC_CINEMEX_WORKERS", "3"))
 
 # Una función que desaparece del snapshot solo cuenta como "eliminada" si aún faltaban
 # más de estos minutos para que empezara; si no, simplemente expiró.
@@ -81,15 +88,18 @@ SAMPLE_BACKOFF = 5        # segundos tras un error
 # escritura en SQLite sigue en el hilo principal.
 SAMPLE_WORKERS = int(os.environ.get("AC_SAMPLE_WORKERS", "1"))
 
-# Captura de cartelera: tres veces al día (decisión del cliente, 2026-09-08). Hora local de la plaza.
-# Los planos de asientos siguen cada 15 min porque dependen de la hora de cada función.
-SNAPSHOT_HOURS = tuple(os.environ.get("AC_SNAPSHOT_HOURS", "07:30,13:30,20:30").split(","))
-
 # Planos post-inicio (sample --post-start): la asistencia final de cada función. El plano existe ~2.5 h después
 # del inicio, así que una corrida por hora con ventana de 15 a 75 min cubre todas las funciones (decisión 2026-09-09:
 # solo post-inicio, sin la lectura de preventa a T−60, que aportaba poco).
 POST_START_AFTER_MIN = 45
 POST_START_TOLERANCE_MIN = 30
+
+# Preventas de Cinemex (scraper/presale.py). Los títulos son los de la landing `preventas` de `GET landings/` y el
+# estreno sale de `upcoming`, incrustado en el HTML del sitio (verificado 2026-09-25). Cada título lleva un panel fijo
+# de funciones que se releen a diario hasta que empiezan: da la curva de venta (decisión 2026-09-25: 30 por título).
+CINEMEX_SITE_URL = os.environ.get("CINEMEX_SITE_URL", "https://cinemex.com/landing/preventas/peliculas/")
+PRESALE_LANDING_SLUG = "preventas"
+PRESALE_PANEL_PER_TITLE = int(os.environ.get("AC_PRESALE_PANEL", "30"))
 
 # Dulcería de Cinépolis (sample --concessions): un menú completo por cine, renovado cada tantos días.
 CONCESSIONS_REFRESH_DAYS = 7
@@ -108,19 +118,12 @@ DIDI_CITY = "ciudad-de-mexico-cdmx"
 DIDI_CATEGORY = "pasaboca"        # categoría de botanas: ahí lista los cines (2026-09-09)
 DIDI_MAX_PAGES = 60
 
-# --- Archivo histórico en PostgreSQL (sync/; ver docs/postgres-esquema.md) ---
-# El sync corre en el venv (psycopg); el scraper nunca lo importa. En desarrollo apunta al Postgres de
-# deploy/docker-compose.dev.yml; en el servidor, AC_PG_DSN va en /etc/absolut-cinema.env.
-PG_DSN = os.environ.get("AC_PG_DSN", "postgresql://absolut:absolut-dev@localhost:5433/absolut_cinema")
-BACKUP_BUCKET = os.environ.get("BACKUP_BUCKET")            # si existe, snapshot.raw_path en Postgres apunta al bucket
-SYNC_STATUS_PATH = LOG_DIR / "sync_status.json"            # lo escribe el sync y lo lee scraper.health (sin psycopg)
-SYNC_MAX_AGE_MIN = 90                                       # el sync corre cada 30 min; más de esto es un problema
 SNAPSHOT_STALE_HOURS = 2                                    # snapshot sin finish_snapshot más viejo que esto: se da por fallido
 
-# --- Acceso al dashboard (auth/, archive/; ver deploy/postgres/auth.sql) ---
-# El dashboard entra a Postgres con su propio rol (`absolut_app`): escribe solo el esquema `app` y lee `public`.
-# En desarrollo, sin AC_AUTH_PG_DSN, usa la misma conexión que el sync (Docker local, un solo usuario).
-AUTH_PG_DSN = os.environ.get("AC_AUTH_PG_DSN") or PG_DSN
+# --- Acceso al dashboard (auth/) ---
+# Cuentas, sesiones, enlaces y auditoría en su propia base SQLite: la escribe solo auth/ (dashboard y auth.cli), nunca
+# la captura; snapshots.db sigue siendo solo de la captura (decisión 2026-09-25: sin Postgres ni RDS).
+APP_DB_PATH = Path(os.environ.get("AC_APP_DB", DATA_DIR / "app.db"))
 MAIL_BACKEND = os.environ.get("AC_MAIL_BACKEND", "console")      # console: escribe data/logs/mail.log; ses: Amazon SES
 MAIL_FROM = os.environ.get("AC_MAIL_FROM", "Absolut Cinema <no-responder@localhost>")   # en SES, identidad verificada
 BASE_URL = os.environ.get("AC_BASE_URL", "http://localhost:8501").rstrip("/")            # base de los enlaces del correo

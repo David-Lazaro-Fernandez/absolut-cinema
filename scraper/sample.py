@@ -3,8 +3,8 @@
 Uso:
   python3 -m scraper.sample --capacity [--chain cinemex]   # aforo por sala; una pasada, repetir al mes
   python3 -m scraper.sample --occupancy                    # Cinépolis: planos a 45–75 min de empezar (preventa; a mano)
-  python3 -m scraper.sample --post-start                   # Cinépolis: planos 15–75 min después de empezar (cada hora);
-                                                           # es la asistencia final y el target del modelo de consumo
+  python3 -m scraper.sample --post-start [--chain cinemex] # planos 15–75 min después de empezar (cada hora, ambas
+                                                           # cadenas); es la asistencia final y el target del modelo de consumo
   Los planos (--capacity, --occupancy, --post-start) solo miran las plazas de config.SEATS_PLAZAS (AC_SEATS_PLAZAS,
   por defecto cdmx); --plazas gdl,mty las cambia para esa corrida y --plazas all recorre todos los cines capturados
   (la pasada nacional única de aforo, a mano: decisión 2026-09-12). Precios y dulcería van sobre todos los cines.
@@ -16,9 +16,9 @@ Uso:
   opciones: --lead 60 --tolerance 15 --after 20 --refresh --dry-run --limit N
 
 Cinépolis: `query Seats` y `query Tickets` en /v1/ticket/graphql, solo lectura, sin sesión de usuario.
-Cinemex: precios desde GET sessions/{id}. Su plano solo existe dentro del checkout (POST buy/selectTickets
-abre una orden que caduca sola); se usa una vez por sala (aforo) y una vez para calibrar el semáforo
-high/mid/low contra % vendido. La ocupación continua de Cinemex sale del semáforo calibrado, no del plano.
+Cinemex: precios y plano desde GET sessions/{id}, público y sin abrir orden de checkout (verificado 2026-09-25; hasta
+ese día el plano se leía con POST buy/selectTickets, que abre una orden en Vista). El mismo plano da el aforo, la
+asistencia final y la calibración del semáforo high/mid/low contra % vendido.
 """
 import argparse
 import json
@@ -30,7 +30,7 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from . import cinemex, cinepolis, config, plazas, store
-from .http import ApiError, request_json
+from .http import ApiError
 from .normalize import format_bucket
 
 TZ = ZoneInfo(config.PILOT_TIMEZONE)
@@ -161,23 +161,16 @@ def cinemex_tickets(session_id, stats=None):
              "regular": bool((t.get("extra") or {}).get("regular"))} for t in d.get("tickets") or []]
 
 
-# Estados del plano de Cinemex (buy/selectTickets): "E" hueco del plano, "0" disponible, "1" vendido.
+# Estados del plano de Cinemex: "E" hueco del plano (`type: blank`), "0" disponible, "1" vendido.
 def cinemex_layout(session_id, stats=None):
-    """Plano de una función de Cinemex. Pasa por el paso de selección de boletos del checkout, que
-    abre una orden en Vista con caducidad (`timeout_time` s); no hay endpoint para cerrarla, caduca
-    sola. Decisión de producto 2026-09-08: aceptable en desarrollo (aforo una vez por sala y
-    calibración del semáforo), no para muestreo continuo."""
+    """Plano de una función de Cinemex desde `GET sessions/{id}`, público y sin abrir orden de checkout (verificado
+    2026-09-25: el `layout` es el mismo que devolvía `buy/selectTickets` y sigue respondiendo después del inicio).
+    Devuelve {seats, sold, broken, areas}; `ApiError` si la sesión ya no trae plano, porque eso significaría que
+    Cinemex lo quitó del GET y el muestreo entero deja de ser válido."""
     sess = cinemex.get(f"sessions/{session_id}", stats=stats)
-    tickets = sess.get("tickets") or []
-    if not tickets:
-        return None
-    t = tickets[0]
-    body = {"session_id": str(session_id),
-            "tickets": [{"type": t["id"], "price": t.get("price"), "qty": 1, "extra": t.get("extra")}]}
-    r = request_json(config.CINEMEX_BASE_URL + "buy/selectTickets", method="POST", headers=cinemex.HEADERS, body=body)
-    if stats is not None:
-        stats["calls"] = stats.get("calls", 0) + 1
-    layout = r.get("layout") or []
+    layout = sess.get("layout")
+    if layout is None:
+        raise ApiError(f"sessions/{session_id} sin layout: Cinemex pudo quitar el plano del GET público")
     if not layout:
         return None
     total = sold = 0
@@ -187,8 +180,7 @@ def cinemex_layout(session_id, stats=None):
         n = st.get("0", 0) + st.get("1", 0)
         total += n; sold += st.get("1", 0)
         by_area.append({"area": sec.get("name"), "seats": n, "sold": st.get("1", 0), "status": dict(st)})
-    return {"seats": total, "sold": sold, "broken": 0, "areas": by_area,
-            "transaction_id": r.get("transaction_id"), "timeout_time": r.get("timeout_time")}
+    return {"seats": total, "sold": sold, "broken": 0, "areas": by_area}
 
 
 def layout_for(chain, row, vids, stats):

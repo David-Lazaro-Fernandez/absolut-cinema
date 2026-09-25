@@ -8,11 +8,11 @@ today_d = date.fromisoformat(today_s)
 if not config.DB_PATH.exists():
     # Recién desplegado: el scraper aún no ha creado la base. Aviso claro en lugar del traceback.
     now_hm = datetime.now(TZ).strftime("%H:%M")
-    nxt = next((hm for hm in config.SNAPSHOT_HOURS if hm > now_hm), config.SNAPSHOT_HOURS[0])
+    nxt = next((hm for hm in SNAPSHOT_TIMES if hm > now_hm), SNAPSHOT_TIMES[0])
     md(f'<div class="enc"><h1>{esc(plaza_title(None))}: <span>Cinemex</span> frente a Cinépolis</h1></div>')
     st.info(f"Aún no hay datos: la base {config.DB_PATH} no existe. La cartelera se captura a las "
-            f"{', '.join(time_12(hm) for hm in config.SNAPSHOT_HOURS)}; la siguiente captura es a las {time_12(nxt)} y tarda de 2 a 5 "
-            "minutos. Para no esperar: `make snapshot` (o `systemctl start absolut-cinema-scraper.service` en el servidor), o copia "
+            f"{', '.join(time_12(hm) for hm in SNAPSHOT_TIMES)}; la siguiente captura es a las {time_12(nxt)} y tarda de 15 a 30 "
+            "minutos. Para no esperar: `make snapshot` (o `systemctl start absolut-cinema-snapshot.service` en el servidor), o copia "
             "`data/` desde la máquina donde ya corre. Esta página se refresca sola.")
     st.stop()
 plaza = plaza_selector()
@@ -77,8 +77,8 @@ with st.sidebar.expander("Glosario"):
         "- **Puntos porcentuales (pp).** Diferencia entre dos porcentajes. De 18 % a 21 % son +3 pp.\n"
         "- **Semana de cine.** De jueves a miércoles; es lo que ambas cadenas publican completo.\n"
         "- **Horario prime.** Viernes a domingo de 6:00 P.M. en adelante.")
-st.sidebar.caption(f"La cartelera se captura a las {', '.join(time_12(hm) for hm in config.SNAPSHOT_HOURS)} y los planos de "
-                   f"asientos cada 15 minutos; esta página se refresca cada {TTL} segundos.")
+st.sidebar.caption(f"La cartelera se captura a las {', '.join(time_12(hm) for hm in SNAPSHOT_TIMES)} y los planos de "
+                   f"asientos cada hora; esta página se refresca cada {TTL} segundos.")
 
 # --- datos del encabezado ---------------------------------------------------------------------------------
 health = load("snapshot_health", limit=12)
@@ -230,8 +230,9 @@ with seccion("peliculas"):
     leerla("peliculas",
            "Cada fila es una película; los puntos son el porcentaje de la programación que le dedica cada cadena y la "
            "línea entre ellos, la diferencia (rojo: Cinemex apuesta más). Un solo punto es una exclusiva. Se ordenan por "
-           f"tamaño de la diferencia entre las {TOTAL_MOVIES} películas con más funciones del periodo; los títulos se emparejan "
-           "por nombre, así que un reestreno puede aparecer como exclusiva de cada cadena.")
+           f"tamaño de la diferencia entre las {TOTAL_MOVIES} películas con más funciones del periodo. Los títulos se emparejan "
+           "aunque cada cadena los escriba distinto (reestrenos, aniversarios, eventos en vivo, variantes de formato como "
+           "Infinity Vision), con reglas explícitas y una tabla de equivalencias revisada a mano.")
 
 # --- Horarios: heatmap ---------------------------------------------------------------------------------
 with seccion("horarios"):
@@ -302,6 +303,88 @@ with seccion("formatos"):
     leerla("formatos",
            "Cada barra es el 100 % de las funciones de una cadena en el periodo. Premium / VIP agrupa Premium, Platino, VIP y "
            "Confort; Gran formato agrupa IMAX, XE, ScreenX, Dolby Atmos y Jumbo. “Español” incluye doblada y en español original.")
+
+# --- Preventa: nuestras funciones en preventa (panel diario del plano público) -----------------------------
+with seccion("preventa"):
+    pregunta("¿Qué preventa se está vendiendo?", concl.get("preventa", ""))
+    pv = load("presale_compare", plaza=plaza)
+    if pv.empty:
+        st.info("Aún no hay lecturas de preventa en esta zona. El pase corre a diario sobre los títulos en preventa de ambas "
+                "cadenas, en las plazas donde se leen planos.")
+    else:
+        pv["Título"] = pv["title"].map(lambda t: t if len(t) <= 42 else t[:41].rstrip() + "…")
+        long = pd.concat([pv.assign(chain=c, sold_pct=pv[f"sold_pct_{c}"], shows=pv[f"shows_{c}"], pace=pv[f"pace_pct_day_{c}"],
+                                    sold=pv[f"sold_{c}"], seats=pv[f"seats_{c}"])
+                          for c in CHAINS], ignore_index=True)
+        long = long[long["shows"] > 0].copy()
+        long["Cadena"] = long["chain"].map(CHAIN_LABEL)
+        long["Estreno"] = long["release_date"].map(lambda d: date_es(d, with_year=False) if isinstance(d, str) else "—")
+        long["Vendido"] = long["sold_pct"].map(lambda v: f"{v:.0f} %")
+        long["Butacas"] = long.apply(lambda r: f"{int(r.sold):,} de {int(r.seats):,}", axis=1)
+        long["Ritmo"] = long["pace"].map(lambda v: f"{v:+.1f} puntos del aforo al día".replace("-", "−") if pd.notna(v)
+                                         else "se mide desde la segunda lectura")
+        other = {"cinemex": CHAIN_LABEL["cinepolis"], "cinepolis": CHAIN_LABEL["cinemex"]}
+        long["En la otra cadena"] = long.apply(
+            lambda r: "también en preventa" if r.status == "ambas" else
+            f"{other[r.chain]} no lo exhibe" if r.status.startswith("exclusiva") else
+            f"{other[r.chain]} lo exhibe, fuera de su preventa", axis=1)
+        long["Etiqueta"] = long.apply(lambda r: r.Vendido if r.status == "ambas" else
+                                      f"{r.Vendido} · {'exclusiva' if r.status.startswith('exclusiva') else 'la otra lo exhibe'}", axis=1)
+        tooltip = [alt.Tooltip("title:N", title="Título"), alt.Tooltip("Cadena:N"), alt.Tooltip("Estreno:N"),
+                   alt.Tooltip("shows:Q", title="Funciones leídas"), alt.Tooltip("Butacas:N", title="Butacas vendidas"),
+                   alt.Tooltip("Vendido:N", title="% del aforo vendido"), alt.Tooltip("Ritmo:N"), alt.Tooltip("En la otra cadena:N")]
+        x = alt.X("sold_pct:Q", title="% de las butacas del panel ya vendidas", scale=alt.Scale(domain=[0, 100]),
+                  axis=alt.Axis(grid=True, values=[0, 25, 50, 75, 100], labelExpr="datum.value + ' %'"))
+        color = alt.Color("Cadena:N", scale=alt.Scale(domain=CHAIN_DOMAIN, range=CHAIN_RANGE), legend=None)
+
+        def presale_bars(data, paired):
+            order = data.sort_values("sold_pct", ascending=False)["Título"].drop_duplicates().tolist()
+            y = alt.Y("Título:N", sort=order, title=None, axis=alt.Axis(labelLimit=320, labelColor=GRAY_DARK, ticks=False, domain=False))
+            enc = {"y": y, "x": x, "color": color, "tooltip": tooltip}
+            if paired:
+                enc["yOffset"] = alt.YOffset("Cadena:N", sort=CHAIN_DOMAIN)
+            bars = alt.Chart(data).mark_bar(height=11 if paired else 16).encode(**enc)
+            text = alt.Chart(data).mark_text(align="left", dx=4, fontSize=11, fontWeight="bold").encode(
+                **{k: v for k, v in enc.items() if k != "x"}, x="sold_pct:Q", text="Etiqueta:N")
+            chart((bars + text).properties(height=max(90, (34 if paired else 26) * len(order))))
+
+        leyenda([("Cinemex", RED), ("Cinépolis", INK)])
+        both = long[long["status"] == "ambas"]
+        if not both.empty:
+            md('<p class="nota"><b>En preventa en ambas cadenas</b>: la comparación directa.</p>')
+            presale_bars(both, paired=True)
+        single = long[long["status"] != "ambas"]
+        if not single.empty:
+            md('<p class="nota"><b>En preventa en una sola cadena</b>: “exclusiva” si la otra no lo tiene en su cartelera; '
+               '“la otra lo exhibe” si lo programa sin anunciarlo como preventa.</p>')
+            presale_bars(single, paired=False)
+        pick = st.selectbox("Curva de venta de", pv["title"].tolist(), key="preventa_titulo")
+        row = pv.set_index("title").loc[pick]
+        curves = [load("presale_curve", title_norm=row[f"title_norm_{c}"], chain=c, plaza=plaza).assign(Cadena=CHAIN_LABEL[c])
+                  for c in CHAINS if isinstance(row[f"title_norm_{c}"], str)]
+        curve = pd.concat(curves, ignore_index=True) if curves else pd.DataFrame()
+        if len(curve) > 1:
+            line = alt.Chart(curve).mark_line(point=alt.OverlayMarkDef(size=40)).encode(
+                x=alt.X("days_to_start:Q", title="Días antes de la función", scale=alt.Scale(reverse=True)),
+                y=alt.Y("sold_pct:Q", title="% de las butacas vendidas", scale=alt.Scale(domain=[0, 100]),
+                        axis=alt.Axis(values=[0, 25, 50, 75, 100], labelExpr="datum.value + ' %'")),
+                color=color,
+                tooltip=[alt.Tooltip("Cadena:N"), alt.Tooltip("days_to_start:Q", title="Días antes"),
+                         alt.Tooltip("readings:Q", title="Lecturas"), alt.Tooltip("sold_pct:Q", title="% vendido", format=".1f")])
+            chart(line.properties(height=220))
+        else:
+            st.caption("La curva aparece cuando el título tiene lecturas a distintas distancias de su función.")
+    leerla("preventa",
+           "Son los títulos en preventa de cada cadena: la página de preventas de Cinemex y la de \"Próximamente\" de Cinépolis, "
+           "hasta su estreno (en un evento de una noche, hasta que empieza). Arriba, los títulos que las dos cadenas tienen en "
+           "preventa; abajo, los de una sola, marcados como exclusiva cuando la otra cadena no los tiene en su cartelera de la "
+           "zona. Por cadena, cada título tiene un panel fijo de hasta 30 funciones repartidas entre cines y "
+           "cada día se lee su plano de asientos. La barra es el % de las butacas de ese panel que ya se vendieron, así una "
+           "sala IMAX no pesa más que una tradicional y las dos cadenas se comparan aunque tengan salas de distinto tamaño. "
+           "Desde la segunda lectura se mide el ritmo: cuántos puntos de su aforo vende cada día (en el detalle al pasar el "
+           "cursor). La curva junta todas las lecturas del título según cuántos días faltaban para la función. Las funciones "
+           "de Cinépolis cuyo plano responde \"ya no está disponible\" antes de empezar no entran: coinciden con funciones "
+           "casi agotadas, así que su % vendido real puede ser algo mayor.")
 
 # ============ CAPA 3 ============
 capa(3, "Detalle y apéndice",
@@ -536,41 +619,7 @@ with apendice("ocupacion", "Ocupación medida tras el inicio de cada función", 
     md('<p class="nota">Se promueve a Capa 2 cuando la tabla de calibración tenga niveles de color con muestras suficientes. '
        'Mientras tanto no compite por atención.</p>')
 
-# --- Desbloqueo -------------------------------------------------------------------------------------------
-decay_eta = FIRST_SNAPSHOT + timedelta(weeks=2) + timedelta(days=(3 - FIRST_SNAPSHOT.weekday()) % 7)
-trend_eta = FIRST_SNAPSHOT + timedelta(weeks=4)
-
-
-def fecha_corta(d):
-    return range_short(d.isoformat(), d.isoformat()).split(" ", 1)[1]
-
-
-items = [
-    ("Con tu taquilla por título", "Abrir, mantener o recortar por película",
-     "Regla lista: 2 pp bajo su demanda y ≥5 % de butacas → abrir; 2 pp arriba → recortar."),
-    ("Con tu preventa (batch)", "Curva de preventa vs títulos comparables",
-     "Evita cerrar salas que se llenarían de paso comparando contra la banda histórica correcta."),
-    ("Con tu lista de dulcería", "Brecha de precio de dulcería por complejo y zona",
-     "Ya tenemos el menú de Cinépolis con precio por complejo (74 en la ciudad); tu lista lo convierte en brecha por producto y zona."),
-    ("Con tu taquilla por función", "Ingreso por butaca ofertada, real frente a potencial",
-     "Ya tenemos aforo, mix de formato y precio de lista de ambas cadenas; tu taquilla convierte el potencial en ingreso real."),
-    (f"Automático · {fecha_corta(decay_eta)}", "Decaimiento post-estreno por cadena",
-     "Quién recorta agresivo y quién conserva, con dos semanas de cine completas de historia."),
-    (f"Automático · {fecha_corta(trend_eta)}", "Tendencia de 4 semanas por indicador",
-     "Responde “¿vamos mejorando?” en cada indicador del periodo."),
-    ("Captura adicional", "Hueco geográfico por alcaldía",
-     "Oferta por 100 mil habitantes, zonas de choque y mercados cautivos; falta alcaldía por cine y población INEGI."),
-]
-if cal.empty:
-    items.insert(3, ("Pasada manual · tarde-noche", "Ocupación estimada de Cinemex",
-                     "Una calibración del semáforo alta/media/baja contra planos reales convierte cada función en % vendido."))
-md('<div class="desbloqueo"><h3>Qué se desbloquea con tus datos</h3>'
-   '<p>Todo lo que hoy requiere integración, captura o historia se agrupa aquí, convertido en argumento: qué decisión habilita '
-   'cada dato y cuándo estará listo lo que depende solo de nosotros.</p><div class="desb-grid">'
-   + "".join(f'<div class="desb-item"><div class="cuando">{esc(a)}</div><div class="que">{esc(b)}</div><p>{esc(c)}</p></div>' for a, b, c in items)
-   + "</div></div>")
-
 md(f'<p class="pie">Fuentes: cartelera pública de Cinemex y Cinépolis, capturada tres veces al día para los cines de la Ciudad de México '
    f'y área metropolitana; aforo por sala de ambas cadenas leído de los planos de asientos; ocupación medida tras el inicio de cada '
-   f'función en Cinépolis; precios de lista muestreados por cine, formato y tipo de día; menú de dulcería de Cinépolis con precio por complejo; catálogo de dulcería a domicilio de ambas cadenas en Rappi y DiDi Food. Las películas se emparejan por título hasta '
-   f'contar con la tabla de equivalencias entre cadenas.{"" if full_day else f" Filtro activo: solo funciones que empiezan {esc(hours_label(hours))}."} Historia desde el {esc(date_es(FIRST_SNAPSHOT.isoformat()))}.</p>')
+   f'función en Cinépolis; precios de lista muestreados por cine, formato y tipo de día; menú de dulcería de Cinépolis con precio por complejo; catálogo de dulcería a domicilio de ambas cadenas en Rappi y DiDi Food. Las películas se emparejan entre '
+   f'cadenas por título, con reglas para reestrenos, aniversarios y eventos y una tabla de equivalencias revisada a mano.{"" if full_day else f" Filtro activo: solo funciones que empiezan {esc(hours_label(hours))}."} Historia desde el {esc(date_es(FIRST_SNAPSHOT.isoformat()))}.</p>')

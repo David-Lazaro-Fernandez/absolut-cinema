@@ -1,6 +1,6 @@
 """Flujos de acceso que comparten las páginas del dashboard y la línea de comandos: entrar, salir, invitar,
-restablecer contraseña y administrar cuentas. Cada función cierra su propia transacción (`conn.transaction()`) y deja
-rastro en `app.audit`. Sin Streamlit."""
+restablecer contraseña y administrar cuentas. Cada función cierra su propia transacción (`db.transaction`) y deja
+rastro en `audit`. Sin Streamlit."""
 import json
 from datetime import datetime, timedelta, timezone
 
@@ -8,7 +8,7 @@ from analytics.labels import MAIL_INVITE, MAIL_RESET
 from scraper import config
 
 from . import mail, security, sessions, users
-from .db import one
+from .db import cursor, one, transaction
 from .errors import AccountInactive, AccountLocked, InvalidCredentials, MailFailed, TokenInvalid, WeakPassword
 
 
@@ -24,7 +24,7 @@ def login(conn, email, password, ip=None, user_agent=None):
     del fallo se confirma antes de levantar el error, para que el contador de bloqueo no se deshaga."""
     now = datetime.now(timezone.utc)
     failure = None
-    with conn.transaction():
+    with transaction(conn):
         user = users.by_email(conn, email)
         if user is None:
             security.verify_password(password, _DUMMY_HASH)
@@ -48,7 +48,7 @@ def login(conn, email, password, ip=None, user_agent=None):
 
 
 def logout(conn, raw):
-    with conn.transaction():
+    with transaction(conn):
         user_id = sessions.revoke(conn, raw)
         if user_id:
             _audit(conn, user_id, "logout", user_id, None)
@@ -57,7 +57,7 @@ def logout(conn, raw):
 def invite(conn, actor_id, email, name, role="viewer", send_mail=True):
     """Crea la cuenta y su enlace de invitación; lo envía por correo salvo `send_mail=False`. Devuelve
     (usuario, enlace). Levanta `DuplicateEmail`."""
-    with conn.transaction():
+    with transaction(conn):
         user = users.create(conn, email, name, role, created_by=actor_id)
         raw = _issue_token(conn, user["id"], "invite", actor_id)
         _audit(conn, actor_id, "invite", user["id"], {"role": role})
@@ -70,7 +70,7 @@ def invite(conn, actor_id, email, name, role="viewer", send_mail=True):
 def resend(conn, actor_id, user_id, send_mail=True):
     """Enlace nuevo para una cuenta (invitación si aún no tiene contraseña, restablecimiento si ya la tiene).
     Invalida los enlaces anteriores. Devuelve el enlace."""
-    with conn.transaction():
+    with transaction(conn):
         user = users.by_id(conn, user_id)
         purpose = "reset" if user["has_password"] else "invite"
         raw = _issue_token(conn, user_id, purpose, actor_id)
@@ -89,12 +89,12 @@ def request_reset(conn, email, send_mail=True):
     pidió `RESET_MAX_PER_HOUR` enlaces en la última hora, no hace nada y devuelve None. Si no, devuelve el enlace
     (solo lo muestra la línea de comandos; la página nunca lo pinta)."""
     now = datetime.now(timezone.utc)
-    with conn.transaction():
+    with transaction(conn):
         user = users.by_email(conn, email)
         if user is None or not user["active"]:
             return None
-        recent = one(conn, """SELECT count(*) AS n FROM app.token
-                              WHERE account_id = %s AND purpose = 'reset' AND created_at > %s""",
+        recent = one(conn, """SELECT count(*) AS n FROM token
+                              WHERE account_id = ? AND purpose = 'reset' AND created_at > ?""",
                      (user["id"], now - timedelta(hours=1)))["n"]
         if recent >= security.RESET_MAX_PER_HOUR:
             return None
@@ -117,34 +117,34 @@ def redeem_token(conn, raw, password):
     """Fija la contraseña con un enlace válido, lo marca como usado y cierra todas las sesiones de la cuenta.
     Devuelve el usuario. Levanta `TokenInvalid` o `WeakPassword`."""
     now = datetime.now(timezone.utc)
-    with conn.transaction():
+    with transaction(conn):
         token = _token(conn, raw, now)
         problem = security.check_strength(password, token["email"])
         if problem:
             raise WeakPassword(problem)
         users.set_password(conn, token["account_id"], password)
         sessions.revoke_all(conn, token["account_id"], now)
-        with conn.cursor() as cur:
-            cur.execute("UPDATE app.token SET used_at = %s WHERE token_hash = %s", (now, token["token_hash"]))
+        with cursor(conn) as cur:
+            cur.execute("UPDATE token SET used_at = ? WHERE token_hash = ?", (now, token["token_hash"]))
         _audit(conn, token["account_id"], "set_password", token["account_id"], {"via": token["purpose"]})
         return users.by_id(conn, token["account_id"])
 
 
 def deactivate(conn, actor_id, user_id):
-    with conn.transaction():
+    with transaction(conn):
         users.set_active(conn, actor_id, user_id, False)
         sessions.revoke_all(conn, user_id)
         _audit(conn, actor_id, "deactivate", user_id, None)
 
 
 def activate(conn, actor_id, user_id):
-    with conn.transaction():
+    with transaction(conn):
         users.set_active(conn, actor_id, user_id, True)
         _audit(conn, actor_id, "activate", user_id, None)
 
 
 def set_role(conn, actor_id, user_id, role):
-    with conn.transaction():
+    with transaction(conn):
         users.set_role(conn, actor_id, user_id, role)
         _audit(conn, actor_id, "set_role", user_id, {"role": role})
 
@@ -160,18 +160,18 @@ def _issue_token(conn, user_id, purpose, created_by, now=None):
     now = now or datetime.now(timezone.utc)
     ttl = timedelta(hours=security.INVITE_TTL_HOURS) if purpose == "invite" else timedelta(minutes=security.RESET_TTL_MIN)
     raw, token_hash = security.new_token()
-    with conn.cursor() as cur:
-        cur.execute("""UPDATE app.token SET used_at = %s
-                       WHERE account_id = %s AND purpose = %s AND used_at IS NULL""", (now, user_id, purpose))
-        cur.execute("""INSERT INTO app.token (token_hash, account_id, purpose, created_at, expires_at, created_by)
-                       VALUES (%s, %s, %s, %s, %s, %s)""", (token_hash, user_id, purpose, now, now + ttl, created_by))
+    with cursor(conn) as cur:
+        cur.execute("""UPDATE token SET used_at = ?
+                       WHERE account_id = ? AND purpose = ? AND used_at IS NULL""", (now, user_id, purpose))
+        cur.execute("""INSERT INTO token (token_hash, account_id, purpose, created_at, expires_at, created_by)
+                       VALUES (?, ?, ?, ?, ?, ?)""", (token_hash, user_id, purpose, now, now + ttl, created_by))
     return raw
 
 
 def _token(conn, raw, now=None):
     token = one(conn, """SELECT t.token_hash, t.account_id, t.purpose, t.expires_at, t.used_at, a.email, a.name
-                         FROM app.token t JOIN app.account a ON a.id = t.account_id
-                         WHERE t.token_hash = %s AND a.active""", (security.hash_token(raw or ""),))
+                         FROM token t JOIN account a ON a.id = t.account_id
+                         WHERE t.token_hash = ? AND a.active""", (security.hash_token(raw or ""),))
     if not security.is_usable(token, now):
         raise TokenInvalid()
     return token
@@ -187,6 +187,6 @@ def _send(user, template, link, **ttl):
 
 
 def _audit(conn, actor_id, action, target_id, detail):
-    with conn.cursor() as cur:
-        cur.execute("INSERT INTO app.audit (actor_id, action, target_id, detail) VALUES (%s, %s, %s, %s)",
-                    (actor_id, action, target_id, json.dumps(detail) if detail is not None else None))
+    with cursor(conn) as cur:
+        cur.execute("INSERT INTO audit (at, actor_id, action, target_id, detail) VALUES (?, ?, ?, ?, ?)",
+                    (datetime.now(timezone.utc), actor_id, action, target_id, json.dumps(detail) if detail is not None else None))

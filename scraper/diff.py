@@ -35,6 +35,19 @@ def changed_fields(prev, row, fields):
     return out
 
 
+def failed_cinemas(raw):
+    """Cines cuya cartelera no se leyó en esta captura porque su unidad falló (`units` del crudo, con el alcance ya
+    resuelto a cines en `scope_cinema_ids`). Su estado anterior se conserva: no se cierran sus funciones ni se generan
+    eventos. Un crudo sin `units` (anterior al 2026-09-25) no tiene fallos parciales."""
+    return frozenset(c for u in raw.get("units") or () if not u.get("ok") for c in u.get("scope_cinema_ids") or ())
+
+
+def carry_over(previous, current, failed):
+    """Funciones del estado anterior que siguen vigentes sin haberse leído: de un cine en `failed` y ausentes de
+    `current`. El scraper las deja intactas en current_showtime."""
+    return {sid: r for sid, r in previous.items() if sid not in current and r.get("cinema_id") in failed}
+
+
 def _strip(row, keep_first_seen=False):
     """Copia de la fila sin `first_seen`. En los eventos de cierre (`removed`, `expired`) se conserva, porque es
     la única huella de cuándo apareció una función que ya no está en current_showtime."""

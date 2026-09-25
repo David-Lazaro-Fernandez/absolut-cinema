@@ -44,12 +44,20 @@ el producto de inteligencia competitiva (Cinemex vs Cinépolis). Fecha: 2026-09-
   `scraper.health` en vivo, corridas recientes con su error, Postgres (latencia, tamaños, marcas de agua), sync, servidor
   (commit, despliegue, respaldo, disco) y la cola de cada log. Lógica en `scraper/health.py` y `archive/status.py`. Declara
   como pendientes los fallos por llamada a las APIs (no se registran) y las métricas de RDS (CloudWatch).
+- 2026-09-25: **solo SQLite**. Se retira PostgreSQL: el RDS se apagó por costo, el servidor tiene 2 GB y el cliente pide
+  disponibilidad, no historia larga (ver "Decisión: solo SQLite"). `auth/` pasa a su propia base `data/app.db`, el
+  explorador Datos lee `snapshots.db` (`analytics/datasets.py`) y se borran `sync/`, `archive/`, el esquema de Postgres,
+  Docker y el trabajo `sync`. El código anterior queda en el tag `pre-sqlite-only`.
 - 2026-09-11: **captura nacional**. El scraper deja de ser de una plaza: Cinemex por estado (`cinemas/state/{id}/movies/`,
   endpoint no documentado, 31 estados) y Cinépolis por todas sus ciudades (154, `cityId` y `timezone` por cine); las dos
   cadenas se descargan en paralelo. Cada función lleva `datetime_utc` (siete zonas horarias) y su geografía (`city_id`,
   `state_id`); nueva dimensión `cinema` en SQLite y `scraper/plazas.py` con las plazas comparables (CDMX, Guadalajara,
   Monterrey). El dashboard gana el filtro de zona (CDMX por defecto, Nacional) y la página Operaciones el registro de
   cobertura por ciudad y área. Los planos de asientos se acotan a `AC_SEATS_PLAZAS` (ver "Captura nacional").
+- 2026-09-25: **registro de trabajos** (`jobs/`: llaves, registro, runner con candado, tope, reintentos y memoria por
+  corrida; las unidades de systemd se generan) y **captura por unidades** (Cinemex por estado, Cinépolis por lotes
+  agrupados por estado; una unidad fallida conserva lo anterior), escritura por diferencia en `current_showtime` y
+  **estado de INEGI por cine** para ambas cadenas (ver "Programación de tareas" y "Captura por unidades").
 
 ## Cómo se encontró
 
@@ -237,7 +245,49 @@ X-API-Consumer-Key: XXQha7vz4kdvoMSdixhN
 
 Sin el header, nginx responde `400 Bad Request`. La constante es el `appId` del bundle (`cinemexProd`).
 Existen además `https://api-beta.cinemex.com/rest/v2.38/` y `https://api-staging8.cinemex.com/`
-(este último con Basic auth). La versión de ruta puede cambiar con un despliegue.
+(este último con Basic auth). La versión de ruta puede cambiar con un despliegue. El 2026-09-25 el bundle de producción
+(`main.8cdbda99.chunk.js`) ya llama `rest/v2.38`; `v2.37.2` sigue respondiendo igual.
+
+**Preventas (verificado 2026-09-25).** La página `/landing/preventas/` sale de `GET landings/` (176 landings, 9.7 MB;
+la de preventas es `id 171`, página `265` de tipo `showtimes` con `content.movies[]` = 11 títulos). No hay endpoint de
+funciones por película (`movies/{id}` solo trae `versions`): las funciones de preventa llegan por la misma cartelera
+por estado, cuyo `dates` llega hasta el 16 de diciembre (26 fechas), mientras el scraper pide 14 días
+(`CINEMEX_DAYS_AHEAD`). `popularity` de `movies/` es orden editorial (PAW Patrol arriba), no ventas. El HTML de la SPA
+incrusta `upcoming`, `promos`, `cinemas`, `states` y `appConfig`, sin señales de venta. Las llamadas a
+`*.useinsider.com` son de Insider, la plataforma de personalización y analítica de Cinemex: describen al visitante
+(segmentos, predicciones, identidad), no al mercado, y no se usan.
+
+**Preventas de Cinépolis (verificado 2026-09-25).** La página cinepolis.com/mx/proximamente sale de
+`movies(countryId: "MX", category: "coming-soon")` en `v2/billboards/graphql`, sin filtro de cines: 42 títulos con
+`releaseDate` en una sola página. Sus funciones ya están en la captura, porque `Billboard` trae todas las fechas
+publicadas (la cartelera capturada llega al 30 de diciembre): preventa = títulos de "Próximamente" con funciones
+(13 en CDMX ese día, entre ellos Rammstein, Ozzy y Tu Nombre, que Cinemex no tiene en su landing). El plano sale del
+mismo `query Seats` del post-inicio y responde para funciones lejanas (~1.5 s). Algunas funciones publicadas responden
+"esta función ya no está disponible (101)": en la prueba fueron las de color de poca disponibilidad (`#FF804A`,
+`#FFBE06`), así que el pase las cuenta aparte como `no_disponibles` y no como falla; su % vendido real puede ser algo
+mayor que el medido.
+
+**Pase de preventas (`scraper/presale.py`, trabajo `presale`, diario 10:07, ambas cadenas; 2026-09-25).** Títulos de
+Cinemex: la landing `preventas`; de Cinépolis, "Próximamente". Un título está en preventa hasta su estreno (`upcoming.release_date`) y cuentan todas sus funciones: en un
+evento de una noche (BTS, Queen, ópera) la única fecha es el estreno, así que la regla "función antes del estreno" los
+dejaba en cero. Sin estreno conocido cuenta mientras siga en la landing. Funciones: `current_showtime` para los 14 días
+capturados y `cinemex.state_days_after` para las fechas lejanas, solo en los estados y cines de `AC_SEATS_PLAZAS`.
+Panel: por título, las funciones ya muestreadas que siguen vigentes más nuevas hasta 30 (`AC_PRESALE_PANEL`), una por
+cine en cada vuelta; cada una se relee a diario. Tabla `presale_sample` (una fila por lectura, con `release_date` y
+`days_to_start`). Primera corrida, 2026-09-25 en CDMX: 11 títulos, 5,567 funciones de preventa (24 fechas lejanas),
+panel de 229, ~10 min. En `analytics/presale.py`, `presale_ranking` da por título el % del aforo del panel vendido en la
+última lectura y el ritmo en puntos de aforo al día (entre dos lecturas de la misma función a 12–48 h), y
+`presale_curve` el % vendido por días al inicio. Todo va en % del aforo para que una sala IMAX no pese más que una
+tradicional (primera versión en butacas por función, cambiada el 2026-09-25 a pedido de David: la unidad no se leía y
+favorecía salas grandes). Hallazgo de Capa 1 `preventa`: el título que le saca ≥ 2× al segundo, por ritmo o, con una
+sola lectura, por % vendido. Sección de Capa 2 "¿Qué preventa se está vendiendo?" en la cartelera. Con Cinépolis
+(`--chain cinepolis`, mismo día) `presale_compare` empareja los títulos entre cadenas por la llave `title_key` (ver
+"Emparejamiento de títulos") y el hallazgo `preventa_brecha`
+aparece cuando en un mismo título una cadena lleva ≥ 10 pp más de su aforo vendido; la sección pinta las dos cadenas.
+`presale_compare` distingue además, para un título en preventa en una sola cadena, si es exclusiva (la otra no lo tiene
+en su cartelera de la plaza: Rammstein, Ozzy y Tu Nombre en Cinépolis el 2026-09-25) o si la otra lo exhibe sin
+anunciarlo como preventa (Linkin Park: en "Próximamente" de Cinépolis, fuera de la landing de Cinemex aunque lo
+programa). La sección separa "en preventa en ambas cadenas" (barras pareadas) de "en una sola cadena" (etiquetadas).
 
 ### Endpoints verificados
 
@@ -320,7 +370,18 @@ Qué expone cada API para pasar de funciones a **butacas** (aforo, ocupación) y
   exacta del color.
 - `/v1/section/graphql` no tiene `seats`; `/v1/purchase/graphql` no se probó porque `ticket` bastó.
 
-### Cinemex: precios en lectura, plano solo vía checkout
+### Cinemex: precios y plano en lectura
+
+> **Desde el 2026-09-25 el plano sale del `GET` público** (`sample.cinemex_layout`) y ningún flujo abre órdenes: aforo,
+> calibración, asistencia final (trabajo `seats`, ambas cadenas) y preventas. Verificado ese día: el aforo de 4 salas de
+> Cinemex coincidió exacto con el medido por checkout el 2026-09-08, y una lectura cuesta ~2.5 s. `GET sessions/{id}` (v2.38 y v2.37.2, mismo
+> header, sin orden de checkout) trae `layout[]{name, seats[]{id, status, label, type}}` con la misma codificación que
+> `buy/selectTickets`: `"0"` libre, `"1"` vendido, `"E"` hueco (`type: blank`). Contrastado ese día con 6 funciones de
+> hoy contra su semáforo: `high` 0–27 % vendido, `mid` 81–83 %, `low` 96–97 % (una pasó de `mid` a `low` al llenarse).
+> La preventa lejana también responde: Duna: Parte Tres IMAX, Artz sala 3, 15 de diciembre, 151 de 388 vendidas a 81
+> días. No está verificado si `"1"` incluye asientos apartados en un carrito abierto o bloqueados por el cine;
+> `scraper.health` avisa si a T−60 aparecen funciones `high` con más de la mitad vendida. Lo de abajo describe cómo se
+> trabajó hasta ese día.
 
 - `GET sessions/{id}` (REST público, mismo header) devuelve por función `tickets[]{name, price
   (centavos), fee, max}`, `screen_number`, `auditorium_name`, `seatallocation`, `availability`
@@ -460,23 +521,20 @@ Petición del cliente tras la primera revisión: entender los precios de dulcer�
   `Caddyfile` e `install.sh` para un droplet o EC2. Ver `deploy/README.md`.
 - `ARCHITECTURE.md`: diagramas Mermaid del flujo de datos, la programación de servicios y el catálogo de
   servicios con su cadencia y sus tablas.
-- `docs/postgres-esquema.md`: diseño de tablas de PostgreSQL para el archivo histórico (etapa 1, propuesta 2026-09-09):
-  identidad de la función separada de sus versiones de estado, eventos, muestreos, trabajo `sync` y tamaño estimado.
-  `docs/arquitectura_aws.py` genera el diagrama de despliegue (`arquitectura-aws.png`) con la librería `diagrams`.
+- `docs/arquitectura_aws.py` genera el diagrama de despliegue (`arquitectura-aws.png`) con la librería `diagrams`.
 - `docs/ec2-sizing.md`: qué instancia EC2 pide el proyecto, con el consumo de cada trabajo, el volumen de
-  escritura medido y el crecimiento en disco (2026-09-09).
-- `docs/aws-setup.md`: provisión en AWS paso a paso (VPC, grupos de seguridad, rol de IAM, RDS, EC2, S3,
-  secretos y monitoreo) para el plan 1 con SQLite y el plan 2 con PostgreSQL.
+  escritura medido y el crecimiento en disco (2026-09-09; carga nacional y decisión de solo SQLite, 2026-09-25).
+- `docs/aws-setup.md`: provisión en AWS paso a paso (VPC, grupos de seguridad, rol de IAM, EC2, S3, SES, secretos y
+  monitoreo), todo en una instancia con SQLite.
 - `project.md`: este documento.
 
 ## Scraper de snapshots (nacional desde el 2026-09-11; piloto CDMX del 2026-09-07 al 2026-09-11)
 
 Sin dependencias fuera de la librería estándar. Se ejecuta con `/usr/bin/python3 -m scraper.run`
-(opciones `--chain cinepolis|cinemex`, `--no-raw`) y lo lanza launchd tres veces al día con
-`scraper/com.absolut-cinema.scraper.plist` (`make snapshot`). El plist lleva rutas absolutas;
-el repo vive en `~/absolut-cinema` porque launchd no puede leer `~/Documents` (protección de
-privacidad de macOS, "Operation not permitted"). Si el repo se mueve, regenerar el plist y
-recargarlo con `launchctl bootout` + `launchctl bootstrap`.
+(opciones `--chain cinepolis|cinemex`, `--no-raw`) y lo lanza tres veces al día el trabajo `snapshot` del registro
+(`make snapshot`; systemd en el servidor, launchd en la Mac). En la Mac el repo vive en `~/absolut-cinema` porque launchd
+no puede leer `~/Documents` (protección de privacidad de macOS, "Operation not permitted"); los plists se generan con la
+ruta del clon al correr `make launchd-load`, así que si el repo se mueve basta con `make launchd-unload launchd-load`.
 
 - `scraper/config.py`: claves (sobreescribibles con `CINEPOLIS_API_KEY`, `CINEMEX_CONSUMER_KEY`,
   `CINEMEX_BASE_URL`), alcance (`AC_CINEPOLIS_CITIES`, `AC_CINEMEX_STATES`; vacío = nacional), plazas del muestreo de
@@ -499,8 +557,8 @@ recargarlo con `launchctl bootout` + `launchctl bootstrap`.
   y mapas de asientos antes de guardar el crudo.
 - `scraper/run.py`: `begin_snapshot` de ambas cadenas, **descarga en paralelo** (dos hilos, solo red) y escritura en
   serie en el hilo principal (segundos), así la captura nacional convive con el pase de butacas de :50 sin dos
-  escritores. Una captura es todo o nada por cadena: un estado o ciudad que falla (tras `RETRIES`) tira la cadena,
-  porque un snapshot parcial produciría miles de `removed` falsos.
+  escritores. Desde el 2026-09-25 cada cadena se descarga por unidades que fallan por separado (ver "Captura por
+  unidades"); antes una captura era todo o nada por cadena, porque un snapshot parcial producía miles de `removed` falsos.
 - `scraper/normalize.py`: esquema común por función (`chain, show_id, cinema_id, city_id, state_id, movie_id,
   title_norm, date, datetime_local, datetime_utc, screen, language ∈ spanish|subtitled|original|other,
   format, experience, premium_tier, availability, …`) y la dimensión de cines (`cinemas`: `city_id`, `state_id`,
@@ -516,8 +574,8 @@ recargarlo con `launchctl bootout` + `launchctl bootstrap`.
   `added` de línea base y la base pasó de 85 a 368 MB.
 - `scraper/http.py`: reintenta 429, 408 (Cinépolis: "downstream duration timeout" del gateway, visto
   el 2026-09-08) y 5xx con espera progresiva.
-- Programación: los plists de `scraper/` y los units de `deploy/` ejecutan targets de `make`
-  (`snapshot`, `seats`, `daily`, `delivery`). Ver "Programación de tareas".
+- Programación: `jobs/registry.py` genera las unidades de systemd (`deploy/systemd/`) y los agentes de launchd; cada una
+  ejecuta `make job KEY=llave`. Ver "Programación de tareas".
 - `scraper/diff.py`: compara por `show_id`: `added`, `removed` (solo si faltaban >30 min para empezar, medido en UTC
   con `datetime_utc`; sin él, con la zona de referencia),
   `expired` (desapareció porque ya empezó o estaba por empezar; desde el 2026-09-09 deja evento con la fila
@@ -554,12 +612,30 @@ FROM event WHERE kind <> 'availability' ORDER BY id DESC LIMIT 50;
 
 ## Programación de tareas (2026-09-08)
 
-Cada unidad de launchd (Mac) y de systemd (servidor, `deploy/`) ejecuta **un target de `make`**, así cualquier
-cosa automática se reproduce a mano igual (`make help`). Se descartó Grunt: es un task runner de Node para builds
-de JavaScript y el proyecto es Python sin front end compilado.
+**Registro de trabajos (2026-09-25).** El calendario tiene una sola fuente, `jobs/registry.py`, con el patrón de registro
+de tareas cron de otros proyectos de David: `jobs/keys.py` lista las llaves (el equivalente de un enum `CronTaskKey`,
+como constantes de texto porque el repo evita clases) con su área en una tabla aparte (`AREA`: captura, archivo,
+acceso, operación), y el registro es un dict llave → entrada con pasos, horario, tope, reintentos, dónde corre y qué
+escribe. El registro nombra el código de cada paso por módulo (`scraper.run`, `sync.run`…) y `jobs.run` lo lanza como
+subproceso con su intérprete, igual que un `import()` diferido: nadie importa el código de un trabajo para programarlo, y
+así `sync` y `auth` pueden correr en el venv mientras el runner corre en el Python del sistema. systemd sigue siendo el
+programador (se conservan `Persistent`, el tope por unidad y `list-timers`), pero sus unidades se generan del registro
+(`make units`, `deploy/systemd/`) y cada una solo sabe `make job KEY=llave`; los agentes de launchd de la Mac, las capturas
+que espera `scraper.health`, la tabla de `ARCHITECTURE.md` y la sección "Trabajos programados" de Operaciones salen del
+mismo registro, y una prueba falla si lo generado se desalinea. Antes de esto el calendario vivía en seis lugares y ya
+no coincidían (la Mac corría salud, precios y dulcería juntos a las 06:00; el servidor, salud a las 08:07).
+`jobs.run` añade lo que el registro de tareas promete: **candado por llave** (el timer y una corrida a mano no corren a
+la vez; la segunda se registra como `skipped`), **tope de tiempo** que corta el paso y lo que lanzó, **reintentos** solo
+donde se piden (el respaldo, uno a los 10 min; `http.py` ya reintenta cada petición) y **una línea por corrida en
+`data/logs/jobs.jsonl`** con duración, resultado y pico de memoria del paso más pesado. Ese pico es la medida que faltaba
+para dimensionar la instancia con la captura nacional (ver "Decisión: solo SQLite"). No hay
+candado de base entre trabajos: las capturas descargan en paralelo y escriben en segundos, y SQLite ya serializa cada
+transacción; un candado por trabajo haría esperar 20 min al pase de planos. La llave `snapshot` renombró la unidad
+`absolut-cinema-scraper` a `absolut-cinema-snapshot`; `deploy/units.sh` quita las unidades que ya no están en el repo.
+Se descartó Grunt: es un task runner de Node para builds de JavaScript y el proyecto es Python sin front end compilado.
 
 **Decisión del cliente (2026-09-08, aplicada 2026-09-09): la cartelera se captura tres veces al día**, a las
-07:30, 13:30 y 20:30 CDMX (`config.SNAPSHOT_HOURS`). **Los planos de asientos van cada hora y solo post-inicio**
+07:30, 13:30 y 20:30 CDMX (trabajo `snapshot` de `jobs/registry.py`). **Los planos de asientos van cada hora y solo post-inicio**
 (decisión 2026-09-09): el plano existe ~2.5 h tras el inicio, así que una corrida por hora con ventana de 15 a 75 min cubre
 todas las funciones; la lectura de preventa a T−60 se dejó de programar porque el 59 % de sus lecturas era cero y la
 asistencia final es lo que vale (target del modelo de consumo). Los cambios del competidor se leen como comportamiento
@@ -568,16 +644,9 @@ en la siguiente se registra como `expired`, no `removed`; el semáforo de Cineme
 publicación de la semana siguiente se detecta con hasta 6 h de retraso. Una cuarta captura a las 23:30 reduciría lo
 primero si hiciera falta.
 
-| Trabajo (`make …`) | Cadencia | Mac (launchd) | Servidor (systemd) |
-| --- | --- | --- | --- |
-| `snapshot`: captura nacional de cartelera (15–30 min) | 07:30, 13:30, 20:30 | `com.absolut-cinema.scraper` | `absolut-cinema-scraper.timer` (`TimeoutStartSec=45min`) |
-| `seats`: planos post-inicio (asistencia final), solo `AC_SEATS_PLAZAS` | cada hora, :50 | `com.absolut-cinema.seats` | `absolut-cinema-seats.timer` |
-| `daily`: salud + precios + dulcería Cinépolis | diario 06:00 | `com.absolut-cinema.daily` | `health.timer` 08:07 y `prices.timer` 06:07 |
-| `delivery`: dulcería a domicilio (Rappi, DiDi Food) | diario 15:00 (tiendas abiertas) | `com.absolut-cinema.delivery` | `delivery.timer` 15:07 |
-| `capacity REFRESH=1`: aforo Cinépolis | mensual | a mano | `capacity.timer` día 1 04:07 |
-| `calibrate-cinemex` | diario 19:07 | a mano (`!`) | `calibrate-cinemex.timer`, enlazado pero apagado (abre órdenes de checkout; tope 60 por corrida) |
-| `backup` | diario 05:07 | no aplica | `backup.timer` |
-| Pipeline `geo/` (arquetipos de zona) | trimestral | a mano | no aplica |
+La tabla de trabajos, cadencias, topes y dónde corre cada uno se genera del registro en `ARCHITECTURE.md`
+("Programación"). Fuera del registro: el pipeline `geo/` (trimestral, a mano en la Mac) y los pases con órdenes de
+checkout de Cinemex (`make capacity-cinemex`, `make calibrate-cinemex`), que se lanzan a mano con `!`.
 
 `scraper/health.py` (`make health`) revisa por cadena la edad de la última captura (umbral 12 h: el hueco nocturno
 normal es de 11 h), que cada captura programada de la ventana tenga un snapshot bueno a ±30 min, capturas
@@ -600,8 +669,8 @@ para la lógica pura (`tests/`, pytest en el venv, `requirements-dev.txt`).
   descubierto en el primer despliegue el 2026-09-10): las llamadas a `api-g.cinepolis.com` salen por el cliente WARP de
   Cloudflare instalado en la instancia, en modo proxy y con Privoxy como puente HTTP; Cinemex y el resto salen directo.
   Es un servicio más del host, lo instala `install.sh` y no cambia la instancia ni la red de AWS (no hace falta NAT ni
-  IP elástica para esto). Ver "Consideraciones" y `deploy/README.md`. Con el archivo histórico en RDS (plan 2) la instancia puede
-  bajar a `t4g.small`, porque deja de llevar el WAL de SQLite. Dimensionamiento en `docs/ec2-sizing.md`
+  IP elástica para esto). Ver "Consideraciones" y `deploy/README.md`. La instancia baja a `t4g.small` (2 GB) solo cuando la
+  captura nacional tenga memoria acotada. Dimensionamiento en `docs/ec2-sizing.md`
   y provisión paso a paso en `docs/aws-setup.md`.
   Lo urgente es salir de la Mac: launchd deja huecos en la serie cada vez
   que la laptop duerme (la noche del 7 al 8 de septiembre se perdieron ~8 h de snapshots por eso).
@@ -612,19 +681,19 @@ para la lógica pura (`tests/`, pytest en el venv, `requirements-dev.txt`).
 
 Contado sobre `data/snapshots.db` con la historia desde el 2026-09-07, no estimado. Con la cadencia de
 tres capturas al día se escriben **~320,000 filas al día**, de las cuales **el 96 % es el `DELETE` de la
-cadena y el `INSERT` de sus 51,468 funciones vigentes** que hace `store.replace_current` en cada captura
+cadena y el `INSERT` de sus 51,468 funciones vigentes** que hacía `store.replace_current` en cada captura (desde el
+2026-09-25 `store.apply_current` escribe solo la diferencia, ver "Captura por unidades")
 (Cinemex 28,346 y Cinépolis 23,122). La información nueva de verdad son ~11,600 filas: ~7,000 eventos,
 ~1,750 muestras de ocupación, ~1,563 precios de dulcería, ~968 de dulcería a domicilio y el resto entre
 precios de boleto, aforo y metadatos de captura.
 
-En SQLite ese reemplazo es una transacción local y no cuesta nada. Importa para el plan 2: replicarlo en
-Postgres dejaría 308,808 tuplas muertas al día para autovacuum, y por eso `showtime_state` versiona con
-`valid_from`/`valid_to` en vez de reescribir el estado entero.
+En SQLite ese reemplazo es una transacción local y no cuesta nada (hoy además se escribe por diferencia,
+`store.apply_current`).
 
 Crecimiento en disco: la base sube ~7 MB al día (~2.5 GB al año) y el crudo comprimido ~2 MB al día
 (~0.7 GB al año, 0.65 MB por corrida). `current_showtime` no crece porque se reemplaza; lo que crece sin
-límite es `event` (883 B por fila, ~980 B con sus tres índices). Al pasar a Postgres el mismo año de CDMX ocupa ~1.7 GB
-porque separa identidad de estado y no guarda los JSON completos (ver `docs/postgres-esquema.md`).
+límite es `event` (883 B por fila, ~980 B con sus tres índices). Con la captura nacional son ~22–27 GB al año
+(`docs/ec2-sizing.md`), y la retención de `event` es pendiente.
 
 ## Dashboard ejecutivo (estructura en tres capas, 2026-09-08)
 
@@ -635,24 +704,79 @@ porcentajes van en **puntos porcentuales**, la unidad de análisis es la **seman
 miércoles) y para el día en curso solo se cuentan funciones que no han empezado. Paleta y tipografía en
 `DESIGN.md`: Cinemex rojo `#E31837`, Cinépolis tinta `#191A1E`, fuente Archivo.
 
-Decisión clave: **datos reales, nunca sintéticos**. Lo que no existe no se muestra con cifras; los paneles
-pendientes viven como argumento en el bloque "Qué se desbloquea con tus datos".
+Decisión clave: **datos reales, nunca sintéticos**. Lo que no existe no se muestra con cifras; un panel
+pendiente lo dice en su propio apéndice de la Capa 3.
+
+### Emparejamiento de títulos entre cadenas (`scraper/titles.py`, 2026-09-25)
+
+Todo lo que compara películas entre cadenas (shares por película, Resumen general, concentración, butacas por título,
+demanda, movimientos, preventas) agrupa por `title_key(title_norm)`, no por `title_norm`. La llave se registra como
+función de SQLite en `analytics.connect()` (`db.register`), así no hay columna ni backfill y una regla nueva aplica a
+toda la historia. Tres capas:
+
+1. **Reglas explícitas**: quitan solo decoraciones con palabra clave (reestreno, "25 aniversario", "Evento Especial",
+   "En Vivo" / "Live Viewing", "Infinity Vision", "4K", "The" inicial). No quitan años ni números sueltos ("Blade Runner
+   2049", "Parte 1" frente a "Parte 3").
+2. **Tabla `scraper/title_pairs.csv`** (versionada): `same` une lo que las reglas no alcanzan (One Piece: "La Película"
+   frente a "La Pelicula 2000"); `different` deja de proponer un par y, solo si las reglas los habían unido, los separa.
+3. **Candidatos** (`scripts/title_pairs.py`): parecido de texto (difflib ≥ 0.6) entre títulos sin pareja con los mismos
+   números, con duración y distribuidora como evidencia; `--accept` / `--reject` escriben la tabla. `scraper.health`
+   avisa cuántos pares hay por revisar. Nada se une solo: el parecido no distingue sedes (dos conciertos de BTS se
+   parecen más de 80 %).
+
+Medido el 2026-09-25 (CDMX, semana del 24 al 30): antes solo 29 de 59/80 títulos coincidían por nombre, y Cinépolis
+repartía Avengers en "Endgame Bonus" (5.2 %) e "Infinity Vision" (6.0 %). Con la llave, Avengers pasa de **+10.2 pp a
++4.2 pp**, el hallazgo de título por butacas de "+18 pp" a **+6.1 pp** (y sale de las tres primeras tarjetas), y el de
+exclusivas deja de contar Infinity Vision como exclusiva de Cinépolis ("el mayor se lleva 6 %" pasa a 1 %). Transformers
+("La película", 84 min, frente a "The … 40 Aniversario", 96 min) se une por reglas: la diferencia de duración parece
+material extra de la edición de aniversario, sin confirmar. Primera revisión de candidatos: uno, "El Descenso" frente a
+"El Desaire", rechazado.
 
 ### Capa 1 · Lo que importa hoy (`analytics/findings.py`)
 
 Hasta tres tarjetas (titular como decisión, una línea de contexto, chip "Decisión: …", cuatro a seis números
-de soporte). Se evalúan en este orden y entran solo si cruzan su umbral:
+de soporte). Se evalúan todas las reglas; cada una entra solo si cruza su umbral y lleva una fuerza (`strength` =
+brecha / umbral, con formato a la mitad porque es estructural) y se muestran las tres más fuertes; un empate conserva
+el orden de la tabla (2026-09-25; antes entraban las tres primeras y la capa casi no cambiaba). Una regla que depende
+de un muestreo no entra si su dato está vencido: la dulcería a domicilio pide una lectura de hace 3 días o menos
+(`CONCESSION_MAX_AGE_DAYS`), y si no la hay su conclusión de Capa 2 dice la fecha de la última.
 
 | Hallazgo | Umbral | Qué compara |
 | --- | --- | --- |
+| Movimientos | ≥ 1 pp y ≥ 30 funciones netas en un título | qué le cambió cada cadena (primero Cinépolis) a lo que falta de la semana frente a un corte anterior (`analytics.programming_moves`, ver abajo) |
+| Preventa exclusiva | un título que Cinépolis tiene en preventa y nosotros no exhibimos en la plaza lleva ≥ 40 % de su aforo vendido (≥ 10 funciones de panel) | qué eventos o películas se nos escapan (`presale_compare`, `status = exclusiva_cinepolis`) |
+| Brecha de preventa | ≥ 10 pp de diferencia en % del aforo vendido en un título en preventa en ambas cadenas, con ≥ 10 funciones de panel cada una | quién va adelante en la venta anticipada del mismo título (`analytics.presale_compare`) |
+| Preventa | el título con más ritmo en puntos de aforo al día (o más % vendido, con una sola lectura) le saca ≥ 2× al segundo, con ≥ 10 funciones en el panel | nuestra preventa por título (`analytics.presale_ranking`); no depende del periodo |
+| Demanda | un título vende ≥ 30 % más (o menos) de lo esperado para su horario en Cinépolis, con ≥ 20 planos en 7 días | contra cuánta parrilla le damos: vende de más y le damos menos que ellos, o vende de menos y le damos más (`analytics.occupancy_by_title`, ver abajo); solo con plaza, porque los planos se leen en `AC_SEATS_PLAZAS` |
 | Título por butacas | ≥ 1.5 pp entre Δ funciones y Δ butacas | el título compartido donde la apuesta por sala cuenta otra historia que la apuesta por funciones (cuatro redacciones: invertida, amplificada, diluida, en cada dirección) |
 | Concentración | ≥ 3 pp en el peso del Top 3 | quién concentra la parrilla y cuántos títulos exclusivos cubre el otro |
 | Dulcería | ≥ 10 % de brecha mediana en la canasta comparable a domicilio | quién cobra más a domicilio y el modelo de precio en sala (por complejo vs lista única); va tercero porque es información de valor directo para el cliente |
 | Franjas | ≥ 1 pp en la franja con mayor Δ | dónde nos ganan o ganamos, con el pico de cada cadena y, si el periodo tiene dos días, el Δ por día |
+| Precio del boleto | ≥ 10 % de brecha en el boleto promedio, con precio para ≥ 50 % de las funciones | la mediana del boleto general de cada formato y tipo de día (muestras de 14 días) ponderada por lo que cada cadena programa en el periodo (`analytics.effective_ticket_price`), más la combinación con mayor brecha entre las que tienen ≥ 5 cines muestreados; pesa la mitad, como formato |
 | Formato | ≥ 5 pp en Premium/VIP, Gran formato o 3D-4D | la diferencia estructural de sala, más quién subtitula más |
 | Exclusivas | ≥ 3 títulos de Cinépolis con ≥ 20 funciones | qué exhiben que no tenemos |
 
-Si ninguna diferencia cruza su umbral, la capa lo dice. Con el periodo "resto de la semana" del 2026-09-08
+Si ninguna diferencia cruza su umbral, la capa lo dice.
+
+**Movimientos (`programming_moves`, 2026-09-25).** Reconstruye la parrilla de funciones que aún no empiezan tal como
+estaba en un corte anterior (replay inverso de `event`, como `history.board_as_of`) y la compara por título y cadena
+con la vigente. El corte es el más reciente entre hace 72 h y el momento en que la cadena ya había publicado el 90 %
+de su parrilla vigente (por `first_seen`); si eso deja menos de 24 h no hay comparación. El porqué: la semana se
+publica por partes (preventa, luego estrenos) y con un corte fijo de 72 h el jueves medía la publicación, no una
+decisión (con los datos del 2026-09-25 el corte tenía ~24 % de las funciones y todo salía como caídas de 30 pp).
+Además solo cuentan cines y días publicados en ambos cortes. Riesgo abierto: variantes de título ("Avengers Endgame
+Bonus" y "… Infinity Vision") pueden leerse como quitar y poner; revisar los primeros hallazgos reales.
+
+**Demanda (`occupancy_by_title`, 2026-09-25).** Usa los planos de Cinépolis tras el inicio (asistencia final) como
+señal de demanda del mercado por título. Cada plano se compara con el % vendido medio de la cadena en la misma franja y
+tipo de día (fin de semana o no), así un título programado de noche no parece más demandado solo por su hora;
+`demand_index` = vendido / esperado. Es la sala de Cinépolis, no la nuestra: nuestra ocupación entra cuando haya datos
+del cliente. Con el muestreo local del 8 al 10 de septiembre la lectura tiene sentido (Coyote 1.5, Gungo 0.25), pero
+esos títulos ya casi no se programan y el hallazgo no sale; depende de que el trabajo `seats` esté al día.
+
+**Precio del boleto (`effective_ticket_price`, 2026-09-25).** Con las muestras del 8 al 10 de septiembre en CDMX:
+boleto promedio de la cartelera $92 Cinemex frente a $107 Cinépolis (nacional $92 frente a $96). Las muestras locales
+ya pasan de 14 días, así que el hallazgo se activa solo donde `prices` corre (servidor). Con el periodo "resto de la semana" del 2026-09-08
 salieron: Coyote (apuesta amplificada en butacas, +7.8 pp), concentración (47 % vs 40 % del Top 3) y la noche
 (Cinépolis pone 2.6 pp más después de las 9 PM).
 
@@ -721,10 +845,8 @@ Expanders con una línea de resumen en gris al lado del título, para que no hag
 0 discrepancias. Es exacta desde que existe el evento `expired`; para fechas anteriores las funciones concluidas no
 están (p. ej. el 8 de septiembre en Ajusco aparece vacío).
 
-Cierra el bloque oscuro **"Qué se desbloquea con tus datos"**: taquilla por título → abrir/mantener/recortar;
-preventa batch → curva vs comparables; taquilla por función → ingreso real vs potencial; pasada manual →
-ocupación estimada de Cinemex (desaparece al calibrar el semáforo); automático 24 sep → decaimiento;
-automático 5 oct → tendencia de 4 semanas; captura → geografía por alcaldía.
+El bloque oscuro "Qué se desbloquea con tus datos" que cerraba la página se quitó el 2026-09-25 (decisión de David):
+cada panel pendiente lo dice en su propio apéndice.
 
 ### Implementación
 
@@ -759,7 +881,8 @@ horaria, dumbbell por película, mapa de calor, formatos e idioma, módulo de du
 indicadores, comportamiento semanal del competidor, precios, salas y butacas, historial por función con cartelera "tal
 como estaba", y ocupación medida.
 
-**Archivo histórico en PostgreSQL (etapa 1, construido el 2026-09-09):** `sync/` (`make sync`, launchd y systemd a :22 y
+**Archivo histórico en PostgreSQL (etapa 1, construido el 2026-09-09; retirado el 2026-09-25, ver "Decisión: solo
+SQLite"):** `sync/` (`make sync`, launchd y systemd a :22 y
 :52) copia lo nuevo de SQLite por marca de agua y reconstruye la historia de cada función desde el crudo de cada captura
 como identidad (`showtime`) + versiones de estado (`showtime_state`, `valid_from`/`valid_to`), con las mismas reglas del diff
 del scraper (`scraper.diff.changed_fields`, `closing_kind`, `normalize.TRACKED_FIELDS`). Carga inicial: 79 capturas,
@@ -769,7 +892,7 @@ intermedias) y en eventos (mismos ids). Destino hoy: Postgres 16 en Docker local
 cambiando `AC_PG_DSN`. Diseño en `docs/postgres-esquema.md`, operación en `deploy/README.md`.
 
 **Decisiones abiertas con el cliente:** entrega de su tablero de dulcería y de su taquilla por función, si el entregable
-vive en su cuenta de AWS (RDS) o en DigitalOcean, qué plazas entran al muestreo de planos y si `cdmx` se amplía a
+vive en su cuenta de AWS o en DigitalOcean, qué plazas entran al muestreo de planos y si `cdmx` se amplía a
 metrópoli (ver "Captura nacional").
 
 ### Etapa 1 del archivo histórico: hecha (2026-09-09)
@@ -780,8 +903,31 @@ snapshot sin cerrar más viejo de 2 h se copia como fallido; Postgres es append-
 SQLite no se propagan); particiones mensuales bajo demanda, sin DEFAULT; `cinema.city_id` sale del crudo (Cinépolis
 `cdmx`, Cinemex el id de estado `8`). El sync escribe `data/logs/sync_status.json` y `scraper.health` lo vigila.
 
-**Etapa 2 (siguiente):** portar `analytics/` a Postgres con tipos nativos (el filtro de plaza ya existe sobre SQLite y
-`cinema.city_id` en Postgres ya guarda la misma llave) y mover el destino a RDS cuando el cliente confirme la cuenta.
+**Etapa 2:** cancelada el 2026-09-25 junto con el archivo en Postgres.
+
+### Decisión: solo SQLite (2026-09-25)
+
+**Por qué.** El RDS cobraba ~8 USD en ~180 h por ~500 MB y se apagó; Postgres en la misma instancia pelearía por los
+2 GB con la captura nacional (pico medido de 1.9 GB) y el dashboard. El volumen no lo pide: ~50–65 mil eventos y ~12 mil
+muestras al día, una transacción de segundos por captura y ~10 lectores con caché (cifras en `docs/ec2-sizing.md`). Y el
+cliente pide disponibilidad, no historia de hace un año: el mercado de cine es volátil y el crudo sigue permitiendo
+reconstruir cualquier historia con las reglas de `scraper/diff.py`. En producción no había datos que conservar en Postgres
+(las cuentas eran de prueba).
+
+**Qué quedó.** Dos bases SQLite con un escritor cada una: `data/snapshots.db` (la captura) y `data/app.db` (`auth/`:
+cuentas, sesiones, enlaces y auditoría; se crea con su esquema al conectar, `auth/db.py`; fechas como texto ISO UTC con
+microsegundos para que las comparaciones de SQL sean cronológicas; corre en el venv por `hashlib.scrypt`). El explorador
+Datos lee `snapshots.db` con los mismos seis conjuntos (`analytics/datasets.py`: `DISTINCT ON` → `ROW_NUMBER()`,
+búsqueda con `norm_title` sin acentos, funciones cerradas desde los eventos `removed`/`expired`). El respaldo diario
+copia ambas bases (`.backup`, consistente con WAL) y el crudo al bucket; simulacro de restauración en local el mismo día
+(810 MB → 53 MB en 4 s, `integrity_check` ok). Operaciones muestra el tamaño de ambas bases.
+
+**Qué se fue.** `sync/`, `archive/`, `deploy/postgres/`, `deploy/docker-compose.dev.yml`, `docs/postgres-esquema.md`,
+`requirements-sync.txt`, `psycopg`, el trabajo `sync`, los targets `pg-*`, `sync` y `auth-schema`, y las secciones
+Postgres y Sync de Operaciones. Todo vive en el tag `pre-sqlite-only`; las ediciones sin commit que tenían `sync/state.py`
+y `docs/postgres-esquema.md` ese día quedaron en `data/pre-sqlite-only-uncommitted.patch` (fuera de git).
+
+**Siguiente.** Memoria acotada de la captura nacional y retención de `event` (~22–27 GB al año).
 
 ### Captura nacional: hecha (2026-09-11)
 
@@ -798,8 +944,9 @@ Lo que cambió y por qué está en el resumen y en "Scraper de snapshots". Decis
 - **Zonas horarias.** `datetime_utc` en cada función y `starts_at_utc` en `showtime_state`; `from_now` y `closing_kind`
   comparan en UTC. "Hoy" y las horas programadas siguen en la zona de referencia (`PILOT_TIMEZONE`): el desfase de día
   solo existe entre las 00:00 y las 02:00 CDMX para los cines del noroeste y se acepta.
-- **Todo o nada por cadena**: un estado o ciudad que falla tira la captura de esa cadena; `scraper.health` avisa además
-  si la última captura buena trae menos del 90 % de los cines del máximo semanal.
+- **Todo o nada por cadena** (hasta el 2026-09-25, reemplazado por la captura por unidades): un estado o ciudad que
+  fallaba tiraba la captura de esa cadena; `scraper.health` avisa además si la última captura buena trae menos del 90 % de
+  los cines del máximo semanal.
 
 Primera captura nacional (2026-09-11 18:37 CDMX, desde la Mac): 11 min con las dos cadenas en paralelo. Registro
 inicial por plaza (funciones vigentes, Cinemex / Cinépolis): CDMX 23,423 / 22,039; Guadalajara 2,391 / 9,946; Monterrey
@@ -819,9 +966,54 @@ los tenga sin volver a pedirlos, se copia la tabla `auditorium` (`INSERT OR IGNO
 fuera de CDMX: no eran lecturas fallidas, nunca se habían pedido. Lanzada desde la Mac la noche del 2026-09-11.
 
 Pendientes: fijar `AC_SEATS_PLAZAS` con el registro de la primera semana; ampliar `cdmx` a metrópoli si el cliente
-quiere simetría; retención de `event` en SQLite (crece ~5×; el archivo es Postgres); la dulcería a domicilio sigue en
+quiere simetría; retención de `event` en SQLite (crece ~5×; sin archivo en Postgres, ver "Decisión: solo SQLite"); la dulcería a domicilio sigue en
 CDMX (Rappi y DiDi van por ciudad); un caché del catálogo de ciudades de Cinépolis si las 155 llamadas por captura
 molestan (hoy ~2 min).
+
+### Captura por unidades y estado por cine (2026-09-25)
+
+Pedido de David: que un estado que falla no tumbe la captura nacional, saber cuál falló y leer la información por
+estado. Se descartaron 32 trabajos separados, uno por estado. Cinépolis no se organiza por estado (pide listas de hasta
+30 cines), serían 32 escritores y 32 snapshots por captura, y en paralelo multiplicarían el ritmo contra el WAF de
+Cinépolis, cuya pausa de 0.6 s es la que fija la duración.
+
+- **Unidades** (`scraper/units.py`). Cinemex: un estado de su API por unidad, 3 a la vez (`CINEMEX_WORKERS`). Cinépolis:
+  el catálogo de cines, una unidad por ciudad, y la cartelera en lotes de hasta 30 cines agrupados por estado de INEGI
+  (`pack_by_state`): un estado grande se parte en lotes parejos que van solos ("Ciudad de México (1/2)", "Estado de
+  México (2/3)") y los chicos comparten lote ("Querétaro + Quintana Roo"). Son 20 lotes en vez de 17. Una unidad que
+  falla se reintenta una vez al final (`UNIT_RETRIES`) y, si sigue fallando, se descarta entera. `AuthError`, `Blocked` y
+  `RateLimited` detienen la cadena. Si fallan todas, la captura queda `ok=0` como antes.
+- **Una unidad fallida conserva el estado anterior de sus cines.** El alcance (estado de Cinemex, ciudad o lote de
+  Cinépolis) se resuelve a cines con el estado anterior y queda en el crudo (`units[].scope_cinema_ids`). Esas funciones
+  no generan eventos, siguen en `current_showtime` (`diff.carry_over`) y el sync no las cierra en Postgres
+  (`diff.failed_cinemas`, misma regla en los dos lados). Tabla nueva `snapshot_unit`: resultado, error, intentos,
+  llamadas, duración, cines, funciones leídas y conservadas. `snapshot` gana `n_units` y `n_failed_units`. `health` marca las unidades
+  fallidas de la última captura y Operaciones tiene la sección "Unidades de captura".
+- **Escritura por diferencia** (`store.apply_current`). Antes se borraban y reinsertaban todas las funciones de la
+  cadena en cada captura; ahora se inserta lo nuevo, se actualiza lo que cambió en cualquier columna (comparando con la
+  afinidad de SQLite, para que 3 contra "3" no cuente) y se borra lo cerrado. `current_showtime.snapshot_id` pasa a ser
+  la última captura que escribió la fila.
+- **Estado de INEGI por cine** (`state_code`, ambas cadenas; `scraper/states.py`). Ninguna API da el estado real: la
+  "ciudad" `cdmx` de Cinépolis tiene 51 cines en CDMX y 23 en el Estado de México (Zona Esmeralda, en Cd. López Mateos,
+  entre ellos), y el "estado 8" de Cinemex, 53 y 34. Tampoco sirven `regionId` (solo existe en CDMX) ni `zipCode` (vacío),
+  verificado 2026-09-25. El estado sale de las coordenadas de cada cine sobre los polígonos estatales de INEGI 2020
+  (geoBoundaries ADM1, CC BY 3.0 IGO) con `scripts/cinema_states.py`, y se versiona en `scraper/cinema_states.csv`
+  (778 cines). Validación: cada estado de la API de Cinemex cae en un solo estado INEGI, salvo el 8. Dos cines de
+  Cinépolis publican la longitud sin signo (Diana Acapulco VIP y Gran Plaza los Soles Zitácuaro, `99.873` en vez de
+  `-99.873`); el script lo corrige. Un cine nuevo toma el estado más común de su ciudad o área hasta que se vuelva a
+  correr el script, y `health` lo lista.
+
+**Primera corrida real (2026-09-25, Mac, base local con 13 días sin capturar):** 51 de 51 unidades bien (31 estados de
+Cinemex, 20 lotes de Cinépolis). Cinépolis hizo 1,044 llamadas frente a 975 con 17 lotes (+7 %). Escritura:
+Cinemex +69,164 / ~1,802 / −67,519 y Cinépolis +104,858 / ~32,896 / −103,314, casi todo recambio por los 13 días de hueco;
+en régimen normal la diferencia es de miles. Una segunda captura de Cinemex dos minutos después, con la Mac despierta:
+**descarga en 87 s** (antes 8.9 min en serie; el estado más lento, el 8, 11 s), 0 eventos y escritura `+0 / ~161 / −0`:
+solo las funciones del cine recién mapeado, frente a ~142 mil filas borradas y reinsertadas con el esquema anterior. La
+duración de Cinépolis en esta corrida no vale: la Mac se durmió ~21 min a media captura. Tres cines nuevos desde el 11 de septiembre (Sun Mall Villa Juárez en Cinemex,
+Las Tiendas Cancún y VIP San Pedro Mexicali en Cinépolis): los detectó el respaldo y se mapearon al volver a correr el script.
+**Pico de memoria de la captura nacional: 1,944 MB** (`jobs.jsonl`). Está inflado por los 348 mil eventos del hueco
+(cada evento guarda la fila antes y después), pero el crudo y las filas en memoria ya pesan del orden de 1 GB. Es lo
+que decide la instancia (ver "Decisión: solo SQLite").
 
 ### Paso 2: Resumen general narrado con la IA del cliente (planeado el 2026-09-11, sin construir)
 
@@ -836,8 +1028,10 @@ modelo y la clave que elija el cliente. Decisiones tomadas con David:
   El dashboard nunca se bloquea ni espera a una API externa.
 - **Se genera por timer, no en el dashboard.** Servicio nuevo en el venv (`make narrate`, hacia las :45 tras cada captura
   de :30) para las vistas por defecto (hoy y la semana de cine, día completo); filtros no estándar caen a plantilla.
-  Guarda en Postgres, esquema `app`, tabla `app.narrative`: captura, periodo, proveedor, modelo, texto, tokens, costo e id
-  de la petición del proveedor. No toca SQLite (regla de un solo escritor).
+  Guarda en `data/app.db`, tabla `narrative` (desde 2026-09-25 las cuentas viven ahí; antes era `app.narrative` en
+  Postgres): captura, periodo, proveedor, modelo, texto, tokens, costo e id de la petición del proveedor. No toca
+  `snapshots.db` (regla de un solo escritor); `app.db` pasaría a tener dos escritores, `auth/` y `narrative/`, y hay que
+  decidirlo al construirlo.
 - **Paquete `narrative/`** con un adaptador por proveedor detrás de una misma función, usando el SDK oficial de cada
   uno; Anthropic primero (`claude-opus-5`, salida estructurada), luego OpenAI, Google si un cliente lo pide. `scraper/`
   y `analytics/` jamás lo importan. Costo estimado con tres generaciones diarias: < 5 USD al mes.
@@ -870,20 +1064,31 @@ custodiar y el consumo se factura directo a ellos.
 (4) sección de admin para capturar, probar y revocar la clave; (5) el dashboard lee `app.narrative` con plantilla de
 respaldo. Pruebas: validación de cifras y adaptador con respuestas grabadas, sin red.
 
-### Pendientes que no dependen del plan 2
+### Pendientes
 
-- Terminar el paso al servidor (EC2 levantado el 2026-09-10; WARP + Privoxy para Cinépolis): copiar `data/`, dejar un solo
-  `sync` apuntando a Postgres y apagar los agentes de launchd (`make launchd-unload`). Comprar el dominio y con él: SES
-  (identidad, DKIM, sandbox), `AC_BASE_URL` https, quitar `basic_auth`, aplicar `auth.sql`/`app_role.sql` en RDS y crear el
-  primer admin (`make user-create`).
-- Cinemex, a mano (`make calibrate-cinemex`, hacia las 7 P.M., por chunks de 60): calibración del semáforo; enciende la
-  ocupación estimada de Cinemex en el dashboard.
+- **Costo de la base (decidido el 2026-09-25: solo SQLite, ver "Decisión: solo SQLite").** RDS cobró ~8 USD en ~180 h por ~500 MB de datos; para la etapa de prueba
+  se evalúa quitarlo: Postgres en el mismo EC2 (sin cambios de código; ~150–250 MB de RAM con `shared_buffers` chico) o
+  todo en SQLite (portar `sync/`, `archive/` y `auth/`, ~1,650 líneas). Se decide con el pico de memoria real de cada
+  trabajo en el servidor (`data/logs/jobs.jsonl`, sección "Trabajos programados" de Operaciones), porque el pico de ~600 MB
+  de `docs/ec2-sizing.md` es del piloto CDMX y la captura nacional lee ~6× más funciones. Primera medida (2026-09-25, Mac,
+  base con 13 días de hueco): **1,944 MB** la captura nacional, inflada por 348 mil eventos. Si en el servidor ronda 1 GB o
+  más, la captura sola ya presiona un `t4g.small` y lo que hay que atacar primero es su memoria (armar la cadena por
+  unidades sin retener todo el crudo, o no copiar la fila completa en cada evento), no Postgres. El archivo en Postgres se
+  reconstruye desde el crudo; lo único irreemplazable es el esquema `app` (cuentas).
+- **Horizonte de Cinépolis.** Cinemex se pide a 14 días (`CINEMEX_DAYS_AHEAD`); Cinépolis no tiene tope y guarda todo lo
+  que publica (hasta 3.5 meses): en la captura nacional del 2026-09-11, 24 % de sus 136 mil funciones estaban a 14 días o
+  más. Un tope igual reduciría una cuarta parte de lo que `current_showtime` reescribe tres veces al día; falta revisar
+  qué panel usa preventas lejanas.
+- Terminar el paso al servidor (EC2 levantado el 2026-09-10; WARP + Privoxy para Cinépolis): copiar `data/` y apagar los
+  agentes de launchd (`make launchd-unload`). Comprar el dominio y con él: SES
+  (identidad, DKIM, sandbox), `AC_BASE_URL` https, quitar `basic_auth` y crear el primer admin (`make user-create`; `data/app.db`
+  se crea sola).
+- Cinemex: la calibración del semáforo corre sola (trabajo `calibrate-cinemex`, 19:07, plano público) hasta 100 muestras
+  por nivel; enciende la ocupación estimada de Cinemex en el dashboard.
 - Con historia: ocupación por película, franja y complejo desde `occupancy_sample` post-inicio; escala de los colores
   `#FFBE06` / `#FF804A` / `#A2ACBA` (hoy naranja ≈ 83 %, amarillo ≈ 53 % vendido con pocas muestras); comportamiento
   semanal del competidor (cancelaciones, movimientos, hora de publicación); decaimiento por título (≈2026-09-24) y
   tendencia de 4 semanas (≈2026-10-05).
-- Tabla de equivalencias de películas entre cadenas (`title_norm` + duración + distribuidor, con revisión manual de
-  reestrenos, festivales `tcf-`/`cltcf-` y eventos en vivo).
 - Emparejar cines por distancia (zonas de choque) y alcaldía + población INEGI para el panel geográfico.
 - Integración con el cliente: aforo oficial, taquilla por función, preventa y su tablero de dulcería.
 - **Modelo de tipificación de zonas y consumo por complejo** (esquema de David, 2026-09-08, fuera del repo): arquetipo
@@ -902,7 +1107,8 @@ pospuesto), **dos roles** (`admin`: gestiona cuentas y ve todo; `viewer`: gente 
 datos), correo por **Amazon SES**, y un **explorador de tablas curadas** con filtros, orden, búsqueda y CSV, sin consola
 SQL: es parte del valor que se entrega al cliente, sin regalarle la base completa.
 
-- **Paquetes.** `auth/` (venv, psycopg, boto3): cuentas, sesiones, enlaces de invitación y restablecimiento, correo y
+- **Paquetes** (así se construyó el 2026-09-10; desde el 2026-09-25 `auth/` usa `data/app.db` y `archive/` se
+  reemplazó por `analytics/datasets.py`, ver "Decisión: solo SQLite"). `auth/` (venv, psycopg, boto3): cuentas, sesiones, enlaces de invitación y restablecimiento, correo y
   CLI (`make user-create|user-list|user-reset|user-deactivate|user-activate|auth-prune`); `archive/` (venv, psycopg):
   consultas de solo lectura sobre el archivo en Postgres, mismo estilo que `analytics/` (`fn(conn, ...) -> list[dict]`),
   donde crecerá la etapa 2. `ui/session.py` es el único módulo que conoce la cookie. Las reglas de arquitectura quedan

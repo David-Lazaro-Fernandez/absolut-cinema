@@ -1,23 +1,34 @@
-# Tareas del proyecto. Cada target es el mismo comando que lanzan launchd (Mac) y los timers de systemd
-# (servidor), así se puede correr cualquiera a mano. El scraper usa /usr/bin/python3 (solo stdlib);
-# el dashboard usa el venv. Ver project.md > "Programación de tareas".
+# Tareas del proyecto. Lo programado vive en jobs/registry.py: cada timer de systemd (servidor) y agente de launchd (Mac)
+# ejecuta `make job KEY=llave`, y los targets de un solo trabajo (snapshot, seats, health…) son atajos de lo mismo, así
+# se puede correr cualquiera a mano igual que en automático. El scraper usa /usr/bin/python3 (solo stdlib); el dashboard
+# usa el venv. Ver ARCHITECTURE.md > "Programación".
 PY ?= /usr/bin/python3
 VENV ?= .venv/bin
 
-.PHONY: help tick snapshot seats occupancy post-start daily health prices concessions delivery capacity capacity-cinemex \
-        calibrate-cinemex dashboard backup launchd-load launchd-unload pg-up pg-schema pg-psql pg-admin pg-down sync \
-        auth-schema user-create user-list user-reset user-deactivate user-activate auth-prune deploy check lint test hooks \
+.PHONY: help job units units-check tick snapshot seats occupancy post-start health prices concessions delivery capacity capacity-cinemex presale \
+        calibrate-cinemex dashboard backup launchd-load launchd-unload \
+        user-create user-list user-reset user-deactivate user-activate auth-prune deploy check lint test hooks \
         marketing-dev marketing-build
 
 help:               ## lista los targets
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-20s %s\n", $$1, $$2}'
 
-tick: snapshot seats   ## atajo manual: una captura de cartelera y los dos pases de planos
+job:                ## corre un trabajo del registro como lo hace su timer: KEY=snapshot|seats|prices|… (jobs/keys.py)
+	$(PY) -m jobs.run $(KEY)
 
-snapshot:           ## captura de cartelera de ambas cadenas (programada a las 07:30, 13:30 y 20:30)
-	$(PY) -m scraper.run
+units:              ## regenera deploy/systemd/ y la tabla de ARCHITECTURE.md desde jobs/registry.py
+	$(PY) -m jobs.units write
 
-seats: post-start   ## lo que corre cada hora: planos post-inicio (asistencia final)
+units-check:        ## sale con 1 si deploy/systemd/ o ARCHITECTURE.md no coinciden con el registro
+	$(PY) -m jobs.units check
+
+tick: snapshot seats   ## atajo manual: una captura de cartelera y el pase de planos
+
+snapshot:           ## captura de cartelera de ambas cadenas (trabajo `snapshot`)
+	$(PY) -m jobs.run snapshot
+
+seats:              ## planos post-inicio, asistencia final (trabajo `seats`, cada hora)
+	$(PY) -m jobs.run seats
 
 occupancy:          ## planos de Cinépolis a ~60 min de empezar (preventa; solo a mano)
 	$(PY) -m scraper.sample --occupancy
@@ -25,47 +36,29 @@ occupancy:          ## planos de Cinépolis a ~60 min de empezar (preventa; solo
 post-start:         ## planos de Cinépolis 15–75 min después de empezar (asistencia final)
 	$(PY) -m scraper.sample --post-start
 
-daily: health prices concessions   ## lo que corre una vez al día a las 06:00 (usar con -k)
+health:             ## reporte de salud de la captura, sale con 1 si hay problemas (trabajo `health`)
+	$(PY) -m jobs.run health
 
-health:             ## reporte de salud de la captura (sale con 1 si hay problemas)
-	$(PY) -m scraper.health
-
-prices:             ## precios: una función por cine, formato y tipo de día (7 días)
+prices:             ## precios: una función por cine, formato y tipo de día (7 días); el trabajo `prices` añade concessions
 	$(PY) -m scraper.sample --prices
 
 concessions:        ## menú de dulcería de Cinépolis con precio por complejo (se renueva cada 7 días)
 	$(PY) -m scraper.sample --concessions
 
-delivery:           ## dulcería a domicilio en Rappi y DiDi Food, a las 15:00 con las tiendas abiertas (renovadas cada 7 días)
-	$(PY) -m scraper.delivery
+delivery:           ## dulcería a domicilio en Rappi y DiDi Food, tiendas renovadas cada 7 días (trabajo `delivery`)
+	$(PY) -m jobs.run delivery
+
+presale:            ## preventas de ambas cadenas: títulos en preventa y butacas vendidas de su panel (trabajo `presale`)
+	$(PY) -m jobs.run presale
 
 capacity:           ## aforo por sala de Cinépolis en AC_SEATS_PLAZAS; REFRESH=1 vuelve a medir; PLAZAS=all (o gdl,mty) cambia el alcance
 	$(PY) -m scraper.sample --capacity $(if $(REFRESH),--refresh,) $(if $(PLAZAS),--plazas $(PLAZAS),) $(if $(WORKERS),--workers $(WORKERS),)
 
-capacity-cinemex:   ## aforo de Cinemex (abre órdenes de checkout; lanzar a mano); PLAZAS=all para la pasada nacional única
+capacity-cinemex:   ## aforo de Cinemex con el plano público; PLAZAS=all para la pasada nacional única
 	$(PY) -m scraper.sample --capacity --chain cinemex $(if $(REFRESH),--refresh,) $(if $(PLAZAS),--plazas $(PLAZAS),) $(if $(WORKERS),--workers $(WORKERS),)
 
-calibrate-cinemex:  ## calibración del semáforo de Cinemex, 100 funciones por nivel (checkout; a mano o timer opcional)
+calibrate-cinemex:  ## calibración del semáforo de Cinemex, 100 funciones por nivel (trabajo `calibrate-cinemex`)
 	$(PY) -m scraper.sample --occupancy --chain cinemex --per-level $(or $(PER_LEVEL),100) --lead 60 --tolerance 45 --limit $(or $(LIMIT),60)
-
-pg-up:              ## Postgres 16 local en Docker para probar el esquema histórico (puerto 5433)
-	docker compose -f deploy/docker-compose.dev.yml up -d --wait
-
-pg-schema:          ## aplica deploy/postgres/schema.sql al Postgres local
-	docker compose -f deploy/docker-compose.dev.yml exec -T postgres psql -v ON_ERROR_STOP=1 -U absolut -d absolut_cinema < deploy/postgres/schema.sql
-
-pg-admin:           ## pgAdmin en el navegador (http://localhost:5050, contraseña de la base: absolut-dev)
-	docker compose -f deploy/docker-compose.dev.yml --profile admin up -d --wait pgadmin
-	open http://localhost:5050
-
-pg-psql:            ## consola psql en el Postgres local
-	docker compose -f deploy/docker-compose.dev.yml exec postgres psql -U absolut -d absolut_cinema
-
-pg-down:            ## apaga Postgres y pgAdmin locales y borra sus datos
-	docker compose -f deploy/docker-compose.dev.yml --profile admin down -v
-
-sync:               ## copia lo nuevo de SQLite al archivo histórico en Postgres (programado a :22 y :52)
-	$(VENV)/python -m sync.run
 
 dashboard:          ## Streamlit local
 	$(VENV)/streamlit run app.py
@@ -75,10 +68,6 @@ marketing-dev:      ## landing page pública en local (Next.js, marketing/); req
 
 marketing-build:    ## exporta la landing page pública como sitio estático a marketing/out
 	cd marketing && npm run build
-
-auth-schema:        ## esquema `app` (cuentas y sesiones) y rol absolut_app en el Postgres local; APP_PASSWORD opcional
-	docker compose -f deploy/docker-compose.dev.yml exec -T postgres psql -v ON_ERROR_STOP=1 -U absolut -d absolut_cinema < deploy/postgres/auth.sql
-	docker compose -f deploy/docker-compose.dev.yml exec -T postgres psql -v ON_ERROR_STOP=1 -v app_password="$(or $(APP_PASSWORD),absolut-dev)" -U absolut -d absolut_cinema < deploy/postgres/app_role.sql
 
 user-create:        ## cuenta nueva con enlace de invitación: EMAIL= NAME= [ROLE=admin|viewer] [NOMAIL=1]
 	$(VENV)/python -m auth.cli create --email "$(EMAIL)" --name "$(NAME)" --role $(or $(ROLE),viewer) $(if $(NOMAIL),--no-mail,)
@@ -95,31 +84,33 @@ user-deactivate:    ## desactiva una cuenta y cierra sus sesiones: EMAIL=
 user-activate:      ## reactiva una cuenta: EMAIL=
 	$(VENV)/python -m auth.cli activate --email "$(EMAIL)"
 
-auth-prune:         ## borra sesiones y enlaces vencidos hace más de 90 días (programado los domingos 04:07)
-	$(VENV)/python -m auth.cli prune
+auth-prune:         ## borra sesiones y enlaces vencidos hace más de 90 días (trabajo `auth-prune`)
+	$(PY) -m jobs.run auth-prune
 
-backup:             ## respaldo (requiere BACKUP_BUCKET en el entorno)
-	bash deploy/backup.sh
+backup:             ## respaldo, requiere BACKUP_BUCKET en el entorno (trabajo `backup`)
+	$(PY) -m jobs.run backup
 
-deploy:             ## servidor: trae origin/stable (o REF=…), reinstala si cambió requirements y reinicia el dashboard (07:07)
-	bash deploy/update.sh
+deploy:             ## servidor: trae origin/stable (o REF=…), reinstala si cambió requirements y reinicia el dashboard (trabajo `deploy`)
+	$(PY) -m jobs.run deploy
 
 check: lint test    ## lo que corre el pre-push y CI: lint, imports sin dependencias y pruebas
 
 lint:               ## ruff (pyproject.toml) y comprobación de que scraper/ y analytics/ importan con el Python del sistema
 	$(VENV)/ruff check .
-	$(PY) -m compileall -q scraper analytics
-	$(PY) -c "import analytics, scraper.run, scraper.sample, scraper.health, scraper.delivery"
+	$(PY) -m compileall -q scraper analytics jobs
+	$(PY) -c "import analytics, scraper.run, scraper.sample, scraper.health, scraper.delivery, jobs.run, jobs.units"
 
-test:               ## pruebas (las de pantalla se omiten si no hay data/snapshots.db o el Postgres de desarrollo)
+test:               ## pruebas (las de pantalla se omiten si no hay data/snapshots.db)
 	$(VENV)/python -m pytest -q tests/
 
 hooks:              ## activa los hooks de git del repo (.githooks: pre-push corre make check); una vez por clon
 	git config core.hooksPath .githooks
 	@echo "pre-push activo; para saltarlo en una emergencia: git push --no-verify"
 
-launchd-load:       ## Mac: cargar los cinco agentes (cartelera 3/día, planos cada hora, diario, delivery, sync)
-	for a in scraper seats daily delivery sync; do launchctl bootstrap gui/$$(id -u) scraper/com.absolut-cinema.$$a.plist; done
+launchd-load:       ## Mac: genera en data/launchd los agentes del registro con host mac y los carga
+	$(PY) -m jobs.units launchd data/launchd
+	for p in data/launchd/com.absolut-cinema.*.plist; do launchctl bootstrap gui/$$(id -u) "$$p"; done
 
-launchd-unload:     ## Mac: descargar los agentes (antes de mover el scraper al servidor)
-	-for a in scraper seats daily delivery sync; do launchctl bootout gui/$$(id -u)/com.absolut-cinema.$$a; done
+# `scraper` y `daily` son las etiquetas de antes del registro (hasta el 2026-09-25); se descargan por si siguen cargadas.
+launchd-unload:     ## Mac: descarga los agentes (antes de mover el scraper al servidor)
+	-for a in snapshot seats prices health delivery sync scraper daily; do launchctl bootout gui/$$(id -u)/com.absolut-cinema.$$a; done

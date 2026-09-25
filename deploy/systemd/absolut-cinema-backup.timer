@@ -1,0 +1,11 @@
+# Generado por `python3 -m jobs.units write` desde jobs/registry.py; no se edita a mano.
+[Unit]
+Description=absolut-cinema: backup, 05:07
+
+[Timer]
+OnCalendar=*-*-* 05:07:00
+Persistent=true
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

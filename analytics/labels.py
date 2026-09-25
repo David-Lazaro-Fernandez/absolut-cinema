@@ -229,7 +229,7 @@ AUTH_TEXT = {
     "token_missing": "Este enlace no es válido. Pide uno nuevo desde “¿Olvidaste tu contraseña?”.",
     "signed_in_as": "Sesión de",
     "continue": "Si la página no se recarga sola, continúa aquí.",
-    "pg_unavailable": "El archivo histórico no responde en este momento. Inténtalo en unos minutos.",
+    "db_unavailable": "El acceso no está disponible en este momento. Inténtalo en unos minutos.",
     # Mensajes por clase de error de auth.errors (type(e).__name__).
     "InvalidCredentials": "Correo o contraseña incorrectos.",
     "AccountInactive": "Correo o contraseña incorrectos.",
@@ -275,7 +275,7 @@ MAIL_RESET = {
              "<p>Si no fuiste tú, ignora este correo: tu contraseña no cambia.</p>"),
 }
 
-# --- Explorador de datos (archive/, views/datos.py) ---
+# --- Explorador de datos (analytics/datasets.py, views/datos.py) ---
 DATASET_LABEL = {
     "cinemas": "Cines y salas",
     "auditoriums": "Salas y aforo",
@@ -327,11 +327,11 @@ COLUMN_LABEL.update({
     "pending_invite": "Invitación pendiente", "has_password": "Con contraseña", "id": "Id",
 })
 
-# --- Operaciones (scraper/health.py, archive/status.py, views/operaciones.py; solo admin) ---
+# --- Operaciones (scraper/health.py, views/operaciones.py; solo admin) ---
 # La página es para ingeniería: los nombres de tablas y logs se muestran tal cual, a diferencia del resto del tablero.
 OPS_TEXT = {
     "title": "Operaciones",
-    "lead": "Estado de la captura, de la base local, del archivo en PostgreSQL y de los servicios. Solo para quien opera la plataforma.",
+    "lead": "Estado de la captura, de las bases SQLite y de los servicios. Solo para quien opera la plataforma.",
     "window": "Ventana",
     "hours": "{n} h",
     "all_ok": "Sin problemas en las últimas {hours} h.",
@@ -369,6 +369,14 @@ OPS_TEXT = {
                      "plaza a la que pertenecen. Es el registro para decidir qué plazas entran al muestreo de planos (AC_SEATS_PLAZAS).",
     "coverage_seats": "Planos de asientos acotados a: {plazas}",
     "coverage_no_plaza": "—",
+    # Trabajos programados (jobs/registry.py y data/logs/jobs.jsonl).
+    "jobs": "Trabajos programados",
+    "jobs_lead": "Cada trabajo del registro (jobs/registry.py) con su horario y lo que dejó jobs.run en data/logs/jobs.jsonl: "
+                 "última corrida, fallos y el pico de memoria del paso más pesado. Sin corridas en la ventana, el trabajo no ha "
+                 "pasado por jobs.run en esta máquina.",
+    "jobs_days": "Días",
+    "jobs_status": {"ok": "OK", "failed": "Falló", "timeout": "Tope de tiempo", "skipped": "Ya corría"},
+    "jobs_off": "Apagado",
     # Corridas.
     "runs": "Corridas recientes",
     "runs_lead": "Cada corrida de scraper.run por cadena: resultado, volumen, llamadas a la API y duración. El error literal cuando falló.",
@@ -377,32 +385,16 @@ OPS_TEXT = {
     "runs_chart_y": "Duración (s)",
     "runs_chart_x": "Captura",
     "runs_failed_legend": "Corrida fallida",
-    # Postgres.
-    "postgres": "Archivo histórico en PostgreSQL",
-    "postgres_lead": "Conexión de solo lectura con el mismo rol que usa el tablero.",
-    "pg_down": "PostgreSQL no responde: {error}",
-    "latency": "Latencia",
-    "server_version": "Versión",
-    "database": "Base",
-    "db_size": "Tamaño",
-    "connections": "Conexiones abiertas",
-    "server_time": "Hora del servidor",
-    "tables": "Tablas del esquema public",
-    "watermarks": "Marcas de agua del sync",
-    # Sync.
-    "sync": "Sincronización SQLite → PostgreSQL",
-    "sync_lead": "Última corrida de sync.run según data/logs/sync_status.json. El rezago es lo que falta por copiar, por tabla.",
-    "sync_missing": "El sync no ha corrido nunca en esta máquina (no existe sync_status.json).",
-    "sync_last": "Última corrida",
-    "sync_result": "Resultado",
-    "sync_duration": "Duración",
-    "sync_error": "Error",
-    "sync_lag": "Rezago por tabla",
-    "sync_counts": "Copiado en la última corrida",
-    "sync_no_lag": "Sin rezago: el archivo está al día.",
+    # Unidades de captura (scraper/units.py, tabla snapshot_unit).
+    "units": "Unidades de captura",
+    "units_lead": "Cada captura se descarga por partes que fallan por separado: Cinemex por estado de su API, Cinépolis por lotes "
+                  "de hasta 30 cines agrupados por estado. Una unidad que falla conserva la cartelera anterior de sus cines "
+                  "(columna Conservadas) y no genera cambios. Las que fallaron recientemente van primero.",
+    "units_empty": "Sin capturas por unidades en ese rango (existen desde el 2026-09-25).",
+    "units_failed_now": "Falló en la última captura",
     # Servidor.
     "server": "Servidor y almacenamiento",
-    "server_lead": "Commit en ejecución, último despliegue y respaldo, y cuánto ocupan la base y el crudo.",
+    "server_lead": "Commit en ejecución, último despliegue y respaldo, y cuánto ocupan las bases y el crudo.",
     "commit": "Commit",
     "no_git": "Sin información de git",
     "last_deploy": "Último despliegue",
@@ -410,6 +402,7 @@ OPS_TEXT = {
     "no_line": "Sin registro en esta máquina",
     "db_file": "snapshots.db",
     "wal_file": "WAL pendiente",
+    "app_db_file": "app.db (cuentas y sesiones)",
     "raw_dir": "Crudo (data/raw)",
     "backups_dir": "Respaldos locales",
     "disk_free": "Espacio libre en disco",
@@ -434,6 +427,11 @@ OPS_TEXT = {
 }
 COLUMN_LABEL.update({
     "taken_at": "Inicio", "finished_at": "Fin", "ok": "OK", "n_shows": "Funciones", "n_cinemas": "Cines", "n_events": "Eventos",
-    "calls": "Llamadas", "duration_s": "Duración (s)", "error": "Error", "table_name": "Tabla", "rows_estimate": "Filas (estimado)",
-    "size_bytes": "Tamaño", "partitions": "Particiones", "source_table": "Tabla origen", "last_id": "Último id", "synced_at": "Sincronizado",
+    "calls": "Llamadas", "duration_s": "Duración (s)", "error": "Error", "table_name": "Tabla",
+    "size_bytes": "Tamaño",
+    "key": "Trabajo", "area": "Área", "schedule": "Horario", "timeout_min": "Tope (min)", "last_started_at": "Última corrida",
+    "last_status": "Resultado", "last_duration_s": "Duración (s)", "last_max_rss_mb": "Memoria (MB)", "runs": "Corridas",
+    "failures": "Fallidas", "peak_rss_mb": "Memoria pico (MB)",
+    "unit": "Unidad", "label": "Alcance", "last_at": "Última captura", "last_ok": "OK", "last_error": "Último error",
+    "avg_calls": "Llamadas (media)", "avg_duration_s": "Duración media (s)", "avg_shows": "Funciones (media)",
 })

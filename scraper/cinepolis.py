@@ -3,7 +3,7 @@ import json
 from collections import Counter
 from datetime import datetime, timezone
 
-from . import config
+from . import config, states, units
 from .http import ApiError, request_json
 
 HEADERS = {
@@ -74,15 +74,6 @@ def list_cinemas(city_id, stats=None):
     return out
 
 
-def all_cinemas(city_ids=None, stats=None):
-    """Cines de las ciudades dadas (por defecto todas, ~155 llamadas), ordenados por slug."""
-    city_ids = list(city_ids or config.CINEPOLIS_CITIES) or sorted(c["id"] for c in list_cities(stats))
-    out = []
-    for city_id in city_ids:
-        out.extend(list_cinemas(city_id, stats))
-    return sorted(out, key=lambda c: c["id"]), city_ids
-
-
 def movies_for(cinema_ids, category="now-playing", stats=None):
     """Películas en cartelera para un lote de cines. Pagina por cursor."""
     out, after = [], None
@@ -90,6 +81,23 @@ def movies_for(cinema_ids, category="now-playing", stats=None):
         data = gql(config.CINEPOLIS_BILLBOARDS_URL, MOVIES_QUERY, {
             "countryId": config.CINEPOLIS_COUNTRY, "category": category,
             "cinemas": ",".join(cinema_ids), "limit": config.CINEPOLIS_PAGE_SIZE, "after": after,
+        }, stats)
+        block = data["movies"]
+        edges = block.get("edges") or []
+        out.extend(e["node"] for e in edges)
+        info = block.get("pageInfo") or {}
+        if not edges or not info.get("hasNextPage") or not info.get("endCursor"):
+            return out
+        after = info["endCursor"]
+
+
+def coming_soon(stats=None):
+    """Títulos de "Próximamente" (cinepolis.com/mx/proximamente) de todo el país, con `releaseDate`: los que ya tienen
+    funciones a la venta son la preventa (verificado 2026-09-25: 42 títulos en una página, sin filtro de cines)."""
+    out, after = [], None
+    while True:
+        data = gql(config.CINEPOLIS_BILLBOARDS_URL, MOVIES_QUERY, {
+            "countryId": config.CINEPOLIS_COUNTRY, "category": "coming-soon", "limit": config.CINEPOLIS_PAGE_SIZE, "after": after,
         }, stats)
         block = data["movies"]
         edges = block.get("edges") or []
@@ -108,36 +116,58 @@ def billboard(movie_id, cinema_ids, tz, stats=None):
     return data.get("billboard") or {}
 
 
-def chunks(items, size):
-    for i in range(0, len(items), size):
-        yield items[i:i + size]
+def _batch(unit, tz, stats):
+    """Películas y horarios de un lote de cines. Levanta si falla cualquier llamada: un lote a medias daría por
+    canceladas las funciones de las películas que faltan."""
+    movies, billboards = {}, []
+    batch = unit["cinema_ids"]
+    found = movies_for(batch, stats=stats)
+    for m in found:
+        movies.setdefault(m["id"], m)
+        bb = billboard(m["id"], batch, tz, stats)
+        billboards.append({"movie_id": m["id"], "cinemas": batch,
+                           "dates": bb.get("dates") or [], "schedules": bb.get("schedules") or []})
+    return {"movies": movies, "billboards": billboards}
 
 
 def snapshot(city_ids=None):
-    """Crudo completo: cines de cada ciudad, catálogo de películas y horarios por lotes de 30 cines.
+    """Crudo completo: cines de cada ciudad, catálogo de películas y horarios por lotes de hasta 30 cines.
+
+    Dos pasadas de unidades (`scraper/units.py`): el catálogo de cines, una por ciudad (una ciudad que falla queda
+    registrada y sus cines no se piden), y la cartelera, un lote por estado de INEGI (`units.pack_by_state`; los estados
+    chicos comparten lote). Solo las unidades fallidas del catálogo se guardan en `units`; las de cartelera, todas.
 
     Los lotes no se agrupan por zona horaria: `billboard` devuelve cada función en la hora local de su cine sin
     importar el parámetro `timezone` (verificado 2026-09-11 con un lote Tijuana + CDMX); se manda el de la mayoría."""
     stats = {"calls": 0}
-    cinemas, city_ids = all_cinemas(city_ids, stats)
-    slugs = [c["id"] for c in cinemas]
+    city_ids = list(city_ids or config.CINEPOLIS_CITIES) or sorted(c["id"] for c in list_cities(stats))
+    catalog = units.run_units(
+        [{"unit": f"ciudad-{city}", "label": f"Catálogo de cines de {city}", "city_ids": [city],
+          "state_codes": [states.state_code("cinepolis", None, city)]} for city in city_ids],
+        lambda u, st: list_cinemas(u["city_ids"][0], st))
+    cinemas = sorted((c for _, found in catalog if found for c in found), key=lambda c: c["id"])
+    for c in cinemas:
+        c["state_code"] = states.state_code("cinepolis", c["id"], c.get("cityId"))
     tz_counts = Counter(c.get("timezone") for c in cinemas if c.get("timezone"))
     tz = tz_counts.most_common(1)[0][0] if tz_counts else config.PILOT_TIMEZONE
+
+    batches = units.pack_by_state(cinemas)
+    for b in batches:
+        b["label"] = " + ".join(f"{states.STATES.get(code, 'Sin estado')}{' (' + b['parts'][code] + ')' if b['parts'][code] else ''}"
+                                for code in b["state_codes"])
+    results = units.run_units(batches, lambda u, st: _batch(u, tz, st))
 
     raw = {
         "chain": "cinepolis", "city_ids": city_ids, "timezone": tz,
         "taken_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "cinemas": cinemas, "movies": {}, "billboards": [],
+        "units": [r for r, _ in catalog if not r["ok"]],
     }
-    for batch in chunks(slugs, config.CINEPOLIS_BATCH_SIZE):
-        movies = movies_for(batch, stats=stats)
-        for m in movies:
-            raw["movies"].setdefault(m["id"], m)
-        for m in movies:
-            bb = billboard(m["id"], batch, tz, stats)
-            raw["billboards"].append({
-                "movie_id": m["id"], "cinemas": batch,
-                "dates": bb.get("dates") or [], "schedules": bb.get("schedules") or [],
-            })
-    raw["calls"] = stats["calls"]
+    for record, data in results:
+        if data is not None:
+            for mid, m in data["movies"].items():
+                raw["movies"].setdefault(mid, m)
+            raw["billboards"].extend(data["billboards"])
+        raw["units"].append(record)
+    raw["calls"] = stats["calls"] + sum(r["calls"] for r, _ in catalog) + sum(r["calls"] for r, _ in results)
     return raw

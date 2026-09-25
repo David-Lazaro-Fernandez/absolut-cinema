@@ -14,7 +14,7 @@ gris `#333333` de la primera versión.
 | `--red` | `#E31837` | Cinemex: serie en gráficas, acento del encabezado, borde izquierdo de los hallazgos, chips "Decisión" |
 | `--red-soft` | `#FDEDF0` | Fondo de chips y hover de botones y navegación |
 | `--red-dark` | `#9E0F26` | Primer tono de la rampa ordinal (Premium / VIP) |
-| `--ink` | `#191A1E` | Texto fuerte, Cinépolis en gráficas, rótulos "CAPA", bloque "Qué se desbloquea" |
+| `--ink` | `#191A1E` | Texto fuerte, Cinépolis en gráficas, rótulos "CAPA" |
 | `--gris` | `#5C6068` | Texto secundario, ejes y leyendas |
 | `--linea` | `#E4E5E9` | Bordes de tarjetas y divisores de tabla |
 | `--papel` | `#FFFFFF` | Tarjetas y secciones |
@@ -54,13 +54,13 @@ como respaldo.
 La página se lee de arriba abajo con costo de atención decreciente:
 
 1. **Capa 1, "Lo que importa hoy".** Hasta tres hallazgos redactados como decisión (titular, una línea de contexto,
-   chip "Decisión: …") con cuatro a seis números de soporte a la derecha. Vienen de `analytics.findings`; si ninguna
+   chip "Decisión: …") con cuatro a seis números de soporte a la derecha. Vienen de `analytics.findings`: entran los
+   tres más fuertes (brecha entre umbral), no los tres primeros, así la capa cambia cuando cambia el mercado; si ninguna
    diferencia cruza su umbral, la capa lo dice y no inventa.
 2. **Capa 2, "Evidencia por pregunta".** Una sección blanca por pregunta de negocio: la pregunta, la conclusión en un
    bloque con borde izquierdo de tinta, el gráfico como prueba y la guía "Cómo leerla" colapsada.
-3. **Capa 3, "Detalle y apéndice".** Todo colapsado con una línea de resumen en gris al lado del título. Cierra con el
-   bloque oscuro "Qué se desbloquea con tus datos", que convierte cada panel pendiente en un argumento (qué decisión
-   habilita, cuándo estará listo).
+3. **Capa 3, "Detalle y apéndice".** Todo colapsado con una línea de resumen en gris al lado del título; un panel
+   pendiente lo dice dentro de su propio apéndice. Cierra con el pie de fuentes.
 
 ## Componentes
 
@@ -141,10 +141,10 @@ Compactas, sin fondo en el encabezado: cabecera en gris con borde inferior 1.5 p
 - **Constantes de color.** Viven en `analytics/labels.py`: `RED`, `RED_DARK`, `RED_SOFT`, `INK`, `GRAY`, `GRAY_DARK`,
   `GRAY_LIGHT`, `LINE`, `PAPER`, `NEUTRAL`, `GRID`, `CHAIN_COLOR`, `RED_RAMP`, `DIVERGING`, y los de estado `OK` y `WARN`
   (solo Operaciones). Ningún hex se escribe
-  directo en la presentación salvo tonos internos del bloque oscuro de desbloqueo.
+  directo en la presentación.
 - **CSS complementario.** `ui/common.py` (`inject_css`, llamado desde `app.py`) inyecta la fuente variable Archivo desde Google Fonts, el ancho de lectura
   (1120 px) y los componentes del mockup: `.enc`, `.capa-tag`, `.hallazgo`, `.pregunta`, `.conclusion`, `table.mk`,
-  `.desbloqueo`, `.marca`, `.acceso-h`, `.acceso-lead`, `.cuenta`; y estiliza los expanders según su contenedor
+  `.marca`, `.acceso-h`, `.acceso-lead`, `.cuenta`; y estiliza los expanders según su contenedor
   (`st-key-apendice-*`, `st-key-leerla-*`), las secciones (`st-key-sec-*`) y la tarjeta de acceso (`st-key-acceso`).
 - **Textos.** Los hallazgos y las conclusiones salen de `analytics/findings.py`; las etiquetas de `analytics/labels.py`.
 

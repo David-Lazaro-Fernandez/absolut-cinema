@@ -1,0 +1,779 @@
+chain,cinema_id,state_code,city_id,method,distance_km,name
+cinemex,1,01,1,polygon,0.0,Aguascalientes
+cinemex,100,15,23,polygon,0.0,Atlacomulco
+cinemex,101,15,24,polygon,0.0,Lerma
+cinemex,103,15,26,polygon,0.0,Santín
+cinemex,104,15,26,polygon,0.0,Toluca
+cinemex,106,11,28,polygon,0.0,San Roque
+cinemex,107,11,29,polygon,0.0,Plaza Stadium
+cinemex,110,11,30,polygon,0.0,San Miguel de Allende
+cinemex,112,13,32,polygon,0.0,GP Pachuca
+cinemex,114,13,32,polygon,0.0,Plaza Q
+cinemex,115,13,33,polygon,0.0,Tulancingo
+cinemex,116,14,34,polygon,0.0,Cd Guzmán
+cinemex,118,14,35,polygon,0.0,Guadalajara Río Nilo
+cinemex,119,14,35,polygon,0.0,Las Plazas (GDL)
+cinemex,12,08,7,polygon,0.0,Galerías TEC
+cinemex,121,14,35,polygon,0.0,Tlaquepaque
+cinemex,122,14,35,polygon,0.0,Zapopan Acueducto
+cinemex,123,14,36,polygon,0.0,Ocotlán
+cinemex,124,14,37,polygon,0.0,Macroplaza Vallarta
+cinemex,125,14,37,polygon,0.0,Galerías Vallarta
+cinemex,126,14,38,polygon,0.0,San Gaspar
+cinemex,129,16,40,polygon,0.0,Plaza Estadio Morelia
+cinemex,131,16,41,polygon,0.0,Paseo Zamora
+cinemex,132,19,42,polygon,0.0,Mol Concordia
+cinemex,133,19,43,polygon,0.0,Las Plazas Outlet (MTY)
+cinemex,134,19,43,polygon,0.0,Plaza Bella Anáhuac
+cinemex,137,19,44,polygon,0.0,Lindavista (MTY)
+cinemex,138,19,44,polygon,0.0,Sun Mall Guadalupe
+cinemex,139,19,45,polygon,0.0,Sun Mall Villa Juárez
+cinemex,140,19,46,polygon,0.0,Céntrika
+cinemex,143,19,46,polygon,0.0,Lincoln
+cinemex,146,19,47,polygon,0.0,Fiesta Anáhuac
+cinemex,149,19,48,polygon,0.0,Humberto Lobo
+cinemex,15,08,8,polygon,0.0,Fuentes Mares
+cinemex,150,19,48,polygon,0.0,Paseo San Pedro Platino
+cinemex,152,19,49,polygon,0.0,Santa Catarina
+cinemex,153,17,50,polygon,0.0,Cuautla
+cinemex,156,18,52,polygon,0.0,Forum Tepic
+cinemex,157,18,52,polygon,0.0,Forum Tepic Platino
+cinemex,158,18,52,polygon,0.0,Tepic
+cinemex,159,20,54,polygon,0.0,Plaza del Valle
+cinemex,16,08,8,polygon,0.0,Juventud
+cinemex,160,20,54,polygon,0.0,Plaza Bella Oaxaca
+cinemex,161,20,55,polygon,0.0,Tuxtepec
+cinemex,163,21,56,polygon,0.0,Solesta
+cinemex,164,21,56,polygon,0.0,Plaza Dorada Puebla
+cinemex,165,21,56,polygon,0.0,San Francisco
+cinemex,166,21,56,polygon,0.0,Puebla Centro
+cinemex,167,22,57,polygon,0.0,Candiles
+cinemex,168,22,57,polygon,0.0,Constituyentes
+cinemex,169,22,97,polygon,0.0,San Juan Del Río (QRO)
+cinemex,171,23,58,polygon,0.0,Multiplaza Cancún
+cinemex,173,23,60,polygon,0.0,Playa del Carmen (Centro Maya)
+cinemex,174,24,61,polygon,0.0,Ciudad Valles
+cinemex,175,24,62,polygon,0.0,Citadella
+cinemex,177,24,62,polygon,0.0,El Paseo
+cinemex,178,25,63,polygon,0.0,Forum Culiacán
+cinemex,179,25,63,polygon,0.0,Forum Culiacán Platino
+cinemex,18,08,9,polygon,0.0,Delicias
+cinemex,183,25,66,polygon,0.0,Paseo Los Mochis
+cinemex,186,25,67,polygon,0.0,Galerías Mazatlán
+cinemex,19,05,11,polygon,0.0,Monclova
+cinemex,190,26,69,polygon,0.0,Guaymas
+cinemex,191,26,70,polygon,0.0,Encinas
+cinemex,193,26,71,polygon,0.0,Nacozari
+cinemex,194,26,72,polygon,0.0,Navojoa
+cinemex,195,27,73,polygon,0.0,Cárdenas
+cinemex,196,27,74,polygon,0.0,Altabrisa
+cinemex,197,27,74,polygon,0.0,Altabrisa Platino
+cinemex,199,28,75,polygon,0.0,Cd Mante
+cinemex,20,05,12,polygon,0.0,Galerías Saltillo
+cinemex,201,28,77,polygon,0.0,Matamoros
+cinemex,204,28,79,polygon,0.0,Plaza Real Reynosa
+cinemex,207,28,81,polygon,0.0,Tampico
+cinemex,210,30,83,polygon,0.0,Forum Coatza Platino
+cinemex,211,30,83,polygon,0.0,Forum Coatzacoalcos
+cinemex,212,30,84,polygon,0.0,Patio Poza Rica
+cinemex,216,31,86,polygon,0.0,Canek
+cinemex,217,31,86,polygon,0.0,Galerías Mérida
+cinemex,219,31,86,polygon,0.0,Macroplaza Mérida
+cinemex,22,05,13,polygon,0.0,Torreón
+cinemex,221,31,87,polygon,0.0,Valladolid
+cinemex,222,32,88,polygon,0.0,Fresnillo
+cinemex,223,32,89,polygon,0.0,Zacatecas
+cinemex,226,09,18,polygon,0.0,Plaza Oriente
+cinemex,227,25,67,polygon,0.0,Galerías Mazatlán Platino
+cinemex,228,20,90,polygon,0.0,Salina Cruz
+cinemex,229,11,29,polygon,0.0,Plaza Mayor Platino
+cinemex,23,05,13,polygon,0.0,Intermall
+cinemex,230,11,29,polygon,0.0,Plaza Mayor Market
+cinemex,231,30,85,polygon,0.0,Nuevo Veracruz
+cinemex,233,09,18,polygon,0.0,Tláhuac
+cinemex,236,09,18,polygon,0.0,Tezontle
+cinemex,237,09,15,polygon,0.0,Reforma 222 Market
+cinemex,247,15,17,polygon,0.0,Lomas Verdes
+cinemex,248,15,17,polygon,0.0,Lomas Verdes Platino
+cinemex,249,09,17,polygon,0.0,Parque Lindavista (CDMX)
+cinemex,251,09,19,polygon,0.0,Duraznos Platino
+cinemex,252,15,25,polygon,0.0,La Pilita
+cinemex,253,21,56,polygon,0.0,Triángulo Puebla
+cinemex,254,30,91,polygon,0.0,Córdoba
+cinemex,255,22,57,polygon,0.0,Boulevares Querétaro
+cinemex,258,11,28,polygon,0.0,Irapuato
+cinemex,26,09,15,polygon,0.0,Centro Telmex
+cinemex,262,08,8,polygon,0.0,Hollywood Chihuahua
+cinemex,264,02,3,polygon,0.0,Mundo Divertido Tijuana
+cinemex,266,05,12,polygon,0.0,Plaza Real Saltillo
+cinemex,267,09,17,polygon,0.0,Clavería
+cinemex,269,07,92,polygon,0.0,Galerías Tuxtla
+cinemex,27,09,15,polygon,0.0,Pabellón Cuauhtémoc
+cinemex,271,08,7,polygon,0.0,Plaza El Camino Cd Juárez
+cinemex,272,26,70,polygon,0.0,Metro Centro Hermosillo
+cinemex,274,26,70,polygon,0.0,Mirador Hermosillo
+cinemex,278,07,94,polygon,0.0,Tapachula
+cinemex,279,17,51,polygon,0.0,Plaza Bugambilia
+cinemex,28,09,20,polygon,0.0,Félix Cuevas Platino
+cinemex,280,17,51,polygon,0.0,Plaza Bugambilia Platino
+cinemex,281,26,111,polygon,0.0,Cananea
+cinemex,282,02,3,polygon,0.0,Pavilion Zona Río
+cinemex,283,20,54,polygon,0.0,Macroplaza Oaxaca
+cinemex,285,21,56,polygon,0.0,Hermanos Serdán
+cinemex,287,30,82,polygon,0.0,Andamar Platino
+cinemex,29,09,15,polygon,0.0,Galerías
+cinemex,293,15,16,polygon,0.0,Mexiquense
+cinemex,294,31,86,polygon,0.0,Galerías Mérida Platino
+cinemex,295,16,95,polygon,0.0,La Piedad
+cinemex,296,15,17,polygon,0.0,Plaza Jardines Tultitlán
+cinemex,298,15,17,polygon,0.0,Plaza Tlalnepantla
+cinemex,3,02,3,polygon,0.0,Loma Bonita
+cinemex,30,09,15,polygon,0.0,Insurgentes
+cinemex,300,02,3,polygon,0.0,Tijuana Pacífico
+cinemex,301,23,58,polygon,0.0,Los Héroes Cancún
+cinemex,302,15,17,polygon,0.0,Zumpango
+cinemex,303,03,4,polygon,0.0,Puerto Paraíso Platino
+cinemex,304,05,12,polygon,0.0,Galerías Saltillo Platino
+cinemex,305,05,12,polygon,0.0,Mirasierra
+cinemex,308,09,18,polygon,0.0,Vía San Juan
+cinemex,309,11,96,polygon,0.0,Vía Alta Salamanca
+cinemex,313,05,99,polygon,0.0,Plaza Inova Piedras Negras
+cinemex,314,09,18,polygon,0.0,Lomas Estrella
+cinemex,315,22,57,polygon,0.0,Urban Center Jurica
+cinemex,316,26,70,polygon,0.0,Paseo Solidaridad
+cinemex,32,09,15,polygon,0.0,Parque Delta
+cinemex,321,14,35,polygon,0.0,Sania (Minerva)
+cinemex,322,09,20,polygon,0.0,Patio Revolución Platino
+cinemex,324,09,15,polygon,0.0,Parque Delta Platino
+cinemex,326,05,102,polygon,0.0,Ramos Arizpe
+cinemex,328,03,103,polygon,0.0,San José del Cabo
+cinemex,329,02,2,polygon,0.0,La Gran Vía Mexicali
+cinemex,33,09,15,polygon,0.0,Patriotismo Market
+cinemex,332,09,17,polygon,0.0,Portal Vallejo
+cinemex,334,17,51,polygon,0.0,Forum Cuernavaca
+cinemex,336,15,17,polygon,0.0,Cuatro Caminos
+cinemex,339,19,48,polygon,0.0,Fashion Drive Platino
+cinemex,34,09,15,polygon,0.0,Real
+cinemex,340,31,86,polygon,0.0,Uptown Mérida
+cinemex,341,04,6,polygon,0.0,Ciudad del Carmen
+cinemex,342,14,35,polygon,0.0,Paseo Alcalde
+cinemex,343,19,104,polygon,0.0,Salinas Victoria
+cinemex,344,29,105,polygon,0.0,Galerías Tlaxcala
+cinemex,345,12,106,polygon,0.0,Paseo Zihuatanejo
+cinemex,346,09,20,polygon,0.0,Manacar
+cinemex,35,09,15,polygon,0.0,Reforma Casa de Arte
+cinemex,351,19,46,polygon,0.0,Pabellón M
+cinemex,353,21,56,polygon,0.0,Las Torres
+cinemex,354,09,15,polygon,0.0,Portal Centro
+cinemex,355,15,26,polygon,0.0,Patio Toluca
+cinemex,356,19,46,polygon,0.0,Garza Sada
+cinemex,357,09,20,polygon,0.0,Arenal
+cinemex,358,15,19,polygon,0.0,Paseo Hipódromo Platino
+cinemex,359,17,51,polygon,0.0,Cibeles
+cinemex,36,09,15,polygon,0.0,San Antonio
+cinemex,360,09,17,polygon,0.0,Ferrería
+cinemex,363,01,1,polygon,0.0,Rincón de Romos
+cinemex,364,25,63,polygon,0.0,Plaza Pabellón Culiacán
+cinemex,365,22,57,polygon,0.0,Hilvana
+cinemex,366,14,35,polygon,0.0,Plaza Patria
+cinemex,367,14,35,polygon,0.0,Plaza Patria Platino
+cinemex,369,21,56,polygon,0.0,Explanada Puebla
+cinemex,370,31,110,polygon,0.0,Tizimín
+cinemex,371,02,3,polygon,0.0,Alameda Otay
+cinemex,372,19,49,polygon,0.0,Vía Cordillera Platino
+cinemex,373,09,20,polygon,0.0,Artz Pedregal Market
+cinemex,374,09,20,polygon,0.0,Artz Pedregal Platino
+cinemex,375,15,25,polygon,0.0,Town Square Metepec
+cinemex,376,15,25,polygon,0.0,Town Square Metepec Platino
+cinemex,377,22,57,polygon,0.0,Paseo Querétaro
+cinemex,378,22,57,polygon,0.0,Paseo Querétaro Platino
+cinemex,380,07,92,polygon,0.0,Ambar Fashion Mall
+cinemex,381,14,35,polygon,0.0,Landmark Guadalajara Platino
+cinemex,382,07,92,polygon,0.0,Ambar Fashion Mall Platino
+cinemex,384,32,88,polygon,0.0,Portal Fresnillo
+cinemex,385,10,21,polygon,0.0,Portal Durango
+cinemex,388,13,114,polygon,0.0,Progreso
+cinemex,389,11,27,polygon,0.0,Alaia Guanajuato
+cinemex,39,15,16,polygon,0.0,Paseo Ventura
+cinemex,390,08,7,polygon,0.0,Mi Plaza Libramiento
+cinemex,391,13,32,polygon,0.0,Explanada Pachuca
+cinemex,392,32,115,polygon,0.0,Río Grande
+cinemex,393,27,74,polygon,0.0,City Center Villahermosa
+cinemex,394,26,70,polygon,0.0,Sun Mall Hermosillo
+cinemex,395,23,60,polygon,0.0,Velamar
+cinemex,396,27,74,polygon,0.0,Crystal Villahermosa
+cinemex,397,31,86,polygon,0.0,Itzaes
+cinemex,398,23,58,polygon,0.0,La Isla Cancún Platino
+cinemex,399,13,116,polygon,0.0,Cd. Sahagún
+cinemex,4,02,3,polygon,0.0,Macroplaza Tijuana
+cinemex,400,15,17,polygon,0.0,Huehuetoca
+cinemex,402,25,63,polygon,0.0,Explanada Culiacán
+cinemex,403,21,56,polygon,0.0,Amalucan
+cinemex,404,08,8,polygon,0.0,Distrito Uno
+cinemex,405,08,8,polygon,0.0,Distrito Uno Platino
+cinemex,406,09,17,polygon,0.0,Atana Lindavista
+cinemex,407,13,117,polygon,0.0,Alameda Tizayuca
+cinemex,409,03,4,polygon,0.0,Mi Plaza Los Cabos
+cinemex,41,15,16,polygon,0.0,Cd Azteca
+cinemex,410,09,16,polygon,0.0,Encuentro Oceanía
+cinemex,411,15,19,polygon,0.0,Interlomas Market
+cinemex,412,09,20,polygon,0.0,Galerías Insurgentes Market
+cinemex,413,09,20,polygon,0.0,Miguel Ángel de Quevedo
+cinemex,414,02,3,polygon,0.0,Península Tijuana
+cinemex,415,02,3,polygon,0.0,Península Tijuana Platino
+cinemex,416,25,63,polygon,0.0,Cuatro Ríos
+cinemex,418,24,62,polygon,0.0,The Park Market
+cinemex,419,24,62,polygon,0.0,The Park Platino
+cinemex,42,15,16,polygon,0.0,Ecatepec
+cinemex,420,02,3,polygon,0.0,The Landmark Tijuana Market
+cinemex,421,15,17,polygon,0.0,Toltecas
+cinemex,422,10,22,polygon,0.0,Paseo Gómez Palacio
+cinemex,423,15,17,polygon,0.0,Samara Satélite Platino
+cinemex,424,07,94,polygon,0.0,Alaia Tapachula
+cinemex,425,30,119,polygon,0.0,Paseo Jardines
+cinemex,426,21,56,polygon,0.0,Downtown Puebla
+cinemex,427,21,56,polygon,0.0,Downtown Puebla Platino
+cinemex,428,09,16,polygon,0.0,Patio Martín Carrera
+cinemex,429,09,17,polygon,0.0,Parque Lindavista Platino (CDMX)
+cinemex,430,09,15,polygon,0.0,Patriotismo Platino
+cinemex,44,15,16,polygon,0.0,Macroplaza Tecámac
+cinemex,45,15,17,polygon,0.0,Coacalco
+cinemex,47,15,17,polygon,0.0,Izcalli
+cinemex,49,15,17,polygon,0.0,La Joya
+cinemex,50,15,17,polygon,0.0,La Vía
+cinemex,52,15,17,polygon,0.0,Mundo E
+cinemex,53,15,17,polygon,0.0,Mundo E Platino
+cinemex,54,15,16,polygon,0.0,Ojo de Agua
+cinemex,55,15,17,polygon,0.0,Las Flores Coacalco
+cinemex,57,15,17,polygon,0.0,Puerta Texcoco
+cinemex,58,09,17,polygon,0.0,Rosario
+cinemex,59,15,17,polygon,0.0,San Mateo
+cinemex,60,09,17,polygon,0.0,Tenayuca
+cinemex,61,15,17,polygon,0.0,Texcoco
+cinemex,66,15,18,polygon,0.0,Chalco
+cinemex,67,15,18,polygon,0.0,Chimalhuacán
+cinemex,68,15,18,polygon,0.0,Cortijo
+cinemex,69,15,18,polygon,0.0,Ixtapaluca
+cinemex,7,03,4,polygon,0.0,Puerto Paraíso
+cinemex,70,09,18,polygon,0.0,Iztapalapa
+cinemex,71,09,18,polygon,0.0,La Viga
+cinemex,72,15,18,polygon,0.0,Los Reyes
+cinemex,73,15,18,polygon,0.0,Paseo Chalco
+cinemex,75,09,19,polygon,0.0,Antara Market
+cinemex,76,09,19,polygon,0.0,Antara Platino
+cinemex,82,09,19,polygon,0.0,Park Plaza Platino
+cinemex,83,15,19,polygon,0.0,San Esteban
+cinemex,84,09,19,polygon,0.0,Santa Fe
+cinemex,85,09,19,polygon,0.0,Santa Fe Platino
+cinemex,86,09,20,polygon,0.0,Altavista
+cinemex,87,09,20,polygon,0.0,Galerías Coapa
+cinemex,89,09,20,polygon,0.0,Cuicuilco
+cinemex,90,09,20,polygon,0.0,Cuicuilco Platino
+cinemex,91,09,20,polygon,0.0,Gran Sur
+cinemex,92,09,20,polygon,0.0,Loreto
+cinemex,93,09,20,polygon,0.0,Prado Coapa
+cinemex,94,09,20,polygon,0.0,Tlalpan
+cinemex,95,09,20,polygon,0.0,Universidad
+cinemex,96,10,21,polygon,0.0,Durango
+cinemex,97,10,21,polygon,0.0,Durango Platino
+cinemex,98,10,22,polygon,0.0,Gómez Palacio
+cinepolis,acapulco-renacimiento,12,acapulco,polygon,0.0,Acapulco Renacimiento
+cinepolis,cinepolis-acaya-coatzacoalcos,30,coatzacoalcos,polygon,0.0,Acaya Coatzacoalcos
+cinepolis,cinepolis-acaya-mazatlan,25,mazatlan,polygon,0.0,Acaya Mazatlán
+cinepolis,cinepolis-adana-lincoln-monterrey,19,monterrey,polygon,0.0,Adana Lincoln
+cinepolis,cinepolis-adelitas-cd-victoria,28,cd-victoria,polygon,0.0,Adelitas
+cinepolis,cinepolis-aguascalientes,01,aguascalientes,polygon,0.0,Aguascalientes
+cinepolis,cinepolis-ajusco-cdmx,09,cdmx,polygon,0.0,Ajusco
+cinepolis,cinepolis-akropolis-fracc-las-americas-merida,31,merida,polygon,0.0,Akrópolis (Fracc. Las Américas)
+cinepolis,cinepolis-alameda-guadalajara,14,guadalajara,polygon,0.0,Alameda Guadalajara
+cinepolis,cinepolis-almenares-monterrey,19,monterrey,polygon,0.0,Almenares
+cinepolis,cinepolis-altama-tampico,28,tampico,polygon,0.0,Altama
+cinepolis,cinepolis-altaria-aguascalientes,01,aguascalientes,polygon,0.0,Altaria
+cinepolis,cinepolis-altea-huinala-monterrey,19,monterrey,polygon,0.0,Altea Huinalá
+cinepolis,cinepolis-altea-linares,19,linares,polygon,0.0,Altea Linares
+cinepolis,cinepolis-anfora-cdmx,09,cdmx,polygon,0.0,Anfora
+cinepolis,cinepolis-angelopolis-puebla,21,puebla,polygon,0.0,Angelópolis
+cinepolis,cinepolis-antea-queretaro,22,queretaro,polygon,0.0,Antea Querétaro
+cinepolis,cinepolis-arboledas-guadalajara,14,guadalajara,polygon,0.0,Arboledas Guadalajara
+cinepolis,cinepolis-arco-norte-cancun,23,cancun,polygon,0.0,Arco Norte
+cinepolis,cinepolis-argania-san-juan-de-los-lagos,14,san-juan-de-los-lagos,polygon,0.0,Argania
+cinepolis,cinepolis-arkana-norte-perinorte-cuautitlan,15,perinorte-cuautitlan,polygon,0.0,Arkana Norte
+cinepolis,cinepolis-averanda-cuernavaca,17,cuernavaca,polygon,0.0,Averanda
+cinepolis,cinepolis-bella-vista-cd-obregon,26,cd-obregon,polygon,0.0,Bella Vista
+cinepolis,cinepolis-boulevard-puebla,21,puebla,polygon,0.0,Boulevard
+cinepolis,cinepolis-bugambilias-ixtlahuaca-ixtlahuaca-de-rayon,05,ixtlahuaca-de-rayon,polygon,0.0,Bugambilias Ixtlahuaca
+cinepolis,cinepolis-cabo-san-lucas-los-cabos,03,los-cabos,polygon,0.0,Cabo San Lucas
+cinepolis,cinepolis-caborca,26,caborca,polygon,0.0,Caborca
+cinepolis,cinepolis-cancun-mall,23,cancun,polygon,0.0,Cancún Mall
+cinepolis,cinepolis-carrousel-tijuana,02,tijuana,polygon,0.0,Carrousel
+cinepolis,cinepolis-centro-civico-mexicali,02,mexicali,polygon,0.0,Centro Cívico
+cinepolis,cinepolis-centro-comercial-altacia-leon,11,leon,polygon,0.0,Centro Comercial Altacia
+cinepolis,cinepolis-centro-lago-de-guadalupe-perinorte-cuautitlan,15,perinorte-cuautitlan,polygon,0.0,Centro Lago de Guadalupe
+cinepolis,cinepolis-centro-magno-guadalajara,14,guadalajara,polygon,0.0,Centro Magno
+cinepolis,cinepolis-centro-max-leon,11,leon,polygon,0.0,Centro Max
+cinepolis,cinepolis-centro-sur-agua-santa-puebla,21,puebla,polygon,0.0,Centro Sur (Agua Santa)
+cinepolis,cinepolis-centro-sur-guadalajara,14,guadalajara,polygon,0.0,Centro Sur
+cinepolis,cinepolis-centro-tepozan-los-reyes-la-paz,15,los-reyes-la-paz,polygon,0.0,Centro Tepozán
+cinepolis,cinepolis-chedrahui-macuspana,27,macuspana,polygon,0.0,Chedrahui Macuspana
+cinepolis,cinepolis-chedraui-durango,10,durango,polygon,0.0,Chedraui Durango
+cinepolis,cinepolis-chedraui-martinez-de-la-torre,30,martinez-de-la-torre,polygon,0.0,Chedraui Martínez de la Torre
+cinepolis,cinepolis-chihuahua-av-vallarta,08,chihuahua,polygon,0.0,Chihuahua Av. Vallarta
+cinepolis,cinepolis-citadel-monterrey,19,monterrey,polygon,0.0,Citadel
+cinepolis,cinepolis-citadina-corregidora-queretaro,22,queretaro,polygon,0.0,Citadina Corregidora
+cinepolis,cinepolis-citadina-escobedo-monterrey,19,monterrey,polygon,0.0,Citadina Escobedo
+cinepolis,cinepolis-city-center-zona-esmeralda-cdmx,15,cdmx,polygon,0.0,City Center Zona Esmeralda
+cinepolis,cinepolis-ciudad-acuna-cd-acuna,05,cd-acuna,polygon,0.0,Ciudad Acuña
+cinepolis,cinepolis-ciudad-guzman-cd-guzman,14,cd-guzman,polygon,0.0,Ciudad Guzmán
+cinepolis,cinepolis-ciudadela-lifestyle-center-guadalajara,14,guadalajara,polygon,0.0,Ciudadela Lifestyle Center
+cinepolis,cinepolis-coacalco-power-center,15,coacalco,polygon,0.0,Coacalco Power Center
+cinepolis,cinepolis-comalcalco,27,comalcalco,polygon,0.0,Comalcalco
+cinepolis,cinepolis-copilco-cdmx,09,cdmx,polygon,0.0,Copilco
+cinepolis,cinepolis-cosmopol-coacalco,15,coacalco,polygon,0.0,Cosmopol
+cinepolis,cinepolis-cozumel,23,cozumel,nearest,0.0,Cozumel
+cinepolis,cinepolis-cruz-del-sur-puebla,21,puebla,polygon,0.0,Cruz del Sur
+cinepolis,cinepolis-cuatro-caminos-torreon,05,torreon,polygon,0.0,Cuatro Caminos
+cinepolis,cinepolis-cuauhtemoc-cd-cuauhtemoc,08,cd-cuauhtemoc,polygon,0.0,Cuauhtémoc
+cinepolis,cinepolis-cuautla,17,cuautla,polygon,0.0,Cuautla
+cinepolis,cinepolis-cuernavaca,17,cuernavaca,polygon,0.0,Galerías Cuernavaca
+cinepolis,cinepolis-culiacan,25,culiacan,polygon,0.0,Culiacán
+cinepolis,cinepolis-cumbres-monterrey,19,monterrey,polygon,0.0,Cumbres Monterrey
+cinepolis,cinepolis-del-rio-plaza-comercial-reynosa,28,reynosa,polygon,0.0,Del Río Plaza Comercial
+cinepolis,cinepolis-delicias,08,delicias,polygon,0.0,Delicias
+cinepolis,cinepolis-diana-cdmx,09,cdmx,polygon,0.0,Diana
+cinepolis,cinepolis-durango,10,durango,polygon,0.0,Durango
+cinepolis,cinepolis-ecatepec-las-americas,15,ecatepec,polygon,0.0,Ecatepec Las Américas
+cinepolis,cinepolis-el-dorado-coatzacoalcos,30,coatzacoalcos,polygon,0.0,El Dorado Coatzacoalcos
+cinepolis,cinepolis-el-dorado-veracruz,30,veracruz,polygon,0.0,El Dorado Veracruz
+cinepolis,cinepolis-el-titan-monterrey,19,monterrey,polygon,0.0,El Titán
+cinepolis,cinepolis-eloy-cavazos-monterrey,19,monterrey,polygon,0.0,Eloy Cavazos
+cinepolis,cinepolis-encuentro-fortuna-cdmx,09,cdmx,polygon,0.0,Encuentro Fortuna
+cinepolis,cinepolis-encuentro-tlalnepantla-cdmx,15,cdmx,polygon,0.0,Encuentro Tlalnepantla
+cinepolis,cinepolis-ermita-cdmx,09,cdmx,polygon,0.0,Ermita
+cinepolis,cinepolis-escala-la-huerta-morelia,16,morelia,polygon,0.0,Escala La Huerta
+cinepolis,cinepolis-escala-morelia-plaza-morelia,16,morelia,polygon,0.0,Escala Morelia
+cinepolis,cinepolis-escala-parral-hidalgo-del-parral,08,hidalgo-del-parral,polygon,0.0,Escala Parral
+cinepolis,cinepolis-esfera-monterrey,19,monterrey,polygon,0.0,Esfera Monterrey
+cinepolis,cinepolis-esfera-queretaro,22,queretaro,polygon,0.0,Esfera Querétaro
+cinepolis,cinepolis-espacio-aguascalientes,01,aguascalientes,polygon,0.0,Espacio Aguascalientes
+cinepolis,cinepolis-espacio-las-americas-morelia,16,morelia,polygon,0.0,Espacio Las Américas
+cinepolis,cinepolis-fashion-mall-chihuahua,08,chihuahua,polygon,0.0,Fashion Mall
+cinepolis,cinepolis-forum-buenavista-cdmx,09,cdmx,polygon,0.0,Fórum Buenavista
+cinepolis,cinepolis-forum-tlaquepaque-guadalajara,14,guadalajara,polygon,0.0,Fórum Tlaquepaque
+cinepolis,cinepolis-galerias-acapulco,12,acapulco,polygon,0.0,Galerías Acapulco
+cinepolis,cinepolis-galerias-atizapan-cdmx,15,cdmx,polygon,0.0,Galerías Atizapán
+cinepolis,cinepolis-galerias-campeche,04,campeche,polygon,0.0,Galerías Campeche
+cinepolis,cinepolis-galerias-celaya,11,celaya,polygon,0.0,Galerías Celaya
+cinepolis,cinepolis-galerias-chilpancingo,12,chilpancingo,polygon,0.0,Galerías Chilpancingo
+cinepolis,cinepolis-galerias-del-valle-mexicali,02,mexicali,polygon,0.0,Galerías del Valle
+cinepolis,cinepolis-galerias-diana-acapulco,12,acapulco,polygon,0.0,Diana Acapulco
+cinepolis,cinepolis-galerias-guadalajara,14,guadalajara,polygon,0.0,Galerías Guadalajara
+cinepolis,cinepolis-galerias-hipodromo-tijuana,02,tijuana,polygon,0.0,Galerías Hipódromo
+cinepolis,cinepolis-galerias-laguna-torreon,05,torreon,polygon,0.0,Galerías Laguna
+cinepolis,cinepolis-galerias-las-torres-leon,11,leon,polygon,0.0,Galerías Las Torres
+cinepolis,cinepolis-galerias-mall-hermosillo,26,hermosillo,polygon,0.0,Galerías Mall Hermosillo
+cinepolis,cinepolis-galerias-metepec-toluca,15,toluca,polygon,0.0,Galerías Metepec
+cinepolis,cinepolis-galerias-metropolitana-autlan-autlan-de-navarro,14,autlan-de-navarro,polygon,0.0,Galerías Metropolitana Autlán
+cinepolis,cinepolis-galerias-metropolitana-uriangato,11,uriangato,polygon,0.0,Galerías Metropolitana
+cinepolis,cinepolis-galerias-monterrey,19,monterrey,polygon,0.0,Galerías Monterrey
+cinepolis,cinepolis-galerias-pachuca,13,pachuca,polygon,0.0,Galerías Pachuca
+cinepolis,cinepolis-galerias-salamanca,11,salamanca,polygon,0.0,Galerías Salamanca
+cinepolis,cinepolis-galerias-santa-anita-guadalajara,14,guadalajara,polygon,0.0,Galerías Santa Anita
+cinepolis,cinepolis-galerias-serdan-puebla,21,puebla,polygon,0.0,Galerías Serdán
+cinepolis,cinepolis-galerias-tamarindos-iguala,12,iguala,polygon,0.0,Galerías Tamarindos
+cinepolis,cinepolis-galerias-tapachula,07,tapachula,polygon,0.0,Galerías Tapachula
+cinepolis,cinepolis-galerias-toluca,15,toluca,polygon,0.0,Galerías Toluca
+cinepolis,cinepolis-galerias-valle-oriente-monterrey,19,monterrey,polygon,0.0,Galerías Valle Oriente
+cinepolis,cinepolis-galerias-zacatecas,32,zacatecas,polygon,0.0,Galerías Zacatecas
+cinepolis,cinepolis-garza-sada-monterrey,19,monterrey,polygon,0.0,Garza Sada
+cinepolis,cinepolis-gran-patio-texcoco,15,texcoco,polygon,0.0,Gran Patio Texcoco
+cinepolis,cinepolis-gran-patio-tlaxcala,29,tlaxcala,polygon,0.0,Gran Patio Tlaxcala
+cinepolis,cinepolis-gran-patio-zaragoza-cd-juarez,08,cd-juarez,polygon,0.0,Gran Patio Zaragoza
+cinepolis,cinepolis-gran-plaza-mazatlan,25,mazatlan,polygon,0.0,Gran Plaza Mazatlán
+cinepolis,cinepolis-gran-santa-fe-caucel-merida,31,merida,polygon,0.0,Gran Santa Fé Caucel
+cinepolis,cinepolis-gran-terraza-belenes-guadalajara,14,guadalajara,polygon,0.0,Gran Terraza Belenes
+cinepolis,cinepolis-gran-terraza-coapa-cdmx,09,cdmx,polygon,0.0,Gran Terraza Coapa
+cinepolis,cinepolis-grand-plaza-toluca,15,toluca,polygon,0.0,Grand Plaza
+cinepolis,cinepolis-guadiana-durango,10,durango,polygon,0.0,Guadiana
+cinepolis,cinepolis-guasave,25,guasave,polygon,0.0,Guasave
+cinepolis,cinepolis-gustavo-baz-cdmx,15,cdmx,polygon,0.0,Gustavo Baz
+cinepolis,cinepolis-hermosillo,26,hermosillo,polygon,0.0,Hermosillo
+cinepolis,cinepolis-hilamas-leon,11,leon,polygon,0.0,Hilamas
+cinepolis,cinepolis-hollywood-cdmx,15,cdmx,polygon,0.0,Hollywood
+cinepolis,cinepolis-independencia-guadalajara,14,guadalajara,polygon,0.0,Independencia
+cinepolis,cinepolis-interplaza-monterrey,19,monterrey,polygon,0.0,Interplaza Monterrey
+cinepolis,cinepolis-izcalli-perinorte-cuautitlan,15,perinorte-cuautitlan,polygon,0.0,Izcalli
+cinepolis,cinepolis-jimenez-chihuahua,08,jimenez,polygon,0.0,Jiménez Chihuahua
+cinepolis,cinepolis-jojutla,17,jojutla,polygon,0.0,Jojutla
+cinepolis,cinepolis-juarez-centro-mall-cd-juarez,08,cd-juarez,polygon,0.0,Juárez Centro Mall
+cinepolis,cinepolis-juriquilla-uptown-queretaro,22,queretaro,polygon,0.0,Juriquilla Uptown
+cinepolis,cinepolis-la-cuspide-cdmx,15,cdmx,polygon,0.0,La Cúspide
+cinepolis,cinepolis-la-florida-acayucan,30,acayucan,polygon,0.0,La Florida
+cinepolis,cinepolis-la-gran-plaza-cancun,23,cancun,polygon,0.0,La Gran Plaza Cancún
+cinepolis,cinepolis-la-gran-plaza-guadalajara,14,guadalajara,polygon,0.0,La Gran Plaza
+cinepolis,cinepolis-la-isla-merida,31,merida,polygon,0.0,La Isla Mérida
+cinepolis,cinepolis-la-joya-silao,11,silao,polygon,0.0,La Joya
+cinepolis,cinepolis-la-monumental-cd-juarez,08,cd-juarez,polygon,0.0,La Monumental
+cinepolis,cinepolis-la-nogalera-saltillo,05,saltillo,polygon,0.0,La Nogalera
+cinepolis,cinepolis-la-noria-puebla,21,puebla,polygon,0.0,La Noria
+cinepolis,cinepolis-la-normal-guadalajara,14,guadalajara,polygon,0.0,La Normal
+cinepolis,cinepolis-la-pajarita-tijuana,02,tijuana,polygon,0.0,La Pajarita
+cinepolis,cinepolis-la-paz,03,la-paz,polygon,0.0,La Paz
+cinepolis,cinepolis-la-perla-guadalajara,14,guadalajara,polygon,0.0,La Perla
+cinepolis,cinepolis-la-piedad,16,la-piedad,polygon,0.0,La Piedad
+cinepolis,cinepolis-la-plazoleta-garcia,19,garcia,polygon,0.0,La Plazoleta García
+cinepolis,cinepolis-la-plazoleta-monterrey,19,monterrey,polygon,0.0,La Plazoleta
+cinepolis,cinepolis-la-rioja-urban-center-guadalajara,14,guadalajara,polygon,0.0,La Rioja Urban Center
+cinepolis,cinepolis-la-victoria-queretaro,22,queretaro,polygon,0.0,La Victoria
+cinepolis,cinepolis-lago-real-nuevo-vallarta,18,nuevo-vallarta,polygon,0.0,Lago Real
+cinepolis,cinepolis-las-americas-chetumal,23,chetumal,polygon,0.0,Las Américas Chetumal
+cinepolis,cinepolis-las-americas-juarez-cd-juarez,08,cd-juarez,polygon,0.0,Las Américas Juárez
+cinepolis,cinepolis-las-americas-lazaro-cardenas,16,lazaro-cardenas,polygon,0.0,Las Américas Lázaro Cárdenas
+cinepolis,cinepolis-las-americas-playa-del-carmen,23,playa-del-carmen,polygon,0.0,Las Américas Playa del Carmen
+cinepolis,cinepolis-las-americas-taxco,12,taxco,polygon,0.0,Las Américas Taxco
+cinepolis,cinepolis-las-americas-veracruz,30,veracruz,polygon,0.0,Las Américas Veracruz
+cinepolis,cinepolis-las-americas-villahermosa,27,villahermosa,polygon,0.0,Las Américas Villahermosa
+cinepolis,cinepolis-las-antenas-cdmx,09,cdmx,polygon,0.0,Las Antenas
+cinepolis,cinepolis-las-flores-pinotepa-pinotepa-nacional,20,pinotepa-nacional,polygon,0.0,Las Flores Pinotepa
+cinepolis,cinepolis-las-misiones-cd-juarez,08,cd-juarez,polygon,0.0,Las Misiones
+cinepolis,cinepolis-las-palmas-huauchinango,21,huauchinango,polygon,0.0,Las Palmas Huauchinango
+cinepolis,cinepolis-las-tiendas-cancun,23,cancun,polygon,0.0,Las Tiendas Cancún
+cinepolis,cinepolis-las-torres-guadalajara,14,guadalajara,polygon,0.0,Las Torres
+cinepolis,cinepolis-leon,11,leon,polygon,0.0,León
+cinepolis,cinepolis-los-angeles-tuxtepec-tuxtepec,20,tuxtepec,polygon,0.0,Los Ángeles Tuxtepec
+cinepolis,cinepolis-los-cedros-jiutepec,17,jiutepec,polygon,0.0,Los Cedros Jiutepec
+cinepolis,cinepolis-luna-parc-perinorte-cuautitlan,15,perinorte-cuautitlan,polygon,0.0,Luna Parc
+cinepolis,cinepolis-macro-plaza-san-luis-potosi,24,san-luis-potosi,polygon,0.0,Macro Plaza San Luis Potosí
+cinepolis,cinepolis-macroplaza-del-mar-ensenada,02,ensenada,polygon,0.0,Macroplaza del Mar
+cinepolis,cinepolis-magdalena-magdalena-de-kino,26,magdalena-de-kino,polygon,0.0,Magdalena
+cinepolis,cinepolis-magno-centro-interlomas-cdmx,15,cdmx,polygon,0.0,Magno Centro Interlomas
+cinepolis,cinepolis-matamoros-matamoros-coahuila,05,matamoros-coahuila,polygon,0.0,Matamoros
+cinepolis,cinepolis-merida-altabrisa,31,merida,polygon,0.0,Mérida Altabrisa
+cinepolis,cinepolis-mexico-nuevo-laredo,28,nuevo-laredo,polygon,0.0,México Nuevo Laredo
+cinepolis,cinepolis-miramontes-cdmx,09,cdmx,polygon,0.0,Miramontes
+cinepolis,cinepolis-mitikah-cdmx,09,cdmx,polygon,0.0,Mítikah
+cinepolis,cinepolis-moraleda-atlixco-puebla,21,puebla,polygon,0.0,Moraleda Atlixco
+cinepolis,cinepolis-morelia-centro,16,morelia,polygon,0.0,Morelia Centro
+cinepolis,cinepolis-morelia-rio,16,morelia,polygon,0.0,Morelia Río
+cinepolis,cinepolis-multicenter-el-salto-guadalajara,14,guadalajara,polygon,0.0,Multicenter El Salto
+cinepolis,cinepolis-multiplaza-del-valle-tlajomulco,14,tlajomulco,polygon,0.0,Multiplaza del Valle Tlajomulco
+cinepolis,cinepolis-multiplaza-puerto-aventuras,23,puerto-aventuras,polygon,0.0,Multiplaza Puerto Aventuras
+cinepolis,cinepolis-multiplaza-real-tamaulipas-tampico,28,tampico,polygon,0.0,Multiplaza Real Tampico
+cinepolis,cinepolis-muzquiz,05,muzquiz,polygon,0.0,Muzquiz
+cinepolis,cinepolis-neza-cd-jardin-cd-nezahualcoyotl,15,cd-nezahualcoyotl,polygon,0.0,Neza Cd. Jardín
+cinepolis,cinepolis-nezahualcoyotl-cd-nezahualcoyotl,15,cd-nezahualcoyotl,polygon,0.0,Nezahualcóyotl
+cinepolis,cinepolis-nezahualcoyotl-norte-cd-nezahualcoyotl,15,cd-nezahualcoyotl,polygon,0.0,Nezahualcóyotl Norte
+cinepolis,cinepolis-nogales-mall,26,nogales,polygon,0.0,Nogales Mall
+cinepolis,cinepolis-nuevo-mexicali,02,mexicali,polygon,0.0,Nuevo Mexicali
+cinepolis,cinepolis-nuevo-sur-monterrey,19,monterrey,polygon,0.0,Nuevo Sur
+cinepolis,cinepolis-oasis-coyoacan-cdmx,09,cdmx,polygon,0.0,Oasis Coyoacán
+cinepolis,cinepolis-oaxaca,20,oaxaca,polygon,0.0,Oaxaca
+cinepolis,cinepolis-oblatos-guadalajara,14,guadalajara,polygon,0.0,Oblatos
+cinepolis,cinepolis-ometepec,12,ometepec,polygon,0.0,Ometepec
+cinepolis,cinepolis-pabellon-cuemanco-cdmx,09,cdmx,polygon,0.0,Pabellón Cuemanco
+cinepolis,cinepolis-pabellon-guadalajara,14,guadalajara,polygon,0.0,Pabellón Guadalajara
+cinepolis,cinepolis-pabellon-rio-de-los-remedios-cdmx,15,cdmx,polygon,0.0,Pabellón Río de los Remedios
+cinepolis,cinepolis-pabellon-rosarito,02,rosarito,polygon,0.0,Pabellón Rosarito
+cinepolis,cinepolis-pablo-livas-monterrey,19,monterrey,polygon,0.0,Pablo Livas Monterrey
+cinepolis,cinepolis-parque-celaya,11,celaya,polygon,0.0,Parque Celaya
+cinepolis,cinepolis-parque-jardin-azcapotzalco-cdmx,09,cdmx,polygon,0.0,Parque Jardín Azcapotzalco
+cinepolis,cinepolis-parque-puebla,21,puebla,polygon,0.0,Parque Puebla
+cinepolis,cinepolis-parque-tepeyac-cdmx,09,cdmx,polygon,0.0,Parque Tepeyac
+cinepolis,cinepolis-parque-toreo-cdmx,15,cdmx,polygon,0.0,Parque Toreo
+cinepolis,cinepolis-paseo-2000-tijuana,02,tijuana,polygon,0.0,Paseo 2000
+cinepolis,cinepolis-paseo-acoxpa-cdmx,09,cdmx,polygon,0.0,Paseo Acoxpa
+cinepolis,cinepolis-paseo-central-chihuahua,08,chihuahua,polygon,0.0,Paseo Central
+cinepolis,cinepolis-paseo-chapultepec-tijuana,02,tijuana,polygon,0.0,Paseo Chapultepec
+cinepolis,cinepolis-paseo-cunduacan,27,cunduacan,polygon,0.0,Paseo Cunduacán
+cinepolis,cinepolis-paseo-del-rio-san-juan-del-rio,22,san-juan-del-rio,polygon,0.0,Paseo del Río
+cinepolis,cinepolis-paseo-dolores-dolores-hidalgo,11,dolores-hidalgo,polygon,0.0,Paseo Dolores
+cinepolis,cinepolis-paseo-fundadores-montemorelos,19,montemorelos,polygon,0.0,Paseo Fundadores
+cinepolis,cinepolis-paseo-interlomas-cdmx,15,cdmx,polygon,0.0,Paseo Interlomas
+cinepolis,cinepolis-paseo-la-fe-monterrey,19,monterrey,polygon,0.0,Paseo La Fe
+cinepolis,cinepolis-paseo-la-paz,03,la-paz,polygon,0.0,Paseo La Paz
+cinepolis,cinepolis-paseo-molino-toluca,15,toluca,polygon,0.0,Paseo Molino
+cinepolis,cinepolis-paseo-monclova,05,monclova,polygon,0.0,Paseo Monclova
+cinepolis,cinepolis-paseo-morelos-leon,11,leon,polygon,0.0,Paseo Morelos
+cinepolis,cinepolis-paseo-nueva-espana-chihuahua,08,chihuahua,polygon,0.0,Paseo Nueva España
+cinepolis,cinepolis-paseo-reforma-nuevo-laredo,28,nuevo-laredo,polygon,0.0,Paseo Reforma
+cinepolis,cinepolis-paseo-san-francisco-san-francisco-del-rincon,11,san-francisco-del-rincon,polygon,0.0,Paseo San Francisco
+cinepolis,cinepolis-paseo-san-isidro-culiacan,25,culiacan,polygon,0.0,Paseo San Isidro
+cinepolis,cinepolis-paseo-villalta-saltillo,05,saltillo,polygon,0.0,Paseo Villalta
+cinepolis,cinepolis-paso-limon-tuxtla-gutierrez,07,tuxtla-gutierrez,polygon,0.0,Paso Limón
+cinepolis,cinepolis-patio-acapulco,12,acapulco,polygon,0.0,Patio Acapulco
+cinepolis,cinepolis-patio-ayotla-chalco-ixtapaluca,15,chalco-ixtapaluca,polygon,0.0,Patio Ayotla
+cinepolis,cinepolis-patio-lincoln-sendero-lincoln-monterrey,19,monterrey,polygon,0.0,Patio Lincoln (Sendero Lincoln)
+cinepolis,cinepolis-patio-santa-fe-cdmx,09,cdmx,polygon,0.0,Patio Santa Fe
+cinepolis,cinepolis-patio-tlalpan-cdmx,09,cdmx,polygon,0.0,Patio Tlalpan
+cinepolis,cinepolis-patio-universidad-cdmx,09,cdmx,polygon,0.0,Patio Universidad
+cinepolis,cinepolis-patzcuaro,16,patzcuaro,polygon,0.0,Pátzcuaro
+cinepolis,cinepolis-pedregal-atizapan-cdmx,15,cdmx,polygon,0.0,Pedregal Atizapán
+cinepolis,cinepolis-penaflor-queretaro,22,queretaro,polygon,0.0,Peñaflor
+cinepolis,cinepolis-perinorte-perinorte-cuautitlan,15,perinorte-cuautitlan,polygon,0.0,Perinorte
+cinepolis,cinepolis-perisur-cdmx,09,cdmx,polygon,0.0,Perisur
+cinepolis,cinepolis-pesqueria-nuevo-leon-monterrey,19,monterrey,polygon,0.0,Pesquería Nuevo León
+cinepolis,cinepolis-pie-de-la-cuesta,12,acapulco,polygon,0.0,Pie de la Cuesta
+cinepolis,cinepolis-pinocelli-cd-juarez,08,cd-juarez,polygon,0.0,Pinocelli
+cinepolis,cinepolis-playas-tijuana,02,tijuana,polygon,0.0,Playas
+cinepolis,cinepolis-plaza-aeropuerto-cdmx,09,cdmx,polygon,0.0,Plaza Aeropuerto
+cinepolis,cinepolis-plaza-agora-uruapan,16,uruapan,polygon,0.0,Plaza Ágora Uruapan
+cinepolis,cinepolis-plaza-ana-zamora,16,zamora,polygon,0.0,Plaza Ana
+cinepolis,cinepolis-plaza-aragon-ecatepec,15,ecatepec,polygon,0.0,Plaza Aragón
+cinepolis,cinepolis-plaza-areno-cd-juarez,08,cd-juarez,polygon,0.0,Plaza Areno
+cinepolis,cinepolis-plaza-azahares-culiacan,25,culiacan,polygon,0.0,Plaza Azahares
+cinepolis,cinepolis-plaza-bella-pachuca,13,pachuca,polygon,0.0,Plaza Bella
+cinepolis,cinepolis-plaza-cadereyta,19,cadereyta,polygon,0.0,Plaza Cadereyta
+cinepolis,cinepolis-plaza-camargo,08,camargo,polygon,0.0,Plaza Camargo
+cinepolis,cinepolis-plaza-campestre-cd-victoria,28,cd-victoria,polygon,0.0,Plaza Campestre
+cinepolis,cinepolis-plaza-cantera-aguamilpa-tepic,18,tepic,polygon,0.0,Plaza Cantera Aguamilpa
+cinepolis,cinepolis-plaza-carso-cdmx,09,cdmx,polygon,0.0,Plaza Carso
+cinepolis,cinepolis-plaza-centella-cuautitlan-perinorte-cuautitlan,15,perinorte-cuautitlan,polygon,0.0,Plaza Centella Cuautitlán
+cinepolis,cinepolis-plaza-centenario-mexicali,02,mexicali,polygon,0.0,Plaza Centenario
+cinepolis,cinepolis-plaza-central-cdmx,09,cdmx,polygon,0.0,Plaza Central
+cinepolis,cinepolis-plaza-chedraui-tlajomulco,14,tlajomulco,polygon,0.0,Plaza Chedraui Tlajomulco
+cinepolis,cinepolis-plaza-chilpancingo,12,chilpancingo,polygon,0.0,Plaza Chilpancingo
+cinepolis,cinepolis-plaza-chimalhuacan,15,chimalhuacan,polygon,0.0,Plaza Chimalhuacán
+cinepolis,cinepolis-plaza-cibeles-irapuato,11,irapuato,polygon,0.0,Plaza Cibeles
+cinepolis,cinepolis-plaza-citadina-reynosa,28,reynosa,polygon,0.0,Plaza Citadina
+cinepolis,cinepolis-plaza-citadina-san-luis-san-luis-potosi,24,san-luis-potosi,polygon,0.0,Plaza Citadina San Luis
+cinepolis,cinepolis-plaza-comercial-apizaco,29,apizaco,polygon,0.0,Plaza Comercial Apizaco
+cinepolis,cinepolis-plaza-crystal-atizapan-cdmx,15,cdmx,polygon,0.0,Plaza Crystal Atizapán
+cinepolis,cinepolis-plaza-crystal-paraiso,27,paraiso,polygon,0.0,Plaza Crystal Paraíso
+cinepolis,cinepolis-plaza-crystal-puebla,21,puebla,polygon,0.0,Plaza Crystal Puebla
+cinepolis,cinepolis-plaza-crystal-tuxpan,30,tuxpan,polygon,0.0,Plaza Crystal Tuxpan
+cinepolis,cinepolis-plaza-crystal-xalapa,30,xalapa,polygon,0.0,Plaza Crystal Xalapa
+cinepolis,cinepolis-plaza-cuitlahuac-cdmx,09,cdmx,polygon,0.0,Plaza Cuitláhuac
+cinepolis,cinepolis-plaza-de-hierro-navojoa,20,navojoa,polygon,0.0,Plaza de Hierro Navojoa
+cinepolis,cinepolis-plaza-del-parque-queretaro,22,queretaro,polygon,0.0,Plaza del Parque
+cinepolis,cinepolis-plaza-del-puerto-veracruz,30,veracruz,polygon,0.0,Plaza del Puerto
+cinepolis,cinepolis-plaza-deportiva-villahermosa,27,villahermosa,polygon,0.0,Plaza Deportiva
+cinepolis,cinepolis-plaza-eden-teziutlan-teziutlan-puebla,21,teziutlan-puebla,polygon,0.0,Plaza Edén Teziutlán
+cinepolis,cinepolis-plaza-el-dorado-san-luis-potosi,24,san-luis-potosi,polygon,0.0,Plaza El Dorado
+cinepolis,cinepolis-plaza-el-prado-tarimbaro-morelia,16,morelia,polygon,0.0,El Prado Morelia
+cinepolis,cinepolis-plaza-emiliano-zapata,17,emiliano-zapata,polygon,0.0,Plaza Emiliano Zapata
+cinepolis,cinepolis-plaza-fiesta-matamoros-tamaulipas,28,matamoros-tamaulipas,polygon,0.0,Plaza Fiesta
+cinepolis,cinepolis-plaza-kukulcan-merida,31,merida,polygon,0.0,Plaza Kukulcán
+cinepolis,cinepolis-plaza-la-canada-huehuetoca,15,huehuetoca,polygon,0.0,Plaza La Cañada
+cinepolis,cinepolis-plaza-las-americas-cancun,23,cancun,polygon,0.0,Plaza Las Américas Cancún
+cinepolis,cinepolis-plaza-las-americas-merida,31,merida,polygon,0.0,Plaza Las Américas Mérida
+cinepolis,cinepolis-plaza-las-americas-queretaro,22,queretaro,polygon,0.0,Plaza Las Américas Querétaro
+cinepolis,cinepolis-plaza-las-americas-tuxtla-gutierrez,07,tuxtla-gutierrez,polygon,0.0,Plaza Las Américas Tuxtla Gutiérrez
+cinepolis,cinepolis-plaza-las-americas-xalapa,30,xalapa,polygon,0.0,Plaza Las Américas Xalapa
+cinepolis,cinepolis-plaza-las-flores-comitan,07,comitan,polygon,0.0,Plaza Las Flores Comitán
+cinepolis,cinepolis-plaza-las-flores-palenque,07,palenque-chiapas,polygon,0.0,Plaza Las Flores Palenque
+cinepolis,cinepolis-plaza-las-flores-tonala,07,tonala,polygon,0.0,Plaza Las Flores
+cinepolis,cinepolis-plaza-las-flores-villaflores,07,villaflores,polygon,0.0,Plaza Las Flores Villaflores
+cinepolis,cinepolis-plaza-leones-coahuila,05,sabinas-coahuila,polygon,0.0,Plaza Leones
+cinepolis,cinepolis-plaza-loreto-puebla,21,puebla,polygon,0.0,Plaza Loreto
+cinepolis,cinepolis-plaza-madero-parras-de-la-fuente-,05,parras-de-la-fuente-,polygon,0.0,Plaza Madero
+cinepolis,cinepolis-plaza-marina-ensenada,02,ensenada,polygon,0.0,Plaza Marina
+cinepolis,cinepolis-plaza-mexico-guadalajara,14,guadalajara,polygon,0.0,Plaza México
+cinepolis,cinepolis-plaza-minatitlan,30,minatitlan,polygon,0.0,Plaza Minatitlán
+cinepolis,cinepolis-plaza-monarca-tijuana,02,tijuana,polygon,0.0,Plaza Monarca
+cinepolis,cinepolis-plaza-museo-xalapa,30,xalapa,polygon,0.0,Plaza Museo
+cinepolis,cinepolis-plaza-nazas-torreon,05,torreon,polygon,0.0,Plaza Nazas
+cinepolis,cinepolis-plaza-nogales-nuevo-casas-grandes,08,nuevo-casas-grandes,polygon,0.0,Plaza Nogales
+cinepolis,cinepolis-plaza-oriente-cdmx,09,cdmx,polygon,0.0,Plaza Oriente
+cinepolis,cinepolis-plaza-paseo-akia-apatzingan,16,apatzingan,polygon,0.0,Plaza Paseo Akia Apatzingán
+cinepolis,cinepolis-plaza-paseo-poniente-morelia,16,morelia,polygon,0.0,Plaza Paseo Poniente
+cinepolis,cinepolis-plaza-periferico-reynosa,28,reynosa,polygon,0.0,Plaza Periférico
+cinepolis,cinepolis-plaza-portal-d10-cuernavaca,17,cuernavaca,polygon,0.0,Plaza Portal D10
+cinepolis,cinepolis-plaza-pradea-valsequillo-puebla,21,puebla,polygon,0.0,Plaza Pradea Valsequillo
+cinepolis,cinepolis-plaza-puerta-cozumel,23,cozumel,polygon,0.0,Plaza Puerta Cozumel
+cinepolis,cinepolis-plaza-rio-nilo-guadalajara,14,guadalajara,polygon,0.0,Plaza Río Nilo
+cinepolis,cinepolis-plaza-rio-tijuana,02,tijuana,polygon,0.0,Plaza Río
+cinepolis,cinepolis-plaza-san-diego-puebla,21,puebla,polygon,0.0,Plaza San Diego
+cinepolis,cinepolis-plaza-san-francisco-cd-hidalgo,16,cd-hidalgo,polygon,0.0,Plaza San Francisco
+cinepolis,cinepolis-plaza-san-luis-san-luis-potosi,24,san-luis-potosi,polygon,0.0,Plaza San Luis
+cinepolis,cinepolis-plaza-san-pedro-mexicali,02,mexicali,polygon,0.0,Plaza San Pedro Mexicali
+cinepolis,cinepolis-plaza-santa-cecilia,30,coatepec,polygon,0.0,MC Plaza Santa Cecilia
+cinepolis,cinepolis-plaza-santiago-monterrey,19,monterrey,polygon,0.0,Plaza Santiago
+cinepolis,cinepolis-plaza-sayula-sayula-jalisco,14,sayula-jalisco,polygon,0.0,Plaza Sayula
+cinepolis,cinepolis-plaza-sendero-las-torres-cd-juarez,08,cd-juarez,polygon,0.0,Plaza Sendero Las Torres
+cinepolis,cinepolis-plaza-sendero-san-luis-potosi,24,san-luis-potosi,polygon,0.0,Plaza Sendero San Luis Potosí
+cinepolis,cinepolis-plaza-shangri-la-cordoba,30,cordoba,polygon,0.0,Plaza Shangri-La
+cinepolis,cinepolis-plaza-tepeyac-cdmx,09,cdmx,polygon,0.0,Plaza Tepeyac
+cinepolis,cinepolis-plaza-tlatelolco-cdmx,09,cdmx,polygon,0.0,Plaza Tlatelolco
+cinepolis,cinepolis-plaza-valle-orizaba,30,orizaba,polygon,0.0,Plaza Valle Orizaba
+cinepolis,cinepolis-plaza-vertice-tlaxcala,29,tlaxcala,polygon,0.0,Plaza Vértice Tlaxcala
+cinepolis,cinepolis-poliforum-tuxtla-gutierrez,07,tuxtla-gutierrez,polygon,0.0,Poliforum
+cinepolis,cinepolis-portal-centenario-cdmx,09,cdmx,polygon,0.0,Portal Centenario
+cinepolis,cinepolis-portal-churubusco-cdmx,09,cdmx,polygon,0.0,Portal Churubusco
+cinepolis,cinepolis-portal-san-angel-cdmx,09,cdmx,polygon,0.0,Portal San Ángel
+cinepolis,cinepolis-portal-veracruz,30,veracruz,polygon,0.0,Portal Veracruz
+cinepolis,cinepolis-puerta-aragon-cdmx,09,cdmx,polygon,0.0,Puerta Aragón
+cinepolis,cinepolis-puerta-huatulco-huatulco,20,huatulco,polygon,0.0,Puerta Huatulco
+cinepolis,cinepolis-puerta-tlatelolco-cdmx,09,cdmx,polygon,0.0,Puerta Tlatelolco
+cinepolis,cinepolis-puerto-cancun,23,cancun,polygon,0.0,Puerto Cancún
+cinepolis,cinepolis-puerto-penasco-puerto-penasco,26,puerto-penasco-,polygon,0.0,Puerto Peñasco
+cinepolis,cinepolis-puerto-vallarta,14,puerto-vallarta,polygon,0.0,Puerto Vallarta
+cinepolis,cinepolis-punta-anahuac-mexicali,02,mexicali,polygon,0.0,Punta Anáhuac
+cinepolis,cinepolis-punta-lakin-cancun,23,cancun,polygon,0.0,Punta Lakin
+cinepolis,cinepolis-punto-atizapan-cdmx,15,cdmx,polygon,0.0,Punto Atizapán
+cinepolis,cinepolis-punto-bahia-manzanillo,06,manzanillo,polygon,0.0,Punto Bahía
+cinepolis,cinepolis-punto-la-gloria-tepatitlan,14,tepatitlan,polygon,0.0,Punto La Gloria
+cinepolis,cinepolis-punto-los-mochis,25,los-mochis,polygon,0.0,Punto Los Mochis
+cinepolis,cinepolis-punto-oriente-guadalajara,14,guadalajara,polygon,0.0,Punto Oriente
+cinepolis,cinepolis-punto-sur-guadalajara,14,guadalajara,polygon,0.0,Punto Sur
+cinepolis,cinepolis-punto-valle-monterrey,19,monterrey,polygon,0.0,Punto Valle
+cinepolis,cinepolis-ramos-arizpe,05,ramos-arizpe,polygon,0.0,Ramos Arizpe
+cinepolis,cinepolis-real-center-guadalajara,14,guadalajara,polygon,0.0,Real Center
+cinepolis,cinepolis-rio-blanco-orizaba,30,orizaba,polygon,0.0,Río Blanco
+cinepolis,cinepolis-sahuayo,16,sahuayo,polygon,0.0,Sahuayo
+cinepolis,cinepolis-salagua-manzanillo,06,manzanillo,polygon,0.0,Salagua
+cinepolis,cinepolis-san-antonio-gomez-palacio,10,gomez-palacio,polygon,0.0,San Antonio Gomez Palacio
+cinepolis,cinepolis-san-cristobal-san-cristobal-de-las-casas,07,san-cristobal-de-las-casas,polygon,0.0,San Cristóbal
+cinepolis,cinepolis-san-fernando-colima,06,colima,polygon,0.0,San Fernando
+cinepolis,cinepolis-san-jeronimo-puebla,21,puebla,polygon,0.0,San Jerónimo
+cinepolis,cinepolis-san-joaquin-villahermosa,27,villahermosa,polygon,0.0,San Joaquín
+cinepolis,cinepolis-san-jose-del-cabo-los-cabos,03,los-cabos,polygon,0.0,San José del Cabo
+cinepolis,cinepolis-san-luis-rio-colorado-san-l-rio-colorado,26,san-l-rio-colorado,polygon,0.0,San Luis Río Colorado
+cinepolis,cinepolis-san-miguel-izcalli-perinorte-cuautitlan,15,perinorte-cuautitlan,polygon,0.0,San Miguel Izcalli
+cinepolis,cinepolis-san-pedro,05,san-pedro,polygon,0.0,San Pedro
+cinepolis,cinepolis-san-roque-monterrey,19,monterrey,polygon,0.0,San Roque
+cinepolis,cinepolis-san-sebastian-puebla,21,puebla,polygon,0.0,San Sebastián
+cinepolis,cinepolis-san-vicente-las-palmas-nuevo-vallarta,18,nuevo-vallarta,polygon,0.0,San Vicente Las Palmas
+cinepolis,cinepolis-santa-rosa-mazatlan,25,mazatlan,polygon,0.0,Santa Rosa
+cinepolis,cinepolis-santiago-tianguistenco-santiago-tianguistenco-de-galeana,15,santiago-tianguistenco-de-galeana,polygon,0.0,Santiago Tianguistenco
+cinepolis,cinepolis-satelite-cdmx,15,cdmx,polygon,0.0,Satélite
+cinepolis,cinepolis-sendero-apodaca-monterrey,19,monterrey,polygon,0.0,Sendero Apodaca
+cinepolis,cinepolis-sendero-ciudad-juarez-cd-juarez,08,cd-juarez,polygon,0.0,Sendero Ciudad Juárez
+cinepolis,cinepolis-sendero-ecatepec,15,ecatepec,polygon,0.0,Sendero Ecatepec
+cinepolis,cinepolis-sendero-ensenada,02,ensenada,nearest,0.91,Sendero Ensenada
+cinepolis,cinepolis-sendero-ganadera-culiacan,25,culiacan,polygon,0.0,Sendero Ganadera Culiacán
+cinepolis,cinepolis-sendero-hermosillo,26,hermosillo,polygon,0.0,Sendero Hermosillo
+cinepolis,cinepolis-sendero-ixtapaluca-chalco-ixtapaluca,15,chalco-ixtapaluca,polygon,0.0,Sendero Ixtapaluca
+cinepolis,cinepolis-sendero-jabil-chihuahua,08,chihuahua,polygon,0.0,Sendero Jabil Chihuahua
+cinepolis,cinepolis-sendero-la-fe-monterrey,19,monterrey,polygon,0.0,Sendero la Fe
+cinepolis,cinepolis-sendero-los-mochis,25,los-mochis,polygon,0.0,Sendero Los Mochis
+cinepolis,cinepolis-sendero-matamoros-matamoros-tamaulipas,28,matamoros-tamaulipas,polygon,0.0,Sendero Matamoros
+cinepolis,cinepolis-sendero-merida,31,merida,polygon,0.0,Sendero Mérida
+cinepolis,cinepolis-sendero-mexicali,02,mexicali,polygon,0.0,Sendero Mexicali
+cinepolis,cinepolis-sendero-monterrey,19,monterrey,polygon,0.0,Sendero Monterrey
+cinepolis,cinepolis-sendero-obregon-cd-obregon,26,cd-obregon,polygon,0.0,Sendero Obregón
+cinepolis,cinepolis-sendero-queretaro,22,queretaro,polygon,0.0,Sendero Querétaro
+cinepolis,cinepolis-sendero-saltillo,05,saltillo,polygon,0.0,Sendero Saltillo
+cinepolis,cinepolis-sendero-saltillo-sur,05,saltillo,polygon,0.0,Sendero Saltillo Sur
+cinepolis,cinepolis-sendero-santa-catarina-monterrey,19,monterrey,polygon,0.0,Sendero Santa Catarina
+cinepolis,cinepolis-sendero-tijuana,02,tijuana,polygon,0.0,Sendero Tijuana
+cinepolis,cinepolis-sendero-toluca,15,toluca,polygon,0.0,Sendero Toluca
+cinepolis,cinepolis-sendero-valle-de-chalco-chalco-ixtapaluca,15,chalco-ixtapaluca,polygon,0.0,Sendero Valle de Chalco
+cinepolis,cinepolis-sendero-villahermosa,27,villahermosa,polygon,0.0,Sendero Villahermosa
+cinepolis,cinepolis-sentura-tlalnepantla-cdmx,15,cdmx,polygon,0.0,Sentura Tlalnepantla
+cinepolis,cinepolis-sentura-zamora,16,zamora,polygon,0.0,Sentura Zamora
+cinepolis,cinepolis-solaz-plaza-temixco,17,temixco,polygon,0.0,Solaz Plaza (Temixco)
+cinepolis,cinepolis-solidaridad-monterrey,19,monterrey,polygon,0.0,Solidaridad
+cinepolis,cinepolis-sur-aguascalientes,01,aguascalientes,polygon,0.0,Sur Aguascalientes
+cinepolis,cinepolis-tampico,28,tampico,polygon,0.0,Tampico
+cinepolis,cinepolis-tangamanga-san-luis-potosi,24,san-luis-potosi,polygon,0.0,Tangamanga
+cinepolis,cinepolis-tapachula,07,tapachula,polygon,0.0,Tapachula
+cinepolis,cinepolis-tecamac,15,tecamac,polygon,0.0,Tecámac
+cinepolis,cinepolis-tecate,02,tecate,polygon,0.0,Tecate
+cinepolis,cinepolis-tecoman,06,tecoman,polygon,0.0,Tecomán
+cinepolis,cinepolis-tehuacan,21,tehuacan,polygon,0.0,Tehuacán
+cinepolis,cinepolis-teleferico-mexicable-ecatepec,15,ecatepec,polygon,0.0,Teleférico Mexicable
+cinepolis,cinepolis-tepeji-del-rio,13,tepeji-del-rio,polygon,0.0,Tepeji del Río
+cinepolis,cinepolis-tezozomoc-chalco-ixtapaluca,15,chalco-ixtapaluca,polygon,0.0,Tezozómoc
+cinepolis,cinepolis-the-harbor-merida,31,merida,polygon,0.0,The Harbor Mérida
+cinepolis,cinepolis-the-shoppes-la-paz,03,la-paz,polygon,0.0,The Shoppes
+cinepolis,cinepolis-tizayuca,13,tizayuca,polygon,0.0,Tizayuca
+cinepolis,cinepolis-tolsa-guadalajara,14,guadalajara,polygon,0.0,Tolsá
+cinepolis,cinepolis-torres-lindavista-cdmx,09,cdmx,polygon,0.0,Torres Lindavista
+cinepolis,cinepolis-town-center-el-rosario-cdmx,09,cdmx,polygon,0.0,Town Center El Rosario
+cinepolis,cinepolis-town-center-nicolas-romero-cdmx,15,cdmx,polygon,0.0,Town Center Nicolás Romero
+cinepolis,cinepolis-town-center-zumpango-tecamac,15,tecamac,polygon,0.0,Town Center Zumpango
+cinepolis,cinepolis-universidad-cdmx,09,cdmx,polygon,0.0,Universidad
+cinepolis,cinepolis-uruapan-plaza-500,16,uruapan,polygon,0.0,Uruapan Plaza 500
+cinepolis,cinepolis-valle-soleado-monterrey,19,monterrey,polygon,0.0,Valle Soleado Monterrey
+cinepolis,cinepolis-velaria-mall-aguascalientes,01,aguascalientes,polygon,0.0,Velaria Mall
+cinepolis,cinepolis-vertice-pachuca,13,pachuca,polygon,0.0,Vértice Pachuca
+cinepolis,cinepolis-via-vallejo-cdmx,09,cdmx,polygon,0.0,Via Vallejo
+cinepolis,cinepolis-viaducto-cdmx,09,cdmx,polygon,0.0,Viaducto
+cinepolis,cinepolis-villahermosa,27,villahermosa,polygon,0.0,Villahermosa
+cinepolis,cinepolis-villas-del-sol-playa-del-carmen,23,playa-del-carmen,polygon,0.0,Villas del Sol
+cinepolis,cinepolis-vip-altama-tampico,28,tampico,polygon,0.0,Altama
+cinepolis,cinepolis-vip-altaria-aguascalientes,01,aguascalientes,polygon,0.0,Altaria
+cinepolis,cinepolis-vip-andares-guadalajara,14,guadalajara,polygon,0.0,Andares
+cinepolis,cinepolis-vip-angelopolis-puebla,21,puebla,polygon,0.0,Angelópolis
+cinepolis,cinepolis-vip-antea-queretaro,22,queretaro,polygon,0.0,Antea Querétaro
+cinepolis,cinepolis-vip-avanta-gardens-monterrey,19,monterrey,polygon,0.0,Avanta Gardens
+cinepolis,cinepolis-vip-centro-comercial-altacia-leon,11,leon,polygon,0.0,Centro Comercial Altacia
+cinepolis,cinepolis-vip-cosmopol-coacalco,15,coacalco,polygon,0.0,Cosmopol
+cinepolis,cinepolis-vip-cuatro-caminos-torreon,05,torreon,polygon,0.0,Cuatro Caminos
+cinepolis,cinepolis-vip-cuernavaca,17,cuernavaca,polygon,0.0,Galerías Cuernavaca
+cinepolis,cinepolis-vip-culiacan,25,culiacan,polygon,0.0,Culiacán
+cinepolis,cinepolis-vip-cumbres-monterrey,19,monterrey,polygon,0.0,Cumbres
+cinepolis,cinepolis-vip-ecatepec-las-americas,15,ecatepec,polygon,0.0,Ecatepec Las Américas
+cinepolis,cinepolis-vip-el-dorado-slp-san-luis-potosi,24,san-luis-potosi,polygon,0.0,El Dorado SLP
+cinepolis,cinepolis-vip-el-dorado-veracruz,30,veracruz,polygon,0.0,El Dorado Veracruz
+cinepolis,cinepolis-vip-encuentro-fortuna-cdmx,09,cdmx,polygon,0.0,Encuentro Fortuna
+cinepolis,cinepolis-vip-esfera-monterrey,19,monterrey,polygon,0.0,Esfera Monterrey
+cinepolis,cinepolis-vip-esfera-queretaro,22,queretaro,polygon,0.0,Esfera Querétaro
+cinepolis,cinepolis-vip-fashion-mall-chihuahua,08,chihuahua,polygon,0.0,Fashion Mall
+cinepolis,cinepolis-vip-galerias-atizapan-cdmx,15,cdmx,polygon,0.0,Galerías Atizapán
+cinepolis,cinepolis-vip-galerias-campeche,04,campeche,polygon,0.0,Galerías Campeche
+cinepolis,cinepolis-vip-galerias-diana-acapulco,12,acapulco,lng_sign,0.0,Diana Acapulco
+cinepolis,cinepolis-vip-galerias-guadalajara,14,guadalajara,polygon,0.0,Galerías Guadalajara
+cinepolis,cinepolis-vip-galerias-hipodromo-tijuana,02,tijuana,polygon,0.0,Galerías Hipódromo
+cinepolis,cinepolis-vip-galerias-laguna-torreon,05,torreon,polygon,0.0,Galerías Laguna
+cinepolis,cinepolis-vip-galerias-mall-hermosillo,26,hermosillo,polygon,0.0,Galerías Mall Hermosillo
+cinepolis,cinepolis-vip-galerias-metepec-toluca,15,toluca,polygon,0.0,Galerías Metepec
+cinepolis,cinepolis-vip-galerias-monterrey,19,monterrey,polygon,0.0,Galerías Monterrey
+cinepolis,cinepolis-vip-galerias-pachuca,13,pachuca,polygon,0.0,Galerías Pachuca
+cinepolis,cinepolis-vip-galerias-santa-anita-guadalajara,14,guadalajara,polygon,0.0,Galerías Santa Anita
+cinepolis,cinepolis-vip-galerias-toluca,15,toluca,polygon,0.0,Galerías Toluca
+cinepolis,cinepolis-vip-galerias-valle-oriente-monterrey,19,monterrey,polygon,0.0,Galerías Valle Oriente
+cinepolis,cinepolis-vip-gran-plaza-guadalajara,14,guadalajara,polygon,0.0,Gran Plaza
+cinepolis,cinepolis-vip-gran-terraza-coapa-cdmx,09,cdmx,polygon,0.0,Gran Terraza Coapa
+cinepolis,cinepolis-vip-interlomas-cdmx,15,cdmx,polygon,0.0,Interlomas
+cinepolis,cinepolis-vip-la-ceiba-culiacan,25,culiacan,polygon,0.0,La Ceiba
+cinepolis,cinepolis-vip-la-cuspide-cdmx,15,cdmx,polygon,0.0,La Cúspide
+cinepolis,cinepolis-vip-la-isla-puerto-vallarta,14,puerto-vallarta,polygon,0.0,La Isla Puerto Vallarta
+cinepolis,cinepolis-vip-la-perla-guadalajara,14,guadalajara,polygon,0.0,La Perla
+cinepolis,cinepolis-vip-la-victoria-queretaro,22,queretaro,polygon,0.0,La Victoria
+cinepolis,cinepolis-vip-las-americas-morelia,16,morelia,polygon,0.0,Espacio Las Américas
+cinepolis,cinepolis-vip-las-americas-veracruz,30,veracruz,polygon,0.0,Las Américas Veracruz
+cinepolis,cinepolis-vip-las-americas-xalapa,30,xalapa,polygon,0.0,Las Américas Xalapa
+cinepolis,cinepolis-vip-las-misiones-cd-juarez,08,cd-juarez,polygon,0.0,Las Misiones
+cinepolis,cinepolis-vip-merida-altabrisa,31,merida,polygon,0.0,VIP Mérida Altabrisa
+cinepolis,cinepolis-vip-midtown-jalisco-guadalajara,14,guadalajara,polygon,0.0,Midtown Jalisco
+cinepolis,cinepolis-vip-mitikah-cdmx,09,cdmx,polygon,0.0,Mítikah
+cinepolis,cinepolis-vip-miyana-polanco-cdmx,09,cdmx,polygon,0.0,Miyana Polanco
+cinepolis,cinepolis-vip-nuevo-sur-monterrey,19,monterrey,polygon,0.0,Nuevo Sur
+cinepolis,cinepolis-vip-oasis-coyoacan-cdmx,09,cdmx,polygon,0.0,Oasis Coyoacán
+cinepolis,cinepolis-vip-parque-toreo-cdmx,15,cdmx,polygon,0.0,Parque Toreo
+cinepolis,cinepolis-vip-paseo-acoxpa-cdmx,09,cdmx,polygon,0.0,Paseo Acoxpa
+cinepolis,cinepolis-vip-paseo-arcos-bosques-cdmx,09,cdmx,polygon,0.0,Paseo Arcos Bosques
+cinepolis,cinepolis-vip-paseo-interlomas-cdmx,15,cdmx,polygon,0.0,Paseo Interlomas
+cinepolis,cinepolis-vip-paseo-la-fe-monterrey,19,monterrey,polygon,0.0,Paseo La Fe
+cinepolis,cinepolis-vip-paseo-monclova,05,monclova,polygon,0.0,Paseo Monclova
+cinepolis,cinepolis-vip-paseo-villalta-saltillo,05,saltillo,polygon,0.0,Paseo Villalta
+cinepolis,cinepolis-vip-perisur-cdmx,09,cdmx,polygon,0.0,Perisur
+cinepolis,cinepolis-vip-plaza-carso-cdmx,09,cdmx,polygon,0.0,Plaza Carso
+cinepolis,cinepolis-vip-plaza-cibeles-irapuato,11,irapuato,polygon,0.0,Plaza Cibeles Irapuato
+cinepolis,cinepolis-vip-plaza-las-americas-cancun,23,cancun,polygon,0.0,Plaza Las Américas
+cinepolis,cinepolis-vip-plaza-periferico-reynosa,28,reynosa,polygon,0.0,Plaza Periférico
+cinepolis,cinepolis-vip-plaza-rio-tijuana,02,tijuana,polygon,0.0,Plaza Río
+cinepolis,cinepolis-vip-plaza-san-luis-san-luis-potosi,24,san-luis-potosi,polygon,0.0,Plaza San Luis
+cinepolis,cinepolis-vip-plaza-satelite-cdmx,15,cdmx,polygon,0.0,Plaza Satélite
+cinepolis,cinepolis-vip-portal-san-angel-cdmx,09,cdmx,polygon,0.0,Portal San Ángel
+cinepolis,cinepolis-vip-puerto-cancun,23,cancun,polygon,0.0,Puerto Cancún
+cinepolis,cinepolis-vip-punto-sur-guadalajara,14,guadalajara,polygon,0.0,Punto Sur
+cinepolis,cinepolis-vip-punto-valle-monterrey,19,monterrey,polygon,0.0,Punto Valle
+cinepolis,cinepolis-vip-samara-cdmx,09,cdmx,polygon,0.0,Samara
+cinepolis,cinepolis-vip-san-pedro-mexicali,02,mexicali,polygon,0.0,San Pedro Mexicali
+cinepolis,cinepolis-vip-sendero-saltillo,05,saltillo,polygon,0.0,Sendero Saltillo
+cinepolis,cinepolis-vip-sentura-tlalnepantla-cdmx,15,cdmx,polygon,0.0,Sentura Tlalnepantla
+cinepolis,cinepolis-vip-the-harbor-merida,31,merida,polygon,0.0,The Harbor Mérida
+cinepolis,cinepolis-vip-universidad-cdmx,09,cdmx,polygon,0.0,Universidad
+cinepolis,cinepolis-vip-via-vallejo-cdmx,09,cdmx,polygon,0.0,Via Vallejo
+cinepolis,cinepolis-vip-villahermosa,27,villahermosa,polygon,0.0,Villahermosa
+cinepolis,cinepolis-vip-zentralia-cd-del-carmen,04,cd-del-carmen,polygon,0.0,Zentralia
+cinepolis,cinepolis-vista-norte-cdmx,09,cdmx,polygon,0.0,Vista Norte
+cinepolis,cinepolis-xtreme-los-angeles-monterrey,19,monterrey,polygon,0.0,Los Ángeles
+cinepolis,cinepolis-zentralia-cd-del-carmen,04,cd-del-carmen,polygon,0.0,Zentralia Cd. del Carmen
+cinepolis,cinepolis-zentralia-coacalco,15,coacalco,polygon,0.0,Zentralia Coacalco
+cinepolis,cinepolis-zentralia-colima,06,colima,polygon,0.0,Zentralia Colima
+cinepolis,cinepolis-zinacantepec-toluca,15,toluca,polygon,0.0,Zinacantepec
+cinepolis,gran-plaza-los-soles-zitacuaro,16,zitacuaro,lng_sign,0.0,Gran Plaza los Soles Zitácuaro
+cinepolis,plaza-acambaro,11,acambaro,polygon,0.0,Plaza Acámbaro
+cinepolis,vip-city-center-leon,11,leon,polygon,0.0,City Center León

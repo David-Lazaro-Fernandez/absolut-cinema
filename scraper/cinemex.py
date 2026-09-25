@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
-from . import config
+from . import config, units
 from .http import request_json
 
 HEADERS = {"X-API-Consumer-Key": config.CINEMEX_CONSUMER_KEY}
@@ -80,36 +80,59 @@ def _payload_date(payload):
     return counts.most_common(1)[0][0] if counts else None
 
 
+def _state_days(state_id, today, horizon, stats):
+    """La cartelera de un estado, de hoy a `horizon`: {state_id, dates_available, days}. Levanta si falla cualquier día:
+    un estado a medias daría por canceladas las funciones de los días que faltan."""
+    first = state_billboard(state_id, stats=stats)
+    available = first.get("dates") or []
+    wanted = [d for d in available if today.isoformat() <= d <= horizon.isoformat()]
+    # Por la tarde-noche cada estado deja de listar el día en curso en `dates`, pero `date=hoy`
+    # sigue devolviendo las funciones que faltan. Sin esto, el diff las daba por canceladas
+    # (502 falsas "removed" el 2026-09-07 a las 19:00). Pedimos hoy siempre.
+    if today.isoformat() not in wanted:
+        wanted.insert(0, today.isoformat())
+    days = {}
+    first_date = _payload_date(first)
+    if first_date and first_date in wanted:
+        days[first_date] = first
+    for d in wanted:
+        if d not in days:
+            days[d] = state_billboard(state_id, d, stats)
+    return {"state_id": state_id, "dates_available": available,
+            "days": [{"date": d, "data": _slim(days[d])} for d in sorted(days)]}
+
+
+def state_days_after(state_id, after, stats=None):
+    """La cartelera de un estado para cada fecha que publica después de `after` (ISO): las preventas lejanas que la
+    captura, que llega a `CINEMEX_DAYS_AHEAD`, no pide. Mismo formato que una unidad del snapshot."""
+    first = state_billboard(state_id, stats=stats)
+    dates = [d for d in first.get("dates") or [] if d > after]
+    return {"state_id": str(state_id), "dates_available": first.get("dates") or [],
+            "days": [{"date": d, "data": _slim(state_billboard(state_id, d, stats))} for d in dates]}
+
+
 def snapshot(state_ids=None, days_ahead=config.CINEMEX_DAYS_AHEAD):
-    """Crudo completo: por estado, la cartelera de cada día desde hoy hasta `days_ahead`."""
+    """Crudo completo: por estado, la cartelera de cada día desde hoy hasta `days_ahead`. Cada estado es una unidad
+    (`scraper/units.py`): uno que falla queda en `units` con su error y no tumba a los demás."""
     stats = {"calls": 0}
-    state_ids = list(state_ids or config.CINEMEX_STATES) or sorted(s["id"] for s in list_states(stats))
+    catalog = list_states(stats)
+    names = {int(s["id"]): s.get("name") for s in catalog}
+    state_ids = list(state_ids or config.CINEMEX_STATES) or sorted(names)
     today = datetime.now(ZoneInfo(config.PILOT_TIMEZONE)).date()
     horizon = today + timedelta(days=days_ahead)
+    todo = [{"unit": f"estado-{sid}", "label": f"{names.get(sid) or 'Estado'} (estado {sid} de Cinemex)",
+             "state_ids": [str(sid)]} for sid in state_ids]
+    results = units.run_units(todo, lambda u, st: _state_days(int(u["state_ids"][0]), today, horizon, st),
+                              workers=config.CINEMEX_WORKERS)
     raw = {
         "chain": "cinemex", "state_ids": state_ids,
         "taken_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "states": [],
+        "states": [], "units": [],
     }
-    for state_id in state_ids:
-        first = state_billboard(state_id, stats=stats)
-        available = first.get("dates") or []
-        wanted = [d for d in available if today.isoformat() <= d <= horizon.isoformat()]
-        # Por la tarde-noche cada estado deja de listar el día en curso en `dates`, pero `date=hoy`
-        # sigue devolviendo las funciones que faltan. Sin esto, el diff las daba por canceladas
-        # (502 falsas "removed" el 2026-09-07 a las 19:00). Pedimos hoy siempre.
-        if today.isoformat() not in wanted:
-            wanted.insert(0, today.isoformat())
-        days = {}
-        first_date = _payload_date(first)
-        if first_date and first_date in wanted:
-            days[first_date] = first
-        for d in wanted:
-            if d not in days:
-                days[d] = state_billboard(state_id, d, stats)
-        raw["states"].append({
-            "state_id": state_id, "dates_available": available,
-            "days": [{"date": d, "data": _slim(days[d])} for d in sorted(days)],
-        })
-    raw["calls"] = stats["calls"]
+    for record, data in results:
+        if data is not None:
+            raw["states"].append(data)
+            record["cinema_ids"] = sorted({str(c["id"]) for day in data["days"] for c in day["data"].get("cinemas") or []})
+        raw["units"].append(record)
+    raw["calls"] = stats["calls"] + sum(r["calls"] for r, _ in results)
     return raw

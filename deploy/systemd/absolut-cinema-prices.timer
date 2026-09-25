@@ -1,0 +1,12 @@
+# Generado por `python3 -m jobs.units write` desde jobs/registry.py; no se edita a mano.
+[Unit]
+Description=absolut-cinema: prices, 06:07
+
+[Timer]
+OnCalendar=*-*-* 06:07:00
+Persistent=true
+RandomizedDelaySec=2min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

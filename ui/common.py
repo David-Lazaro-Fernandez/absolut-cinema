@@ -18,10 +18,8 @@ import pandas as pd
 import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-import psycopg  # noqa: E402
 
 import analytics  # noqa: E402
-import archive  # noqa: E402
 import auth  # noqa: E402
 from analytics.labels import (  # noqa: E402
     AUTH_TEXT,
@@ -78,13 +76,14 @@ from analytics.labels import (  # noqa: E402
     range_short,
     time_12,
 )
+from jobs import keys as job_keys  # noqa: E402
+from jobs import registry as job_registry  # noqa: E402
 from scraper import config, health  # noqa: E402  (health: estado de la captura para la página de operaciones)
 from scraper.health import MAX_AGE_MIN  # noqa: E402  (umbral de captura vieja, el mismo que scraper.health)
 
 TTL = 60  # segundos; los planos de asientos escriben cada 15 min y la cartelera tres veces al día
-TTL_PG = 300  # el archivo histórico recibe el sync cada 30 min; el explorador no necesita más frescura
-PG_ERROR = psycopg.OperationalError  # Postgres no responde: las vistas lo capturan sin importar psycopg
 TZ = ZoneInfo("America/Mexico_City")
+SNAPSHOT_TIMES = job_registry.daily_times(job_keys.SNAPSHOT)  # horas de captura de cartelera, del registro
 KINDS = ["added", "removed", "moved", "changed", "availability"]
 CHAINS = ["cinemex", "cinepolis"]
 CHAIN_DOMAIN = [CHAIN_LABEL[c] for c in CHAINS]
@@ -98,7 +97,7 @@ PAGE_TITLE = ZONE_TEXT["page_title"]
 def inject_css():
     """Tema (colores, radios, familia) en .streamlit/config.toml. Aquí lo que el tema no cubre: la fuente variable
     Archivo, el ancho de lectura y los componentes del mockup (encabezado, rótulos de capa, tarjetas de hallazgo,
-    conclusiones, apéndices colapsados y bloque de desbloqueo). Se llama en cada corrida desde app.py."""
+    conclusiones y apéndices colapsados). Se llama en cada corrida desde app.py."""
     st.markdown(f"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Archivo:ital,wdth,wght@0,62..125,400..900;1,62..125,400..900&display=swap');
@@ -167,15 +166,6 @@ table.mk .cnp {{ font-weight: 700; }}
 table.mk td.sum {{ font-weight: 700; border-top: 2px solid {LINE}; background: {GRAY_LIGHT}; }}
 .nota {{ color: {GRAY}; font-size: 13px; margin: 6px 0 2px; }}
 
-/* desbloqueo */
-.desbloqueo {{ background: {INK}; color: #fff; border-radius: 8px; padding: 28px 30px; margin-top: 26px; }}
-.desbloqueo h3 {{ font-weight: 800; font-stretch: 82%; font-size: 22px; margin: 0 0 4px; padding: 0; color: #fff; }}
-.desbloqueo > p {{ color: #B9BCC4; font-size: 13.5px; max-width: 640px; margin: 0 0 18px; }}
-.desb-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }}
-.desb-item {{ background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.14); border-radius: 6px; padding: 14px 16px; }}
-.desb-item .cuando {{ font-size: 11.5px; font-weight: 700; color: #FF7A90; margin-bottom: 5px; }}
-.desb-item .que {{ font-size: 14px; font-weight: 650; line-height: 1.3; margin-bottom: 5px; }}
-.desb-item p {{ font-size: 12.5px; color: #A7ABB5; line-height: 1.45; margin: 0; }}
 .pie {{ margin-top: 48px; padding-top: 16px; border-top: 1px dashed {LINE}; color: {GRAY}; font-size: 12.5px; }}
 
 /* acceso: tarjeta de entrada y bloque de cuenta en la barra lateral */
@@ -248,30 +238,10 @@ def load_raw(fn_name, **kwargs):
         conn.close()
 
 
-@st.cache_data(ttl=TTL_PG)
-def load_pg(fn_name, **kwargs):
-    """Consultas del archivo histórico (`archive/`, Postgres solo lectura). Las listas van como tuplas para que la
-    caché pueda hashear los argumentos."""
-    conn = archive.connect()
-    try:
-        return pd.DataFrame(getattr(archive, fn_name)(conn, **kwargs))
-    finally:
-        conn.close()
-
-
-@st.cache_data(ttl=TTL_PG)
-def load_pg_raw(fn_name, **kwargs):
-    """Como `load_pg`, para funciones de `archive/` que devuelven un dict."""
-    conn = archive.connect()
-    try:
-        return getattr(archive, fn_name)(conn, **kwargs)
-    finally:
-        conn.close()
-
-
 @st.cache_data(ttl=TTL)
 def load_health(fn_name, **kwargs):
-    """Funciones de `scraper.health` que reciben la conexión (`check`, `recent_runs`), sobre SQLite en solo lectura."""
+    """Funciones de `scraper.health` que reciben la conexión (`check`, `recent_runs`, `capture_units`), sobre SQLite en
+    solo lectura."""
     conn = analytics.connect()
     try:
         return getattr(health, fn_name)(conn, **kwargs)
@@ -283,6 +253,17 @@ def load_health(fn_name, **kwargs):
 def load_ops(fn_name, **kwargs):
     """Funciones de `scraper.health` que leen `data/` sin base (`log_tail`, `storage`, `deployment`)."""
     return getattr(health, fn_name)(**kwargs)
+
+
+@st.cache_data(ttl=TTL)
+def load_dataset(fn_name, **kwargs):
+    """Conjuntos del explorador (`analytics.datasets`, sobre SQLite). Las listas van como tuplas para que la caché
+    pueda hashear los argumentos."""
+    conn = analytics.connect()
+    try:
+        return pd.DataFrame(getattr(analytics.datasets, fn_name)(conn, **kwargs))
+    finally:
+        conn.close()
 
 
 def load_auth(fn_name, **kwargs):
@@ -312,7 +293,7 @@ def pp(v):
 
 
 def local_time(v):
-    """'dd/mm h:mm AM' en hora de la plaza. Acepta ISO (SQLite) o datetime (Postgres); un datetime sin zona ya es
+    """'dd/mm h:mm AM' en hora de la plaza. Acepta ISO (`snapshots.db`) o datetime (`app.db`, ya convertido por `auth.db`); un datetime sin zona ya es
     hora local (así publican las cadenas la hora de la función)."""
     if v is None or pd.isna(v):
         return None
@@ -362,7 +343,7 @@ def pretty(df, index=None):
         if col in df.columns:
             df[col] = df[col].map(labels).fillna(df[col])
     for col in ("sampled_at", "detected_at", "first_seen", "first_seen_at", "closed_at", "last_seen", "last_login_at",
-                "created_at", "starts_at", "taken_at", "finished_at", "synced_at"):
+                "created_at", "starts_at", "taken_at", "finished_at", "last_started_at", "last_at"):
         if col in df.columns:
             df[col] = df[col].map(lambda s: local_time(s) if isinstance(s, (str, datetime)) else s)
     if "datetime_local" in df.columns:

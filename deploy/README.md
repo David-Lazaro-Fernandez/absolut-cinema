@@ -21,41 +21,36 @@ bash /opt/absolut-cinema/deploy/install.sh
 `awscli`, `caddy`; y el venv del dashboard con `requirements-dashboard.txt`; el scraper solo usa la librería
 estándar de `/usr/bin/python3`), fija la zona horaria en `America/Mexico_City`, crea el usuario, corre un
 **primer snapshot si no existe `data/snapshots.db`** (el dashboard solo lee esa base, así que sin ella
-mostraría un aviso de "aún no hay datos"), enlaza los units de systemd y los habilita:
+mostraría un aviso de "aún no hay datos"), y con `deploy/units.sh` enlaza las unidades de systemd y enciende los timers.
 
-| Unit | Cadencia | Qué hace (equivalente en `make`) |
-| --- | --- | --- |
-| `absolut-cinema-scraper.timer` | 07:30, 13:30, 20:30 | captura de cartelera de ambas cadenas (`make snapshot`) |
-| `absolut-cinema-seats.timer` | cada hora, :50 | planos de asientos de Cinépolis tras el inicio de cada función, asistencia final (`make -k seats`) |
-| `absolut-cinema-prices.timer` | diario 06:07 | precios de boleto y menú de dulcería de Cinépolis, este renovado cada 7 días (`make -k prices concessions`) |
-| `absolut-cinema-delivery.timer` | diario 15:07 | dulcería a domicilio en Rappi y DiDi Food, con las tiendas ya abiertas; renovada cada 7 días (`make delivery`) |
-| `absolut-cinema-health.timer` | diario 08:07 | reporte de salud en `data/logs/health.log`; falla si hay huecos o errores (`make health`) |
-| `absolut-cinema-capacity.timer` | día 1, 04:07 | refresco mensual del aforo de Cinépolis (`make capacity REFRESH=1`) |
-| `absolut-cinema-sync.timer` | :22 y :52 | copia lo nuevo de SQLite al archivo histórico en PostgreSQL (`make sync`); DSN en `AC_PG_DSN` |
-| `absolut-cinema-backup.timer` | diario 05:07 | `backup.sh`: copia de la base y sync del crudo al bucket (`make backup`) |
-| `absolut-cinema-auth-prune.timer` | domingos 04:07 | borra sesiones y enlaces de acceso vencidos hace más de 90 días (`make auth-prune`) |
-| `absolut-cinema-deploy.timer` | diario 07:07 | despliega el último commit estable de GitHub (rama `stable`) y reinicia el dashboard (`make deploy`) |
-| `absolut-cinema-calibrate-cinemex.timer` | diario 19:07, **apagado** | calibración del semáforo de Cinemex, 60 funciones por corrida; abre órdenes de checkout, por eso `install.sh` lo enlaza pero no lo habilita (`make calibrate-cinemex`) |
-| `absolut-cinema-dashboard.service` | siempre | Streamlit en `127.0.0.1:8501` |
+**Las unidades se generan desde `jobs/registry.py`** (`make units`) y viven en `deploy/systemd/`: una unidad
+`absolut-cinema-{llave}.service` + `.timer` por trabajo, y cada una ejecuta `make job KEY=llave`. La tabla de trabajos,
+cadencias y topes está en `ARCHITECTURE.md` ("Programación"), generada del mismo registro. Además, siempre encendido,
+`absolut-cinema-dashboard.service` (Streamlit en `127.0.0.1:8501`, escrito a mano).
 
-Cada unidad ejecuta un target de `make`, así que todo lo automático se reproduce a mano igual. Los timers diarios van
-a :07 para no coincidir con el tick de planos; si coinciden, SQLite
-espera hasta 60 s (`timeout` de `store.connect`). Aforo y calibración de Cinemex se lanzan a mano
-(`make capacity-cinemex`, `make calibrate-cinemex`) o encendiendo el timer:
-`systemctl enable --now absolut-cinema-calibrate-cinemex.timer`.
+`deploy/units.sh` (idempotente; lo llaman `install.sh` y, si cambió alguna unidad, `update.sh`) enlaza todo lo de
+`deploy/systemd/`, **apaga y quita las unidades de absolut-cinema que ya no están en el repo** (una llave renombrada,
+como `scraper` → `snapshot` el 2026-09-25) y enciende los timers que el registro marca como encendidos. Si el registro marcara alguno como apagado,
+quedaría enlazado y se enciende con `systemctl enable --now absolut-cinema-{llave}.timer`.
+
+Cada corrida pasa por `jobs.run`: candado por llave (si el timer y una corrida a mano coinciden, la segunda se salta),
+tope de tiempo del registro (systemd tiene 5 min más de margen), reintentos donde el registro los pide (respaldo) y una
+línea en `data/logs/jobs.jsonl` con duración, resultado y **pico de memoria**, que la página Operaciones muestra por
+trabajo. Los timers diarios van a :07 para no coincidir con el tick de planos; si coinciden, SQLite espera hasta 60 s
+(`timeout` de `store.connect`). El aforo nacional de Cinemex se lanza a mano (`make capacity-cinemex PLAZAS=all`).
 
 Después de instalar:
 
 1. Copiar la base existente de la Mac para no perder la historia:
    `rsync -a ~/absolut-cinema/data/ root@SERVIDOR:/opt/absolut-cinema/data/` y
    `chown -R absolut:absolut /opt/absolut-cinema/data`. Apagar antes el launchd local
-   (`launchctl bootout gui/$(id -u)/com.absolut-cinema.scraper`) para que no haya dos escritores.
+   (`make launchd-unload` en la Mac) para que no haya dos escritores.
 2. Editar `/etc/absolut-cinema.env` con el bucket de respaldo y, si hace falta, el endpoint de Spaces.
    Credenciales del bucket en `/home/absolut/.aws/credentials`.
 3. Editar `/etc/caddy/Caddyfile`: dominio (con DNS apuntando al servidor). El `basic_auth` es una segunda puerta
    opcional mientras no haya dominio ni TLS; con el dominio en producción, quitar ese bloque. Luego `systemctl reload caddy`.
-4. Dar de alta el acceso por usuario (siguiente sección): esquema `app`, rol `absolut_app`, variables `AC_AUTH_PG_DSN`,
-   `AC_BASE_URL`, `AC_MAIL_*` y el primer admin con `make user-create`.
+4. Dar de alta el acceso por usuario (siguiente sección): variables `AC_BASE_URL` y `AC_MAIL_*` y el primer admin con
+   `make user-create`. Las cuentas viven en `data/app.db`, que se crea sola.
 
 ## Operación
 
@@ -63,16 +58,17 @@ Después de instalar:
 systemctl list-timers 'absolut-cinema-*'            # próximas ejecuciones
 tail -f /opt/absolut-cinema/data/logs/run.log      # una línea por cadena y snapshot
 journalctl -u absolut-cinema-dashboard -f          # logs de Streamlit
-systemctl start absolut-cinema-scraper.service     # forzar una captura de cartelera ahora
+systemctl start absolut-cinema-snapshot.service    # forzar una captura de cartelera ahora
 systemctl start absolut-cinema-backup.service      # forzar un respaldo ahora
 systemctl start absolut-cinema-health.service      # reporte de salud ahora (también: make health)
 cat /opt/absolut-cinema/data/logs/health.log       # una línea por día
+tail /opt/absolut-cinema/data/logs/jobs.jsonl      # una línea por corrida: duración, resultado, memoria
 ```
 
 **Alcance de la captura.** Nacional por defecto (Cinépolis ~155 ciudades, Cinemex 31 estados; las dos cadenas se
 descargan en paralelo y la captura tarda ~17 min desde la Mac con el ritmo frenado de Cinépolis, algo más desde el servidor vía WARP;
-`TimeoutStartSec=45min` en `absolut-cinema-scraper.service`). Para
-acotarla, `AC_CINEPOLIS_CITIES` y `AC_CINEMEX_STATES` en el `.env`. Los planos de asientos (`seats.timer`) solo se toman
+tope de 45 min del trabajo `snapshot` en `jobs/registry.py`). Para
+acotarla, `AC_CINEPOLIS_CITIES` y `AC_CINEMEX_STATES` en el `.env`. Los planos de asientos (trabajo `seats`) solo se toman
 en las plazas de `AC_SEATS_PLAZAS` (por defecto `cdmx`; claves de `scraper/plazas.py`): se amplía cuando el registro de
 cobertura de la página Operaciones diga qué plazas pesan. Al cambiar el `.env`, `systemctl daemon-reload` no hace falta
 (lo leen los units al arrancar cada corrida).
@@ -91,10 +87,10 @@ al cliente. En su lugar hay dos piezas desacopladas:
    mueve solo el workflow: no se toca a mano. Así el "último commit seguro" siempre es `origin/stable`.
 2. **El servidor decide cuándo** (`deploy/update.sh`, `make deploy`, `absolut-cinema-deploy.timer` a las 07:07, hora de
    poco uso y antes de la captura de las 07:30). Trae `origin/stable`, y solo si hay algo nuevo: `git reset --hard` a ese
-   commit como el usuario `absolut`, reinstala el venv si cambió algún `requirements-*.txt`, `daemon-reload` si cambió una
+   commit como el usuario `absolut`, reinstala el venv si cambió algún `requirements-*.txt`, `deploy/units.sh` si cambió una
    unidad en `deploy/`, reinicia el dashboard y espera a que `/_stcore/health` responda. Escribe una línea por corrida en
    `data/logs/deploy.log` y sale con 1 si el dashboard no levanta (queda visible en `systemctl list-timers`). No toca
-   `data/` ni Postgres: los cambios de esquema (`schema.sql`, `auth.sql`) siguen siendo un paso a mano y documentado.
+   `data/`: los cambios de esquema de ambas bases son aditivos y se aplican solos al conectar (`store.py`, `auth/db.py`).
 
 ```sh
 tail -5 /opt/absolut-cinema/data/logs/deploy.log        # qué se desplegó y cuándo
@@ -109,15 +105,12 @@ código nuevo. El único reinicio es el del dashboard, unos segundos a las 07:07
 ## Acceso por usuario y correo (SES)
 
 El dashboard pide correo y contraseña (`auth/`, `ui/session.py`) con dos roles: `admin` (gestiona cuentas en la página
-Usuarios y ve todo) y `viewer` (Cartelera, Dulcería y el explorador Datos). Las cuentas viven en el esquema `app` de la
-misma base Postgres del archivo, con un rol propio que solo escribe ahí y lee `public`.
+Usuarios y ve todo) y `viewer` (Cartelera, Dulcería y el explorador Datos). Las cuentas viven en su propia base SQLite,
+`data/app.db` (`AC_APP_DB` para moverla), que escribe solo `auth/`; se crea con su esquema al primer uso y entra en el
+respaldo diario.
 
 ```sh
-# Una vez, como propietario de la base (misma DSN del sync):
-psql "$AC_PG_DSN" -v ON_ERROR_STOP=1 -f deploy/postgres/auth.sql
-psql "$AC_PG_DSN" -v ON_ERROR_STOP=1 -v app_password='CONTRASEÑA_DEL_ROL' -f deploy/postgres/app_role.sql
-# En /etc/absolut-cinema.env: AC_AUTH_PG_DSN=postgresql://absolut_app:CONTRASEÑA_DEL_ROL@HOST-RDS:5432/absolut_cinema
-#                             AC_BASE_URL=https://DOMINIO   AC_MAIL_BACKEND=ses   AC_MAIL_FROM="Absolut Cinema <no-responder@DOMINIO>"
+# En /etc/absolut-cinema.env: AC_BASE_URL=https://DOMINIO   AC_MAIL_BACKEND=ses   AC_MAIL_FROM="Absolut Cinema <no-responder@DOMINIO>"
 systemctl restart absolut-cinema-dashboard
 sudo -u absolut make -C /opt/absolut-cinema user-create EMAIL=quien@cinemex.com NAME="Nombre Apellido" ROLE=admin
 ```
@@ -161,28 +154,25 @@ Privoxy no responde; `make health` lo reporta como captura fallida. Para volver 
 
 ## Restaurar
 
+El respaldo diario (`deploy/backup.sh`, 05:07) deja en el bucket tres cosas: `db/snapshots-FECHA.db.gz` (la base de la
+captura), `app/app-FECHA.db.gz` (cuentas y sesiones) y `raw/` (el crudo de cada captura, del que se puede reconstruir
+cualquier historia). Las copias de las bases salen de `.backup` de SQLite: consistentes aunque la captura o el dashboard
+estén escribiendo. Simulacro del 2026-09-25 en local: `snapshots.db` de 810 MB se copia en 4 s, pesa 53 MB comprimida y
+la copia restaurada pasa `PRAGMA integrity_check` y abre con `analytics` y `auth`.
+
 ```sh
-aws s3 cp s3://BUCKET/db/snapshots-FECHA.db.gz . && gunzip snapshots-FECHA.db.gz
-systemctl stop absolut-cinema-scraper.timer
-mv snapshots-FECHA.db /opt/absolut-cinema/data/snapshots.db && chown absolut:absolut /opt/absolut-cinema/data/snapshots.db
-systemctl start absolut-cinema-scraper.timer
+cd /tmp && aws s3 cp s3://BUCKET/db/snapshots-FECHA.db.gz . && aws s3 cp s3://BUCKET/app/app-FECHA.db.gz .
+gunzip snapshots-FECHA.db.gz app-FECHA.db.gz
+sqlite3 snapshots-FECHA.db "PRAGMA integrity_check;"      # debe decir ok
+sqlite3 app-FECHA.db "PRAGMA integrity_check;"
+systemctl stop 'absolut-cinema-*.timer' absolut-cinema-dashboard
+rm -f /opt/absolut-cinema/data/snapshots.db-wal /opt/absolut-cinema/data/snapshots.db-shm \
+      /opt/absolut-cinema/data/app.db-wal /opt/absolut-cinema/data/app.db-shm
+mv snapshots-FECHA.db /opt/absolut-cinema/data/snapshots.db && mv app-FECHA.db /opt/absolut-cinema/data/app.db
+chown absolut:absolut /opt/absolut-cinema/data/snapshots.db /opt/absolut-cinema/data/app.db
+aws s3 sync s3://BUCKET/raw/ /opt/absolut-cinema/data/raw/ && chown -R absolut:absolut /opt/absolut-cinema/data/raw
+systemctl start absolut-cinema-dashboard && /opt/absolut-cinema/deploy/units.sh   # vuelve a encender los timers
 ```
 
-## Archivo histórico en PostgreSQL
-
-`make sync` (cada 30 min) lee `snapshots.db` en solo lectura y el crudo de cada captura, y escribe en Postgres por
-marca de agua (`sync_watermark`). `AC_PG_DSN` va en `/etc/absolut-cinema.env`; en desarrollo apunta al Postgres de
-`docker-compose.dev.yml`. Esquema: `deploy/postgres/schema.sql` (aplicar una vez con `psql -f`; en local `make pg-schema`).
-Diseño y consultas de ejemplo en `docs/postgres-esquema.md`.
-
-- **Estado**: `data/logs/sync_status.json` (última corrida, marcas, pendiente); `make health` lo reporta.
-- **Postgres es append-only.** Si en SQLite se borran eventos a mano (falsos positivos), en Postgres hay que repetirlo:
-  `DELETE FROM event WHERE id = ANY(ARRAY[...]);`.
-- **Si cambia la semántica de `scraper/normalize.py`**, la historia ya cargada no se recalcula sola: `TRUNCATE showtime_state,
-  showtime; DELETE FROM sync_watermark WHERE source_table = 'showtime';` y volver a correr `make sync`, que la reconstruye
-  desde los crudos (30 s por cada 80 capturas).
-- **Particiones**: el sync crea `showtime_YYYYMM`, `showtime_state_YYYYMM` y `event_YYYYMM` bajo demanda; no hay DEFAULT.
-- **Si falta el crudo de una captura buena**, el sync se detiene en ella y lo reporta: hay que restaurarlo del bucket
-  (`raw/{chain}/{fecha}/…`) antes de seguir; saltarla rompería la historia.
-- **Esquema `app`** (cuentas del dashboard): `deploy/postgres/auth.sql` y `app_role.sql`, ver "Acceso por usuario". Es la
-  única parte de Postgres que escribe el dashboard; el `sync` no la toca.
+La siguiente captura corrige sola la cartelera vigente (el diff contra lo restaurado registra lo que cambió en el hueco).
+Las sesiones abiertas después de la fecha del respaldo se pierden: esas personas vuelven a entrar.

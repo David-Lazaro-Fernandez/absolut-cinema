@@ -65,7 +65,7 @@ Todo lo de esta sección sale de `data/snapshots.db` con 3 días de historia, no
 
 | Tabla | Patrón | Filas por corrida | Row-ops/día |
 | --- | --- | --- | --- |
-| `current_showtime` | `DELETE` de la cadena + `INSERT` de todas sus filas (`store.py:133`) | 51,468 (Cinemex 28,346 + Cinépolis 23,122) | **308,808** |
+| `current_showtime` | `DELETE` de la cadena + `INSERT` de todas sus filas (`replace_current`; desde el 2026-09-25 solo la diferencia, `apply_current`) | 51,468 (Cinemex 28,346 + Cinépolis 23,122) | **308,808** |
 | `event` | solo `INSERT`, acumula | ~2,300 por corrida | ~7,000 |
 | `occupancy_sample` | solo `INSERT`, cada hora | ~90 por pase | ~1,750 |
 | `concession_price` | solo `INSERT`, 74 cines renovados cada 7 días | 10,942 por pasada | ~1,563 |
@@ -79,8 +79,8 @@ Todo lo de esta sección sale de `data/snapshots.db` con 3 días de historia, no
 nueva de verdad son ~11,600 filas al día; el resto es reescribir el estado vigente entero tres veces.
 En SQLite eso cuesta una transacción local y no importa. En Postgres el mismo patrón deja 308,808
 tuplas muertas al día para autovacuum, y en un motor que cobra por escritura (DynamoDB) se paga
-completo. Por eso `docs/postgres-esquema.md` versiona con `valid_from`/`valid_to` en vez de
-reemplazar: el `sync/` del plan 2 no debe replicar el borrado.
+completo. (Desde entonces `current_showtime` se escribe por diferencia, `store.apply_current`: altas, cambios y
+cierres, no la tabla entera.)
 
 ### Crecimiento en disco
 
@@ -104,8 +104,8 @@ este documento pedía 100 GB por una estimación equivocada del crudo.
 | --- | --- | --- | --- | --- | --- |
 | `t4g.nano` | 2 | 0.5 GB | 0.0042 USD | ~3.07 USD | **No.** Insuficiente. |
 | `t4g.micro` | 2 | 1 GB | 0.0084 USD | ~6.13 USD | **No.** Apenas menos que `t4g.small`, insuficiente en pico. |
-| `t4g.small` | 2 | 2 GB | 0.0168 USD | ~12.26 USD | ⚠️ Límite mínimo; funciona hoy pero sin margen. Riesgoso con plan 2. |
-| **`t4g.medium`** | **2** | **4 GB** | **0.0336 USD** | **~24.53 USD** | ✅ **Recomendado.** 4 GB = seguro en picos + plan 2. |
+| `t4g.small` | 2 | 2 GB | 0.0168 USD | ~12.26 USD | ⚠️ Sin margen: la captura nacional llegó a 1.9 GB de pico (2026-09-25). |
+| **`t4g.medium`** | **2** | **4 GB** | **0.0336 USD** | **~24.53 USD** | ✅ **Recomendado** mientras la captura no tenga memoria acotada. |
 | `t3.medium` (ref) | 2 | 4 GB | — | ~37 USD | Intel; más caro, igual performance. |
 
 ### Argumento para `t4g.medium`
@@ -121,81 +121,62 @@ este documento pedía 100 GB por una estimación equivocada del crudo.
 
 `t4g.small` (2 GB, ~12.26 USD/mes) también funcionaría hoy: el pico medido es ~600 MB. Se recomienda
 `medium` por el margen, porque la diferencia son 12 USD al mes y porque el pico crece con cada
-usuario concurrente del dashboard. Con Postgres en RDS (plan 2) sí conviene bajar a `small`.
+usuario concurrente del dashboard.
 
-## Almacenamiento: SQLite vs. PostgreSQL en RDS
+## Decisión de almacenamiento (2026-09-25): solo SQLite
 
-### Opción A: SQLite local (hoy, plan 1)
-- **Almacenamiento:** EBS gp3 30 GB (~3 años de base + crudo).
-- **Overhead en EC2:** SQLite + WAL ≈ 50 MB en pico.
-- **Pros:** sin dependencias de red, sin RDS pay-per-use, control local.
-- **Contras:** un solo escritor, replicar a otro servidor cuesta, sin búfering entre regiones.
-- **Recomendado para:** dev/piloto, si no tienes RDS disponible.
+Se descartó PostgreSQL en RDS: el `db.t4g.micro` multi-AZ costaba ~22.50 USD/mes, casi la mitad de la cuenta, y el
+volumen no lo pide. Lo que el cliente necesita es disponibilidad, no historia larga (el mercado de cine es volátil y la
+historia de hace un año pesa poco en sus decisiones). Todo vive en SQLite en el disco de la instancia: `snapshots.db`
+(la escribe solo la captura) y `app.db` (cuentas, la escribe solo `auth/`). La confiabilidad sale del respaldo diario de
+ambas bases y del crudo al bucket (`deploy/backup.sh`) y de la restauración documentada en `deploy/README.md`. El código
+del archivo en Postgres quedó en el tag `pre-sqlite-only`.
 
-### Opción B: PostgreSQL en RDS + scraper a PostgreSQL (plan 2)
-- **BD remota:** RDS `db.t4g.micro` (~11 USD/mes) o `db.t4g.small` (~21 USD/mes).
-- **Almacenamiento:** EBS gp3 20 GB en EC2 (crudo + logs, nada de BD).
-- **Overhead en EC2:** scraper + Streamlit ≈ 400 MB en pico (sin WAL local).
-- **Pros:** escala horizontal, replicación nativa, backup automático AWS.
-- **Contras:** latencia de red, costo RDS (+11–21 USD/mes), networking VPC.
-- **Recomendado para:** producción en AWS Cinemex, plan 2 en curso.
+### Carga con la captura nacional (medido 2026-09-25)
 
-**→ Con PostgreSQL en RDS, EC2 puede ser `t4g.small` (2 GB, ~12.26 USD/mes).**
+Las cifras de arriba son del piloto CDMX. Con la captura nacional (278 cines de Cinemex, 496 de Cinépolis, ~22,500
+funciones publicadas al día):
+
+| Qué | Escrituras al día | Espacio al día |
+| --- | --- | --- |
+| `event` | ~50–65 mil filas | ~60–75 MB (≈ 22–27 GB al año) |
+| `current_showtime` | ~50–65 mil operaciones; la tabla se mantiene en ~250 mil filas | 0 neto |
+| Muestreos (planos, preventas, precios, dulcería) | ~12 mil filas | ~3 MB |
+
+Para SQLite es poco: cada captura escribe ~20 mil filas en una transacción de segundos y los muestreos son ~5 mil
+transacciones chicas al día. Las lecturas son de ~10 personas con caché (`TTL`) y en WAL no bloquean al escritor. Lo que
+sí limita:
+
+- **Memoria de la captura nacional.** `jobs.jsonl` registró 1,944 MB de pico el 2026-09-25, en una corrida que arrastraba
+  13 días de hueco (348 mil eventos). Mientras no se acote (escribir por unidad en vez de armar todo el país en memoria),
+  `t4g.small` no tiene margen: conviene `t4g.medium`.
+- **Crecimiento de `event`.** ~22–27 GB al año: con 30 GB de EBS hace falta retención (90 días completos en SQLite y lo
+  anterior compactado en el crudo o en el bucket) antes de un año.
+
+Las dos van en su propio plan.
 
 ## Red y almacenamiento
 
-- **VPC:** privada (EC2) + NLB/Caddy para Streamlit en HTTPS, o pública si confías en basic auth.
-- **Seguridad:** EC2 en subnet privada, RDS en subnet privada, HTTPS via Caddy.
-- **EBS gp3:** 
-  - SQLite (opción A): 30 GB, 3,000 IOPS (~3 años de historia).
-  - PostgreSQL (opción B): 20 GB, 3,000 IOPS (solo crudo y logs).
-- **Respaldo:** 
-  - SQLite: snapshots diarios de EBS a S3 (`backup.timer`).
-  - PostgreSQL: automated backups de RDS (retenidos 7–30 días, configurar).
+- **VPC:** privada (EC2) + Caddy para Streamlit en HTTPS.
+- **EBS gp3:** 30 GB, 3,000 IOPS; alcanza ~1 año con la captura nacional sin retención de `event`.
+- **Respaldo:** `deploy/backup.sh` diario (05:07): `.backup` de `snapshots.db` y `app.db` comprimidas y el crudo al
+  bucket; 7 copias locales. Simulacro en local: 810 MB → 53 MB comprimida en 4 s.
 - **Zona horaria:** `America/Mexico_City` en `/etc/timezone` del servidor.
 
 ## Configuración recomendada para AWS
 
-### Plan 1 (hoy, SQLite local)
 | Componente | Especificación | Costo/mes | Notas |
 | --- | --- | --- | --- |
-| **EC2** | `t4g.medium` (2 vCPU, 4 GB RAM) | ~24.53 USD | Cubre picos sin swap |
-| **EBS** | gp3 30 GB | ~2.40 USD | `/data` → snapshots a S3 |
-| **S3** | respaldos gp + crudo | ~2–5 USD | lifecycle 30 días |
+| **EC2** | `t4g.medium` (2 vCPU, 4 GB RAM) | ~24.53 USD | `t4g.small` (~12.26 USD) cuando la captura tenga memoria acotada |
+| **EBS** | gp3 30 GB | ~2.40 USD | `data/`: bases, crudo y logs |
+| **S3** | respaldos + crudo | ~2–5 USD | lifecycle 30 días para `db/` y `app/` |
 | **Total** | | ~29–32 USD/mes | — |
-
-### Plan 2 (con PostgreSQL en RDS)
-| Componente | Especificación | Costo/mes | Notas |
-| --- | --- | --- | --- |
-| **EC2** | `t4g.small` (2 vCPU, 2 GB RAM) | ~12.26 USD | Reduce a 2 GB porque no lleva SQLite WAL |
-| **EBS** | gp3 20 GB | ~2 USD | Solo crudo + logs |
-| **RDS** | `db.t4g.micro` o `.small` (single-AZ) | ~11–21 USD | Upgradeable, backup automático |
-| **S3** | crudo y respaldos | ~2–5 USD | — |
-| **Total** | | ~27–41 USD/mes | Escalable, menos operativo |
 
 ## Instalación
 
-### SQLite (plan 1)
 ```bash
 # Desde un t4g.medium en us-east-1 (o tu región)
 sudo bash deploy/install.sh
-# Variables de entorno en deploy/absolut-cinema.env
+# Variables de entorno en /etc/absolut-cinema.env (ejemplo en deploy/absolut-cinema.env.example)
 # Timers arrancados (ver systemctl list-timers)
 ```
-
-### PostgreSQL (plan 2, próximamente)
-```bash
-# EC2: t4g.small, en subnet privada
-# RDS: db.t4g.micro → db.t4g.small, single-AZ, backup automated
-# Variables en deploy/absolut-cinema.env:
-#   DATABASE_URL=postgresql://user:pass@rds-endpoint:5432/absolut_cinema
-# scraper.run → escribe en RDS via sync/ (conexión TCP)
-# analytics/ → lee de RDS (conexión TCP)
-```
-
-## Conclusión
-
-**Hoy:** `t4g.medium` (~24.53 USD/mes) cubre todo con margen.  
-**Plan 2:** `t4g.small` (~12.26 USD/mes) + RDS (~11–21 USD/mes) escalable, recomendado.
-
-Especifica con el cliente si la BD va en su RDS/AWS o en DigitalOcean para fijar infraestructura.

@@ -1,0 +1,12 @@
+# Generado por `python3 -m jobs.units write` desde jobs/registry.py; no se edita a mano.
+[Unit]
+Description=absolut-cinema: capacity, día 1, 04:07
+
+[Timer]
+OnCalendar=*-*-01 04:07:00
+Persistent=true
+RandomizedDelaySec=2min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

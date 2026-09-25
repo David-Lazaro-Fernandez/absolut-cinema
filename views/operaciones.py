@@ -1,7 +1,7 @@
 """Operaciones (solo admin): el estado de la plataforma para quien la opera. Captura de cartelera y muestreos
-(lo mismo que `scraper.health`, en vivo), corridas recientes con su error literal, el archivo histórico en PostgreSQL,
-la sincronización, el servidor y la cola de cada log. Es la única página que muestra nombres internos (tablas, logs)
-tal cual: su público es ingeniería, no el cliente. Toda lectura pasa por `load_health`, `load_ops` y `load_pg_raw`."""
+(lo mismo que `scraper.health`, en vivo), corridas recientes con su error literal, los trabajos programados con su
+última corrida y memoria, el servidor (commit, respaldo, tamaño de `snapshots.db` y `app.db`) y la cola de cada log. Es la única página que muestra nombres internos (tablas, logs)
+tal cual: su público es ingeniería, no el cliente. Toda lectura pasa por `load_health` y `load_ops`."""
 from ui import session
 from ui.common import *  # noqa: F401,F403
 
@@ -86,6 +86,19 @@ if report:
         fila(OPS_TEXT["calibration"], lambda c: ", ".join(f"{k}: {v}" for k, v in c["calibration"].items()) if "calibration" in c else "—")
         table([OPS_TEXT["signal"], *[CHAIN_LABEL[c] for c in chains]], rows)
 
+# --- trabajos programados: el registro y lo que dejó jobs.run -------------------------------------------------
+with seccion("trabajos"):
+    encabezado("trabajos", OPS_TEXT["jobs"], OPS_TEXT["jobs_lead"])
+    job_days = st.slider(OPS_TEXT["jobs_days"], min_value=1, max_value=30, value=RUN_DAYS, key="job_days")
+    jobs = pd.DataFrame(load_ops("jobs_status", days=job_days))
+    jobs["last_status"] = jobs["last_status"].map(OPS_TEXT["jobs_status"]).fillna("—")
+    jobs["schedule"] = jobs["schedule"].where(jobs["enabled"], jobs["schedule"] + f' · {OPS_TEXT["jobs_off"]}')
+    st.dataframe(pretty(jobs[["key", "area", "schedule", "last_started_at", "last_status", "last_duration_s", "last_max_rss_mb",
+                              "runs", "failures", "peak_rss_mb", "timeout_min"]]),
+                 width="stretch", hide_index=True,
+                 column_config={COLUMN_LABEL[c]: st.column_config.NumberColumn(format="%.0f")
+                                for c in ("last_duration_s", "last_max_rss_mb", "peak_rss_mb")})
+
 # --- cobertura por geografía: el registro para decidir dónde muestrear planos ---------------------------------
 if report:
     with seccion("cobertura"):
@@ -125,53 +138,20 @@ if report:
                          column_config={COLUMN_LABEL["ok"]: st.column_config.CheckboxColumn(),
                                         COLUMN_LABEL["duration_s"]: st.column_config.NumberColumn(format="%.0f")})
 
-# --- archivo histórico en PostgreSQL ----------------------------------------------------------------------
-with seccion("postgres"):
-    encabezado("postgres", OPS_TEXT["postgres"], OPS_TEXT["postgres_lead"])
-    try:
-        pg = load_pg_raw("postgres_status")
-    except PG_ERROR as e:
-        pg = None
-        st.error(OPS_TEXT["pg_down"].format(error=str(e).strip()))
-    if pg:
-        md(estado(True))
-        table(["", ""], [
-            [OPS_TEXT["database"], pg["database"]],
-            [OPS_TEXT["latency"], f'{n(pg["latency_ms"], 1)} ms'],
-            [OPS_TEXT["server_version"], pg["server_version"]],
-            [OPS_TEXT["db_size"], size_h(pg["size_bytes"])],
-            [OPS_TEXT["connections"], n(pg["connections"])],
-            [OPS_TEXT["server_time"], when(pg["server_time"])],
-        ])
-        c1, c2 = st.columns([3, 2], gap="large")
-        with c1:
-            md(f'<p class="nota"><b>{esc(OPS_TEXT["tables"])}</b></p>')
-            sizes = load_pg("table_sizes")
-            if not sizes.empty:
-                sizes["size_bytes"] = sizes["size_bytes"].map(size_h)
-                st.dataframe(pretty(sizes), width="stretch", hide_index=True,
-                             column_config={COLUMN_LABEL["rows_estimate"]: st.column_config.NumberColumn(format="%d")})
-        with c2:
-            md(f'<p class="nota"><b>{esc(OPS_TEXT["watermarks"])}</b></p>')
-            marks = load_pg("sync_watermarks")
-            if not marks.empty:
-                st.dataframe(pretty(marks), width="stretch", hide_index=True)
-
-# --- sync -----------------------------------------------------------------------------------------------
-with seccion("sync"):
-    encabezado("sync", OPS_TEXT["sync"], OPS_TEXT["sync_lead"])
-    sync = report["sync"] if report else None
-    if not sync:
-        st.info(OPS_TEXT["sync_missing"])
-    else:
-        md(estado(sync["ok"]))
-        lag = {k: v for k, v in (sync.get("lag") or {}).items() if v}
-        table(["", ""], [
-            [OPS_TEXT["sync_last"], f'{when(sync["finished_at"])} · {age_text(sync["age_min"])}'],
-            [OPS_TEXT["sync_result"], (OPS_TEXT["ok"], "") if sync["ok"] else (OPS_TEXT["failed"], "mal")],
-            [OPS_TEXT["sync_error"], sync["error"] or "—"],
-            [OPS_TEXT["sync_lag"], (", ".join(f"{k}: {v}" for k, v in lag.items()), "mal") if lag else OPS_TEXT["sync_no_lag"]],
-        ])
+# --- unidades de captura: qué estado o lote falló ------------------------------------------------------------
+if report:
+    with seccion("unidades"):
+        encabezado("unidades", OPS_TEXT["units"], OPS_TEXT["units_lead"])
+        unit_days = st.slider(OPS_TEXT["runs_days"], min_value=1, max_value=30, value=RUN_DAYS, key="unit_days")
+        cap_units = pd.DataFrame(load_health("capture_units", days=unit_days))
+        if cap_units.empty:
+            st.info(OPS_TEXT["units_empty"])
+        else:
+            st.dataframe(pretty(cap_units[["chain", "label", "unit", "last_at", "last_ok", "last_error", "runs", "failures",
+                                           "avg_shows", "avg_calls", "avg_duration_s"]]),
+                         width="stretch", hide_index=True,
+                         column_config={COLUMN_LABEL["last_ok"]: st.column_config.CheckboxColumn(),
+                                        COLUMN_LABEL["avg_duration_s"]: st.column_config.NumberColumn(format="%.0f")})
 
 # --- servidor y almacenamiento -----------------------------------------------------------------------------
 with seccion("servidor"):
@@ -184,6 +164,7 @@ with seccion("servidor"):
         [OPS_TEXT["last_backup"], dep["last_backup"] or OPS_TEXT["no_line"]],
         [OPS_TEXT["db_file"], size_h(sto["db_bytes"])],
         [OPS_TEXT["wal_file"], size_h(sto["wal_bytes"])],
+        [OPS_TEXT["app_db_file"], size_h(sto["app_db_bytes"])],
         [OPS_TEXT["raw_dir"], size_h(sto["raw_bytes"])],
         [OPS_TEXT["backups_dir"], size_h(sto["backups_bytes"])],
         [OPS_TEXT["disk_free"], f'{size_h(sto["disk_free_bytes"])} de {size_h(sto["disk_total_bytes"])} · {sto["data_dir"]}'],

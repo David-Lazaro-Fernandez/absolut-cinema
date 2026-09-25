@@ -40,42 +40,25 @@ chown -R absolut:absolut "$APP"
 [ -f /etc/absolut-cinema.env ] || { cp deploy/absolut-cinema.env.example /etc/absolut-cinema.env; chmod 600 /etc/absolut-cinema.env; }
 
 sudo -u absolut python3 -m venv .venv
-sudo -u absolut .venv/bin/pip install -q -r requirements-dashboard.txt -r requirements-sync.txt
-
-for unit in absolut-cinema-scraper.service absolut-cinema-scraper.timer \
-            absolut-cinema-dashboard.service absolut-cinema-backup.service absolut-cinema-backup.timer \
-            absolut-cinema-seats.service absolut-cinema-seats.timer \
-            absolut-cinema-prices.service absolut-cinema-prices.timer \
-            absolut-cinema-delivery.service absolut-cinema-delivery.timer \
-            absolut-cinema-health.service absolut-cinema-health.timer \
-            absolut-cinema-sync.service absolut-cinema-sync.timer \
-            absolut-cinema-capacity.service absolut-cinema-capacity.timer \
-            absolut-cinema-auth-prune.service absolut-cinema-auth-prune.timer \
-            absolut-cinema-deploy.service absolut-cinema-deploy.timer \
-            absolut-cinema-calibrate-cinemex.service absolut-cinema-calibrate-cinemex.timer; do
-  ln -sf "$APP/deploy/$unit" "/etc/systemd/system/$unit"
-done
-systemctl daemon-reload
+sudo -u absolut .venv/bin/pip install -q -r requirements-dashboard.txt
 
 # Primer snapshot antes de arrancar el dashboard: la base data/snapshots.db la crea el scraper y el
-# dashboard solo la lee. Si ya copiaste data/ desde otra máquina, este paso se salta solo. Tarda 2–5 min.
+# dashboard solo la lee. Si ya copiaste data/ desde otra máquina, este paso se salta solo. Tarda 15–30 min.
 if [ ! -f data/snapshots.db ]; then
-  echo ">> No hay base; corriendo la primera captura (2–5 min)…"
-  sudo -u absolut make snapshot || echo ">> El primer snapshot falló; el timer lo reintenta en 15 min."
+  echo ">> No hay base; corriendo la primera captura (15–30 min)…"
+  sudo -u absolut make snapshot || echo ">> El primer snapshot falló; el timer lo reintenta en la siguiente captura."
 fi
 
-systemctl enable --now absolut-cinema-scraper.timer absolut-cinema-dashboard.service absolut-cinema-backup.timer \
-                       absolut-cinema-seats.timer absolut-cinema-prices.timer absolut-cinema-delivery.timer \
-                       absolut-cinema-health.timer absolut-cinema-capacity.timer absolut-cinema-sync.timer \
-                       absolut-cinema-auth-prune.timer absolut-cinema-deploy.timer
-# La calibración de Cinemex abre órdenes de checkout: queda enlazada pero apagada. Encender a mano cuando se decida:
-#   systemctl enable --now absolut-cinema-calibrate-cinemex.timer
+# Unidades generadas desde jobs/registry.py (deploy/systemd/) y el dashboard; enciende los timers del registro. Los
+# apagados (calibrate-cinemex abre órdenes de checkout) quedan enlazados: systemctl enable --now absolut-cinema-<llave>.timer
+bash deploy/units.sh
+systemctl enable --now absolut-cinema-dashboard.service
 
 if [ ! -f /etc/caddy/Caddyfile ] || ! grep -q 8501 /etc/caddy/Caddyfile; then
   cp deploy/Caddyfile /etc/caddy/Caddyfile
   echo ">> Edita /etc/caddy/Caddyfile (dominio y hash de basic_auth) y luego: systemctl reload caddy"
 fi
 
-echo ">> Acceso por usuario: aplica deploy/postgres/auth.sql y app_role.sql en Postgres, pon AC_AUTH_PG_DSN, AC_BASE_URL y"
-echo ">> el correo (AC_MAIL_*) en /etc/absolut-cinema.env y crea el primer admin: make user-create EMAIL=… NAME=… ROLE=admin"
+echo ">> Acceso por usuario: pon AC_BASE_URL y el correo (AC_MAIL_*) en /etc/absolut-cinema.env y crea el primer admin:"
+echo ">> make user-create EMAIL=… NAME=… ROLE=admin  (las cuentas viven en data/app.db, que se crea sola)"
 echo ">> Listo. Revisa: systemctl list-timers absolut-cinema-*  |  tail -f $APP/data/logs/run.log"

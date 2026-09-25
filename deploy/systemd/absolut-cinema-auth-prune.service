@@ -1,0 +1,16 @@
+# Generado por `python3 -m jobs.units write` desde jobs/registry.py; no se edita a mano.
+[Unit]
+Description=absolut-cinema: Borra sesiones y enlaces de acceso vencidos hace más de 90 días
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=absolut
+WorkingDirectory=/opt/absolut-cinema
+EnvironmentFile=-/etc/absolut-cinema.env
+ExecStart=/usr/bin/make -C /opt/absolut-cinema job KEY=auth-prune
+TimeoutStartSec=15min
+Nice=10
+StandardOutput=append:/opt/absolut-cinema/data/logs/systemd.out
+StandardError=append:/opt/absolut-cinema/data/logs/systemd.out

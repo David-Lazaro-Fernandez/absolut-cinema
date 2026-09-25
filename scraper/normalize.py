@@ -7,25 +7,26 @@ import unicodedata
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
-from . import config
+from . import config, states
 
 COLUMNS = [
-    "chain", "show_id", "cinema_id", "cinema_name", "lat", "lng", "city_id", "state_id",
+    "chain", "show_id", "cinema_id", "cinema_name", "lat", "lng", "city_id", "state_id", "state_code",
     "movie_id", "movie_title", "title_norm", "genre", "rating", "duration_min", "distributor",
     "date", "datetime_local", "datetime_utc", "screen", "language", "language_raw",
     "format", "experience", "premium_tier", "version_raw", "availability",
 ]
 # Columnas de la dimensión de cines (tabla `cinema`): la llave geográfica más fina de cada API (`city_id`: Cinépolis
-# slug de ciudad, Cinemex id de área), el estado de Cinemex, la zona horaria IANA (solo la publica Cinépolis) y el
-# vistaId de Cinépolis, que piden los planos y la dulcería.
-CINEMA_COLUMNS = ["chain", "cinema_id", "name", "lat", "lng", "city_id", "state_id", "timezone", "vista_id"]
+# slug de ciudad, Cinemex id de área), el estado de Cinemex (su agrupación de API), el estado de INEGI de ambas
+# cadenas (`state_code`, `scraper/states.py`), la zona horaria IANA (solo la publica Cinépolis) y el vistaId de
+# Cinépolis, que piden los planos y la dulcería.
+CINEMA_COLUMNS = ["chain", "cinema_id", "name", "lat", "lng", "city_id", "state_id", "state_code", "timezone", "vista_id"]
 
 # Campos cuyo cambio se considera "movida" (misma función, distinta hora o sala).
 MOVE_FIELDS = ("datetime_local", "screen")
 # Campos cuyo cambio se considera "cambiada" (idioma/formato/experiencia).
 CHANGE_FIELDS = ("language", "format", "experience", "premium_tier", "movie_id")
 # Todo lo que cuenta como cambio de estado de una función: lo usan el diff del scraper, la línea de tiempo del
-# dashboard (analytics/history.py) y las versiones de estado del archivo histórico (sync/).
+# dashboard (analytics/history.py).
 TRACKED_FIELDS = MOVE_FIELDS + CHANGE_FIELDS + ("availability",)
 
 
@@ -87,7 +88,8 @@ def cinepolis_cinemas(raw):
     city = raw.get("city_id")   # crudo del piloto: la ciudad iba a nivel captura
     for c in raw.get("cinemas", []):
         yield {"chain": "cinepolis", "cinema_id": c["id"], "name": c.get("name"), "lat": c.get("lat"), "lng": c.get("lng"),
-               "city_id": c.get("cityId") or city, "state_id": None, "timezone": c.get("timezone") or None,
+               "city_id": c.get("cityId") or city, "state_id": None,
+               "state_code": states.state_code("cinepolis", c["id"], c.get("cityId") or city), "timezone": c.get("timezone") or None,
                "vista_id": str(c["vistaId"]) if c.get("vistaId") is not None else None}
 
 
@@ -116,6 +118,7 @@ def cinepolis_rows(raw):
                             "cinema_name": cinema.get("name"),
                             "lat": cinema.get("lat"), "lng": cinema.get("lng"),
                             "city_id": cinema.get("city_id"), "state_id": None,
+                            "state_code": cinema.get("state_code") or states.state_code("cinepolis", slug, cinema.get("city_id")),
                             "movie_id": bb["movie_id"],
                             "movie_title": movie.get("name"),
                             "title_norm": norm_title(movie.get("name")),
@@ -157,9 +160,10 @@ def _cinemex_payloads(raw):
 
 def _cinemex_cinema(c):
     area, state = c.get("area") or {}, c.get("state") or {}
+    city_id = str(area["id"]) if area.get("id") is not None else None
     return {"chain": "cinemex", "cinema_id": str(c["id"]), "name": c.get("name"), "lat": c.get("lat"), "lng": c.get("lng"),
-            "city_id": str(area["id"]) if area.get("id") is not None else None,
-            "state_id": str(state["id"]) if state.get("id") is not None else None, "timezone": None, "vista_id": None}
+            "city_id": city_id, "state_id": str(state["id"]) if state.get("id") is not None else None,
+            "state_code": states.state_code("cinemex", c["id"], city_id), "timezone": None, "vista_id": None}
 
 
 def cinemex_cinemas(raw):
@@ -200,7 +204,7 @@ def cinemex_rows(raw):
                             "cinema_id": place["cinema_id"],
                             "cinema_name": c.get("name"),
                             "lat": c.get("lat"), "lng": c.get("lng"),
-                            "city_id": place["city_id"], "state_id": place["state_id"],
+                            "city_id": place["city_id"], "state_id": place["state_id"], "state_code": place["state_code"],
                             "movie_id": str(m["id"]),
                             "movie_title": m.get("name"),
                             "title_norm": norm_title(m.get("name")),

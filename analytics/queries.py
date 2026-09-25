@@ -16,10 +16,13 @@ Alcance: `plaza` (clave de `scraper/plazas.py`) deja solo los cines de esa zona 
 Todas las medidas comparables son **shares** (% de la programación de cada cadena), nunca
 absolutos, porque cada cadena tiene distinto número de cines y salas. Denominador: funciones.
 Cuando exista aforo por sala el denominador pasará a butacas ofertadas."""
+import json
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from scraper import config
+from scraper.plazas import city_ids
+from scraper.titles import title_key
 
 from .db import rows
 from .labels import FULL_DAY, PRIME_START_HOUR, SLOTS
@@ -146,12 +149,12 @@ def heatmap_day_slot(conn, d0=None, d1=None, from_now=True, hours=None, plaza=No
 
 
 def movies_by_chain(conn, d0=None, d1=None, limit=60, from_now=True, hours=None, plaza=None):
-    """Funciones por película y cadena, emparejadas por title_norm, con la participación (% de la
-    programación de cada cadena) y la diferencia en puntos (`gap_pp`, positivo = Cinemex apuesta
-    más). La tabla de equivalencias entre cadenas refinará el emparejamiento."""
+    """Funciones por película y cadena, emparejadas por la llave de título común (`title_key`, devuelta como
+    `title_norm`), con la participación (% de la programación de cada cadena) y la diferencia en puntos (`gap_pp`,
+    positivo = Cinemex apuesta más). `title` es el nombre de Cinemex si lo exhibe, si no el de Cinépolis."""
     where, params, _ = _window(d0, d1, from_now, hours=hours, plaza=plaza)
     return rows(conn, f"""
-        WITH base AS (SELECT * FROM current_showtime WHERE {where}),
+        WITH base AS (SELECT chain, cinema_id, movie_title, title_key(title_norm) title_norm FROM current_showtime WHERE {where}),
              n_cin AS (SELECT chain, COUNT(DISTINCT cinema_id) n, COUNT(*) shows FROM base GROUP BY chain)
         SELECT title_norm,
                COALESCE(MAX(CASE WHEN b.chain = 'cinemex'   THEN movie_title END),
@@ -194,7 +197,7 @@ def concentration(conn, d0=None, d1=None, from_now=True, hours=None, plaza=None)
     títulos distintos por complejo."""
     where, params, _ = _window(d0, d1, from_now, hours=hours, plaza=plaza)
     return rows(conn, f"""
-        WITH base AS (SELECT chain, cinema_id, title_norm FROM current_showtime WHERE {where}),
+        WITH base AS (SELECT chain, cinema_id, title_key(title_norm) title_norm FROM current_showtime WHERE {where}),
              tot AS (SELECT chain, COUNT(*) n FROM base GROUP BY chain),
              by_title AS (SELECT b.chain, b.title_norm, 100.0 * COUNT(*) / t.n share
                           FROM base b JOIN tot t ON t.chain = b.chain GROUP BY b.chain, b.title_norm),
@@ -242,3 +245,99 @@ def events_by_kind(conn, since_hours=24, plaza=None):
         SELECT chain, kind, COUNT(*) n
         FROM event WHERE kind <> 'expired' AND detected_at >= strftime('%Y-%m-%dT%H:%M:%S', 'now', ? || ' hours'){where}
         GROUP BY chain, kind ORDER BY chain, n DESC""", (f"-{int(since_hours)}", *params))
+
+
+
+_MOVE_COLS = ("chain", "show_id", "cinema_id", "date", "datetime_local", "datetime_utc", "title_norm", "movie_title", "city_id")
+# La semana se publica por partes (preventa, luego estrenos): antes de que la parrilla vigente esté casi completa,
+# cualquier comparación mide la publicación y no una decisión. Por debajo de 24 h de historia no hay movimiento que leer.
+_PUBLISHED_PCT = 90
+_MIN_MOVE_HOURS = 24
+
+
+def programming_moves(conn, d0=None, d1=None, since_hours=72, hours=None, plaza=None):
+    """Qué cambió cada cadena en lo que falta del periodo: la parrilla de funciones que aún no empiezan tal como
+    estaba publicada en un corte anterior, contra la vigente, por cadena y título. El corte (`since`, ISO UTC) es
+    el más reciente entre hace `since_hours` y el momento en que la cadena ya había publicado el 90 % de su parrilla
+    vigente; si eso deja menos de 24 h, la cadena no aparece. Solo cuentan los cines y días publicados en ambos
+    cortes. Devuelve `chain`, `since`, `title_norm`, `title`, `shows_then`, `shows_now`, `share_then`, `share_now`,
+    `delta_pp`, `added`, `removed` y `moved` (misma función a otra hora). Orden: |delta_pp| descendente, cadena y
+    título."""
+    d0 = d0 or today()
+    d1 = d1 or d0
+    now = datetime.now(timezone.utc)
+    now_utc = now.isoformat(timespec="seconds")
+    latest_since = (now - timedelta(hours=_MIN_MOVE_HOURS)).isoformat(timespec="seconds")
+    h0, h1 = hours or FULL_DAY
+    cities = {c: city_ids(plaza, c) for c in ("cinemex", "cinepolis")} if plaza else None
+
+    def keep(r):
+        return ((r.get("datetime_utc") or "") >= now_utc and d0 <= (r.get("date") or "") <= d1
+                and h0 <= int((r.get("datetime_local") or "T00")[11:13]) < h1
+                and (cities is None or r.get("city_id") in cities[r["chain"]]))
+
+    pw, pp = plaza_where(plaza)
+    cols = ", ".join(_MOVE_COLS)
+    current = {(r["chain"], r["show_id"]): r for r in rows(conn, f"""
+        SELECT {cols}, first_seen FROM current_showtime WHERE date BETWEEN ? AND ?{pw}""", [d0, d1, *pp])}
+    first_ok = {r["chain"]: r["t"] for r in rows(conn, "SELECT chain, MIN(taken_at) t FROM snapshot WHERE ok = 1 GROUP BY chain")}
+    since = {}
+    for chain in ("cinemex", "cinepolis"):
+        seen = sorted(r["first_seen"] or "" for r in current.values() if r["chain"] == chain and keep(r))
+        if not seen or not first_ok.get(chain):
+            continue
+        published = seen[min(len(seen) - 1, len(seen) * _PUBLISHED_PCT // 100)]
+        t = max((now - timedelta(hours=since_hours)).isoformat(timespec="seconds"), published, first_ok[chain])
+        if t <= latest_since:
+            since[chain] = t
+    if not since:
+        return []
+    # Replay inverso de los eventos posteriores al corte, como analytics.history.board_as_of pero en agregado.
+    then = {k: r for k, r in current.items() if k[0] in since}
+    cw, cp = plaza_cinema_where(plaza)
+    later = rows(conn, f"""
+        SELECT chain, show_id, kind, detected_at, CASE WHEN kind = 'added' THEN NULL ELSE before_json END before_json
+        FROM event WHERE date BETWEEN ? AND ? AND detected_at > ? AND kind IN ('added', 'removed', 'moved', 'changed'){cw}
+        ORDER BY id DESC""", [d0, d1, min(since.values()), *cp])
+    for e in later:
+        if e["chain"] not in since or e["detected_at"] <= since[e["chain"]]:
+            continue
+        key = (e["chain"], e["show_id"])
+        if e["kind"] == "added":
+            then.pop(key, None)
+        elif e["before_json"]:
+            before = json.loads(e["before_json"])
+            then[key] = {c: before.get(c) for c in _MOVE_COLS}
+
+    then = {k: r for k, r in then.items() if keep(r)}
+    now_ = {k: r for k, r in current.items() if k[0] in since and keep(r)}
+    board = {(r["chain"], r["cinema_id"], r["date"]) for r in then.values()} & \
+            {(r["chain"], r["cinema_id"], r["date"]) for r in now_.values()}
+    then = {k: r for k, r in then.items() if (r["chain"], r["cinema_id"], r["date"]) in board}
+    now_ = {k: r for k, r in now_.items() if (r["chain"], r["cinema_id"], r["date"]) in board}
+
+    totals = {"then": {}, "now": {}}
+    acc = {}
+    for side, board_rows in (("then", then), ("now", now_)):
+        for key, r in board_rows.items():
+            chain = r["chain"]
+            totals[side][chain] = totals[side].get(chain, 0) + 1
+            a = acc.setdefault((chain, title_key(r["title_norm"])), {"title": r["movie_title"], "then": 0, "now": 0, "added": 0, "removed": 0, "moved": 0})
+            a[side] += 1
+            if side == "now":
+                a["title"] = r["movie_title"]
+                if key not in then:
+                    a["added"] += 1
+                elif then[key]["datetime_local"] != r["datetime_local"]:
+                    a["moved"] += 1
+            elif key not in now_:
+                a["removed"] += 1
+    out = []
+    for (chain, title_norm), a in acc.items():
+        share_then = 100.0 * a["then"] / totals["then"][chain] if totals["then"].get(chain) else 0.0
+        share_now = 100.0 * a["now"] / totals["now"][chain] if totals["now"].get(chain) else 0.0
+        out.append({"chain": chain, "since": since[chain], "title_norm": title_norm, "title": a["title"],
+                    "shows_then": a["then"], "shows_now": a["now"], "share_then": round(share_then, 1),
+                    "share_now": round(share_now, 1), "delta_pp": round(share_now - share_then, 1),
+                    "added": a["added"], "removed": a["removed"], "moved": a["moved"]})
+    return sorted(out, key=lambda r: (-abs(r["delta_pp"]), r["chain"], r["title_norm"] or ""))

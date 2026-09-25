@@ -13,19 +13,16 @@ Inteligencia competitiva de cartelera: Cinemex vs Cinépolis (México).
   `scraper/sample.py` mide aforo, ocupación (planos de asientos de Cinépolis tras el inicio, cada hora), precios y
   dulcería; `scraper/delivery.py` lee la dulcería a domicilio en Rappi y DiDi Food; `scraper/health.py` vigila la captura.
 - `analytics/`: consultas de negocio sobre la base (funciones puras, sin dependencias).
-- `archive/`: consultas de solo lectura sobre el archivo en PostgreSQL (los conjuntos del explorador de datos y el estado de
-  la base para la página de operaciones).
-- `auth/`: cuentas, sesiones y enlaces de acceso del dashboard (esquema `app` de Postgres, correo por SES); `make user-create`
-  crea el primer admin.
+- `auth/`: cuentas, sesiones y enlaces de acceso del dashboard (SQLite propia, `data/app.db`; correo por SES);
+  `make user-create` crea el primer admin.
 - `app.py` + `ui/` + `views/`: dashboard Streamlit con login por usuario (roles admin y consulta) y páginas de cartelera,
-  dulcería, datos (explorador del archivo) y, para admin, usuarios y operaciones (estado de la plataforma), que solo pintan lo
-  que devuelve `analytics/`, `archive/`, `auth/` y `scraper.health`.
-- `sync/`: archivo histórico en PostgreSQL: copia lo nuevo de SQLite y reconstruye la historia de cada función desde el
-  crudo (`make sync`, cada 30 min). Postgres local con `make pg-up pg-schema`; el esquema en `deploy/postgres/schema.sql`.
+  dulcería, datos (explorador de tablas) y, para admin, usuarios y operaciones (estado de la plataforma), que solo pintan lo
+  que devuelve `analytics/`, `auth/` y `scraper.health`.
+- Todo vive en SQLite (`data/snapshots.db` de la captura, `data/app.db` de las cuentas), con respaldo diario al bucket;
+  el archivo histórico en PostgreSQL se retiró el 2026-09-25 (tag `pre-sqlite-only`).
 - `deploy/`: systemd, respaldo, Caddy y la salida por Cloudflare WARP hacia Cinépolis (su WAF bloquea las IPs de AWS)
-  para correr todo en un servidor (`deploy/README.md`); `deploy/docker-compose.dev.yml` levanta Postgres 16 y pgAdmin
-  para desarrollo.
-- `docs/`: diseño del archivo histórico (`postgres-esquema.md`), diagrama de despliegue (`arquitectura_aws.py`) e investigación.
+  para correr todo en un servidor (`deploy/README.md`).
+- `docs/`: diagrama de despliegue (`arquitectura_aws.py`), dimensionamiento del servidor e investigación.
 - `marketing/`: landing page pública del producto (Next.js, independiente del resto del repo, sitio estático). Ver
   `marketing/README.md` y `marketing/design.md`.
 - `ARCHITECTURE.md`: qué proceso toca qué dato y qué lo programa. `AGENTS.md`: convenciones del repo. `make help`: comandos.
@@ -38,19 +35,19 @@ make health                                  # estado de la captura
 sqlite3 data/snapshots.db "SELECT * FROM snapshot ORDER BY id DESC LIMIT 4;"
 ```
 
-Dashboard local (con Postgres en Docker para las cuentas y el explorador):
+Dashboard local (sin servicios externos: las cuentas se crean en `data/app.db` al primer uso):
 
 ```sh
-python3.12 -m venv .venv && .venv/bin/pip install -r requirements-dashboard.txt -r requirements-sync.txt -r requirements-dev.txt
+python3.12 -m venv .venv && .venv/bin/pip install -r requirements-dashboard.txt -r requirements-dev.txt
 make hooks                                            # pre-push: make check (lint, imports, pruebas)
-make pg-up pg-schema auth-schema sync                 # archivo histórico + esquema app + carga inicial
 make user-create EMAIL=tu@correo NAME="Tu Nombre" ROLE=admin   # imprime el enlace para elegir la contraseña
 .venv/bin/streamlit run app.py
 ```
 
-Programación con launchd mientras no esté en el servidor: cinco agentes (cartelera tres veces al día, planos cada hora,
-diario, delivery, sync a Postgres) que ejecutan targets de `make`. El repo debe estar fuera de `~/Documents`, `~/Desktop` y `~/Downloads`:
-macOS no deja que launchd lea esas carpetas ("Operation not permitted").
+Lo programado vive en `jobs/registry.py` (tabla en `ARCHITECTURE.md`, "Programación"); cada trabajo se corre a mano con
+`make job KEY=llave`. En la Mac, `make launchd-load` genera en `data/launchd/` un agente por cada trabajo marcado para la
+Mac (cartelera, planos, precios, preventas, salud, delivery) y los carga. El repo debe estar fuera de `~/Documents`,
+`~/Desktop` y `~/Downloads`: macOS no deja que launchd lea esas carpetas ("Operation not permitted").
 
 ```sh
 make launchd-load      # cargar los agentes

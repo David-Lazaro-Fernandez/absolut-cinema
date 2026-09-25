@@ -6,7 +6,8 @@ Uso:
   python3 -m scraper.run --no-raw       # no guardar el crudo comprimido
 
 Las cadenas se descargan en paralelo (son APIs distintas y la descarga nacional tarda 15–25 min cada una) y se
-escriben en serie: la base tiene un solo escritor y la escritura de una captura dura segundos.
+escriben en serie: la base tiene un solo escritor y la escritura de una captura dura segundos. Cada cadena se descarga
+por unidades que fallan por separado (`scraper/units.py`); una unidad fallida conserva el estado anterior de sus cines.
 """
 import argparse
 import sys
@@ -43,27 +44,63 @@ def _units(chain, raw):
     return len(raw.get("city_ids") or []) if chain == "cinepolis" else len(raw.get("state_ids") or [])
 
 
+def resolve_scope(unit_records, previous):
+    """Completa `scope_cinema_ids` de cada unidad fallida: sus cines conocidos más los del estado anterior que caen en
+    su estado de Cinemex o su ciudad de Cinépolis. Queda en el crudo, para reconstruir la historia desde él con la misma regla."""
+    for u in unit_records:
+        if u.get("ok"):
+            continue
+        state_ids, city_ids = set(u.get("state_ids") or ()), set(u.get("city_ids") or ())
+        scope = set(u.get("cinema_ids") or ())
+        scope |= {r["cinema_id"] for r in previous.values() if r.get("state_id") in state_ids or r.get("city_id") in city_ids}
+        u["scope_cinema_ids"] = sorted(scope)
+
+
+def _unit_counts(unit_records, rows, carried):
+    shows = Counter(r["cinema_id"] for r in rows)
+    kept = Counter(r["cinema_id"] for r in carried.values())
+    for u in unit_records:
+        cinemas = set(u.get("cinema_ids") or ()) | set(u.get("scope_cinema_ids") or ())
+        u["n_cinemas"] = len(cinemas)
+        u["n_shows"] = sum(shows[c] for c in cinemas)
+        u["carried"] = sum(kept[c] for c in cinemas)
+
+
 def commit(conn, chain, snapshot_id, taken_at, raw, fetch_s, save_raw=True):
-    """Normaliza, compara con el estado anterior y escribe la captura. Devuelve True si quedó bien."""
+    """Normaliza, compara con el estado anterior y escribe la captura. Las funciones de una unidad fallida se conservan
+    como estaban (sin eventos) y solo se escribe la diferencia en current_showtime. Devuelve True si quedó bien."""
     t0 = time.time()
     try:
         rows = normalize.rows(chain, raw)
         current = {r["show_id"]: r for r in rows}
         prev_id, previous = store.load_current(conn, chain)
-        events = diff.diff(chain, previous, current, snapshot_id, prev_id, taken_at) if prev_id else []
+        unit_records = raw.get("units") or []
+        resolve_scope(unit_records, previous)
+        carried = diff.carry_over(previous, current, diff.failed_cinemas(raw))
+        compared = {sid: r for sid, r in previous.items() if sid not in carried}
+        events = diff.diff(chain, compared, current, snapshot_id, prev_id, taken_at) if prev_id else []
         raw_path = store.save_raw(chain, taken_at, raw) if save_raw else None
-        store.replace_current(conn, chain, snapshot_id, rows, previous, taken_at)
+        written = store.apply_current(conn, chain, snapshot_id, rows, previous, taken_at, keep=carried)
         store.upsert_cinemas(conn, normalize.cinemas(chain, raw), taken_at)
         store.insert_events(conn, events)
+        _unit_counts(unit_records, rows, carried)
+        store.insert_units(conn, chain, snapshot_id, unit_records)
+        failed = [u for u in unit_records if not u.get("ok")]
         n_cinemas = len({r["cinema_id"] for r in rows})
         store.finish_snapshot(conn, snapshot_id, ok=1, n_shows=len(rows), n_cinemas=n_cinemas,
                               n_events=len(events), calls=raw.get("calls"),
-                              duration_s=round(fetch_s + time.time() - t0, 1), raw_path=raw_path)
+                              duration_s=round(fetch_s + time.time() - t0, 1), raw_path=raw_path,
+                              n_units=len(unit_records), n_failed_units=len(failed))
         kinds = Counter(e["kind"] for e in events)
         detail = "baseline" if not prev_id else (", ".join(f"{k}={v}" for k, v in sorted(kinds.items())) or "none")
         unit = "cities" if chain == "cinepolis" else "states"
         log(f"{chain} ok snapshot={snapshot_id} {unit}={_units(chain, raw)} cinemas={n_cinemas} shows={len(rows)} "
-            f"events={len(events)} ({detail}) calls={raw.get('calls')} fetch={fetch_s:.0f}s write={time.time() - t0:.0f}s")
+            f"events={len(events)} ({detail}) calls={raw.get('calls')} fetch={fetch_s:.0f}s write={time.time() - t0:.0f}s "
+            f"rows=+{written['inserted']}/~{written['updated']}/-{written['deleted']} "
+            f"units={len(unit_records) - len(failed)}/{len(unit_records)}")
+        for u in failed:
+            log(f"{chain} UNIT FAIL snapshot={snapshot_id} {u['unit']} ({u.get('label')}): {u.get('error')}; "
+                f"se conservan {u['carried']} funciones de {u['n_cinemas']} cines")
         return True
     except Exception as e:  # noqa: BLE001 - idem: registrar y seguir con la otra cadena
         fail(conn, chain, snapshot_id, e, fetch_s + time.time() - t0)

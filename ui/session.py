@@ -5,9 +5,9 @@ fijadas en el handshake del WebSocket) y no tiene API para escribirlas, así que
 iframe del mismo origen (`st.iframe`) y después se recarga la página: un `st.rerun()` no bastaría porque la cookie
 nueva no viaja hasta la siguiente conexión.
 """
+import sqlite3
 import time
 
-import psycopg
 import streamlit as st
 
 import auth
@@ -16,11 +16,11 @@ from auth.security import SESSION_TTL_DAYS
 from scraper import config
 
 COOKIE = "ac_session"
-_MEMO_SECONDS = 60      # cada cuánto se vuelve a validar la sesión en Postgres; acota el efecto de una revocación
+_MEMO_SECONDS = 60      # cada cuánto se vuelve a validar la sesión en app.db; acota el efecto de una revocación
 
 
 def current_user():
-    """Usuario de la cookie vigente o None. Consulta Postgres a lo más cada `_MEMO_SECONDS` por pestaña."""
+    """Usuario de la cookie vigente o None. Consulta `app.db` a lo más cada `_MEMO_SECONDS` por pestaña."""
     raw = _raw_cookie()
     if not raw:
         st.session_state.pop("auth", None)
@@ -130,11 +130,12 @@ def _header(name):
 
 
 def _with_conn(fn):
-    """Abre y cierra una conexión por operación (autocommit). Si Postgres no responde, lo dice y detiene la página."""
+    """Abre y cierra una conexión por operación (autocommit). Si la base de cuentas no abre (disco lleno, permisos),
+    lo dice y detiene la página."""
     try:
         conn = auth.connect()
-    except psycopg.OperationalError:
-        st.error(AUTH_TEXT["pg_unavailable"])
+    except sqlite3.Error:
+        st.error(AUTH_TEXT["db_unavailable"])
         st.stop()
     try:
         return fn(conn)

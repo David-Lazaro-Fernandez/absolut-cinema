@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from scraper import normalize  # noqa: E402
+from scraper import normalize, states  # noqa: E402
 
 
 def _cinepolis_raw(cinemas, city_id=None):
@@ -21,11 +21,11 @@ def _cinepolis_raw(cinemas, city_id=None):
 def test_cinepolis_national_raw_has_city_timezone_and_utc():
     raw = _cinepolis_raw([{"id": "cinepolis-carrousel-tijuana", "cityId": "tijuana", "name": "Carrousel", "vistaId": "9", "timezone": "America/Tijuana"}])
     (r,) = normalize.rows("cinepolis", raw)
-    assert (r["city_id"], r["state_id"]) == ("tijuana", None)
+    assert (r["city_id"], r["state_id"], r["state_code"]) == ("tijuana", None, "02")      # Baja California (INEGI)
     assert r["datetime_local"] == "2026-09-11T15:00:00" and r["datetime_utc"] == "2026-09-11T22:00:00+00:00"   # Tijuana en UTC−7 (horario de verano)
     (c,) = normalize.cinemas("cinepolis", raw)
     assert c == {"chain": "cinepolis", "cinema_id": "cinepolis-carrousel-tijuana", "name": "Carrousel", "lat": None, "lng": None,
-                 "city_id": "tijuana", "state_id": None, "timezone": "America/Tijuana", "vista_id": "9"}
+                 "city_id": "tijuana", "state_id": None, "state_code": "02", "timezone": "America/Tijuana", "vista_id": "9"}
 
 
 def test_cinepolis_pilot_raw_uses_capture_city_and_reference_timezone():
@@ -45,7 +45,7 @@ def _cinemex_raw(unit_key, unit):
 def test_cinemex_national_raw_by_state():
     raw = _cinemex_raw("states", {"state_id": 2})
     (r,) = normalize.rows("cinemex", raw)
-    assert (r["cinema_id"], r["city_id"], r["state_id"]) == ("300", "3", "2")
+    assert (r["cinema_id"], r["city_id"], r["state_id"], r["state_code"]) == ("300", "3", "2", "02")
     assert r["datetime_local"] == "2026-09-11T13:00:00" and r["datetime_utc"] == "2026-09-11T20:00:00+00:00"    # el offset viene en el propio datetime
     (c,) = normalize.cinemas("cinemex", raw)
     assert (c["city_id"], c["state_id"], c["timezone"], c["vista_id"]) == ("3", "2", None, None)
@@ -56,5 +56,13 @@ def test_cinemex_pilot_raw_by_area_reads_the_same():
 
 
 def test_new_columns_are_not_tracked_by_the_diff():
-    assert {"city_id", "state_id", "datetime_utc"} <= set(normalize.COLUMNS)
-    assert not {"city_id", "state_id", "datetime_utc"} & set(normalize.TRACKED_FIELDS)
+    assert {"city_id", "state_id", "state_code", "datetime_utc"} <= set(normalize.COLUMNS)
+    assert not {"city_id", "state_id", "state_code", "datetime_utc"} & set(normalize.TRACKED_FIELDS)
+
+
+def test_state_code_is_per_cinema_not_per_city():
+    # La "ciudad" cdmx de Cinépolis cruza la frontera: Zona Esmeralda está en el Estado de México.
+    assert states.state_code("cinepolis", "cinepolis-city-center-zona-esmeralda-cdmx", "cdmx") == "15"
+    assert states.state_code("cinepolis", "cinepolis-ajusco-cdmx", "cdmx") == "09"
+    assert states.state_code("cinepolis", "cine-que-aun-no-existe", "cdmx") == "09"          # cine nuevo: el de su ciudad
+    assert states.state_code("cinepolis", "cine-que-aun-no-existe", "ciudad-nueva") is None

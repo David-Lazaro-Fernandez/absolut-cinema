@@ -27,19 +27,19 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: venv del dashboard y sync
+      - name: venv del dashboard
         run: |
           python -m venv .venv
-          .venv/bin/pip install -q -r requirements-dashboard.txt -r requirements-sync.txt pytest ruff
+          .venv/bin/pip install -q -r requirements-dashboard.txt pytest ruff
 
       - name: lint (ruff, pyproject.toml)
         run: .venv/bin/ruff check .
 
       - name: el scraper y analytics siguen sin dependencias externas
-        # Intérprete sin venv: si alguien importó pandas o psycopg en scraper/ o analytics/, falla aquí y no en el servidor.
+        # Intérprete sin venv: si alguien importó pandas en scraper/, analytics/ o jobs/, falla aquí y no en el servidor.
         run: |
-          python -m compileall -q scraper analytics
-          python -c "import analytics, scraper.run, scraper.sample, scraper.health, scraper.delivery"
+          python -m compileall -q scraper analytics jobs
+          python -c "import analytics, scraper.run, scraper.sample, scraper.health, scraper.delivery, jobs.run, jobs.units"
 
       - name: pruebas unitarias
         run: .venv/bin/python -m pytest -q tests/

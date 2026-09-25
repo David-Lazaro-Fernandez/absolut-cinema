@@ -1,12 +1,12 @@
 """Recorrido de cada pantalla del dashboard con `streamlit.testing.v1.AppTest`: acceso (login, olvidé, restablecer),
 cartelera, dulcería, datos, usuarios y operaciones, con los roles admin y viewer.
 
-Necesitan datos reales: `data/snapshots.db` para cartelera y dulcería, y el Postgres de desarrollo (esquema `app` y
-archivo) para acceso, usuarios y datos. Donde falte alguno, las pruebas se omiten; en CI hoy no hay bases, así que
-estas pruebas cubren la máquina de desarrollo y el servidor, no el gate de `stable`. La cookie se simula parcheando
-`ui.session._raw_cookie`; lo único que AppTest no ejerce es el ciclo real de la cookie en el navegador.
+Las cuentas viven en un `app.db` temporal que crea este módulo, así que acceso y usuarios corren en cualquier máquina,
+también en CI. Las páginas de datos necesitan `data/snapshots.db` real (cartelera, dulcería, datos, operaciones) y se
+omiten donde no existe. La cookie se simula parcheando `ui.session._raw_cookie`; lo único que AppTest no ejerce es el
+ciclo real de la cookie en el navegador.
 
-Las cuentas de prueba (`pytest-admin@example.test`, `pytest-viewer@example.test`) se crean una vez y se reutilizan.
+Las cuentas de prueba (`pytest-admin@example.test`, `pytest-viewer@example.test`) se crean una vez por corrida.
 """
 import sys
 from pathlib import Path
@@ -14,7 +14,12 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import tempfile  # noqa: E402
+
 from scraper import config  # noqa: E402
+
+# Base de cuentas desechable: auth.connect() la lee de config en cada llamada, también dentro de AppTest.
+config.APP_DB_PATH = Path(tempfile.mkdtemp(prefix="absolut-app-")) / "app.db"
 
 pytest.importorskip("streamlit")
 from streamlit.testing.v1 import AppTest  # noqa: E402
@@ -29,29 +34,11 @@ ADMIN, VIEWER = "pytest-admin@example.test", "pytest-viewer@example.test"
 PASSWORD = "contraseña-de-pruebas-123"
 
 
-def _postgres_ready():
-    try:
-        conn = auth.connect()
-    except Exception:
-        return False
-    try:
-        auth.rows(conn, "SELECT 1 FROM app.account LIMIT 1")
-        auth.rows(conn, "SELECT 1 FROM cinema LIMIT 1")
-        return True
-    except Exception:
-        return False
-    finally:
-        conn.close()
-
-
 needs_sqlite = pytest.mark.skipif(not config.DB_PATH.exists(), reason="sin data/snapshots.db")
-needs_postgres = pytest.mark.skipif(not _postgres_ready(), reason="sin Postgres con el esquema app y el archivo")
 
 
 @pytest.fixture(scope="module")
 def conn():
-    if not _postgres_ready():
-        pytest.skip("sin Postgres")
     c = auth.connect()
     yield c
     c.close()
@@ -62,9 +49,8 @@ def _account(conn, email, role):
     user = users.by_email(conn, email)
     if user is None:
         user = users.create(conn, email, f"Pytest {role}", role)
-    with conn.cursor() as cur:
-        cur.execute("UPDATE app.account SET active = true, role = %s::app.role_t, locked_until = NULL, failed_logins = 0 "
-                    "WHERE id = %s", (role, user["id"]))
+    conn.execute("UPDATE account SET active = 1, role = ?, locked_until = NULL, failed_logins = 0 WHERE id = ?",
+                 (role, user["id"]))
     users.set_password(conn, user["id"], PASSWORD)
     return users.by_id(conn, email and user["id"])
 
@@ -99,7 +85,6 @@ def _clean(at):
 
 
 # --- acceso ------------------------------------------------------------------------------------------
-@needs_postgres
 def test_login_page_rejects_bad_credentials(monkeypatch, admin):
     at = _run(monkeypatch)
     _clean(at)
@@ -111,7 +96,6 @@ def test_login_page_rejects_bad_credentials(monkeypatch, admin):
     assert [e.value for e in at.error] == [AUTH_TEXT["InvalidCredentials"]]
 
 
-@needs_postgres
 def test_login_page_accepts_good_credentials(monkeypatch, admin):
     at = _run(monkeypatch)
     at.text_input[0].set_value(ADMIN).run()
@@ -122,7 +106,6 @@ def test_login_page_accepts_good_credentials(monkeypatch, admin):
     assert any(AUTH_TEXT["continue"] in m.value for m in at.markdown)   # el iframe puso la cookie y quedó el enlace de respaldo
 
 
-@needs_postgres
 def test_forgot_page_answers_the_same_for_any_email(monkeypatch, conn):
     at = _run(monkeypatch, page="olvide")
     _clean(at)
@@ -132,7 +115,6 @@ def test_forgot_page_answers_the_same_for_any_email(monkeypatch, conn):
     assert [s.value for s in at.success] == [AUTH_TEXT["forgot_done"]]
 
 
-@needs_postgres
 def test_reset_page_with_bad_token(monkeypatch):
     at = _run(monkeypatch, page="restablecer", query={"token": "basura"})
     _clean(at)
@@ -141,7 +123,6 @@ def test_reset_page_with_bad_token(monkeypatch):
     assert [e.value for e in at.error] == [AUTH_TEXT["token_missing"]]
 
 
-@needs_postgres
 def test_reset_page_sets_a_new_password(monkeypatch, conn, viewer):
     link = auth.resend(conn, None, viewer["id"], send_mail=False)
     token = link.split("token=")[1]
@@ -161,7 +142,6 @@ def test_reset_page_sets_a_new_password(monkeypatch, conn, viewer):
 
 # --- páginas con sesión ------------------------------------------------------------------------------
 @needs_sqlite
-@needs_postgres
 def test_cartelera_for_admin(monkeypatch, conn, admin):
     at = _run(monkeypatch, cookie=_cookie(conn, admin))
     _clean(at)
@@ -170,14 +150,13 @@ def test_cartelera_for_admin(monkeypatch, conn, admin):
 
 
 @needs_sqlite
-@needs_postgres
 def test_dulceria_for_viewer(monkeypatch, conn, viewer):
     at = _run(monkeypatch, cookie=_cookie(conn, viewer), page="dulceria")
     _clean(at)
     assert len(at.dataframe) > 0
 
 
-@needs_postgres
+@needs_sqlite
 @pytest.mark.parametrize("dataset", list(DATASET_LABEL))
 def test_datos_each_dataset(monkeypatch, conn, viewer, dataset):
     at = _run(monkeypatch, cookie=_cookie(conn, viewer), page="datos")
@@ -186,7 +165,7 @@ def test_datos_each_dataset(monkeypatch, conn, viewer, dataset):
     assert len(at.dataframe) == 1 or at.info   # tabla con datos, o el aviso de "sin renglones"
 
 
-@needs_postgres
+@needs_sqlite
 def test_datos_filters_apply(monkeypatch, conn, viewer):
     at = _run(monkeypatch, cookie=_cookie(conn, viewer), page="datos")
     at.sidebar.selectbox(key="dataset").set_value("week_showtimes").run()
@@ -197,7 +176,6 @@ def test_datos_filters_apply(monkeypatch, conn, viewer):
     assert set(at.dataframe[0].value["Cadena"]) <= {"Cinemex"}   # el botón de descarga no lo expone AppTest
 
 
-@needs_postgres
 def test_usuarios_for_admin_lists_and_rejects_duplicate(monkeypatch, conn, admin, viewer):
     at = _run(monkeypatch, cookie=_cookie(conn, admin), page="usuarios")
     _clean(at)
@@ -209,7 +187,6 @@ def test_usuarios_for_admin_lists_and_rejects_duplicate(monkeypatch, conn, admin
     assert [e.value for e in at.error] == [AUTH_TEXT["DuplicateEmail"]]
 
 
-@needs_postgres
 def test_usuarios_role_change_is_explicit(monkeypatch, conn, admin, viewer):
     at = _run(monkeypatch, cookie=_cookie(conn, admin), page="usuarios")
     at.selectbox(key="target_user").set_value(str(viewer["id"])).run()
@@ -224,7 +201,6 @@ def test_usuarios_role_change_is_explicit(monkeypatch, conn, admin, viewer):
 
 
 @needs_sqlite
-@needs_postgres
 def test_viewer_cannot_open_usuarios(monkeypatch, conn, viewer):
     at = _run(monkeypatch, cookie=_cookie(conn, viewer), page="usuarios")
     _clean(at)
@@ -233,20 +209,19 @@ def test_viewer_cannot_open_usuarios(monkeypatch, conn, viewer):
 
 
 @needs_sqlite
-@needs_postgres
 def test_operaciones_for_admin(monkeypatch, conn, admin):
     at = _run(monkeypatch, cookie=_cookie(conn, admin), page="operaciones")
     _clean(at)
     assert at.success or at.warning                       # el veredicto de scraper.health, en un sentido o en otro
-    assert len(at.dataframe) >= 3                         # corridas, tablas de Postgres y marcas de agua
+    assert len(at.dataframe) >= 2                         # trabajos y corridas
+    assert at.slider(key="job_days")                      # la sección de trabajos programados del registro
     assert at.code                                        # la cola del log de corridas
-    at.selectbox(key="log_name").set_value("sync").run()
+    at.selectbox(key="log_name").set_value("sample").run()
     _clean(at)
-    assert at.code or at.info                             # cola del sync, o el aviso de que no existe aquí
+    assert at.code or at.info                             # cola del log de muestreo, o el aviso de que no existe aquí
 
 
 @needs_sqlite
-@needs_postgres
 def test_viewer_cannot_open_operaciones(monkeypatch, conn, viewer):
     at = _run(monkeypatch, cookie=_cookie(conn, viewer), page="operaciones")
     _clean(at)
@@ -255,7 +230,6 @@ def test_viewer_cannot_open_operaciones(monkeypatch, conn, viewer):
 
 
 @needs_sqlite
-@needs_postgres
 def test_logout_revokes_session(monkeypatch, conn, admin):
     cookie = _cookie(conn, admin)
     at = _run(monkeypatch, cookie=cookie)

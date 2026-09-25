@@ -1,17 +1,16 @@
-"""Diagrama del despliegue en AWS (EC2 con la captura nacional, RDS como archivo histórico), con la librería
+"""Diagrama del despliegue en AWS (EC2 con la captura nacional y todo en SQLite), con la librería
 `diagrams` (iconos oficiales de AWS, render con Graphviz).
 
 Correr:  .venv/bin/python docs/arquitectura_aws.py   →   docs/arquitectura-aws.png
 Requiere `brew install graphviz` y `requirements-dev.txt`. El diagrama se regenera con el código: si cambia la
-arquitectura, cambia este archivo, no la imagen. Refleja `ARCHITECTURE.md` al 2026-09-12: EC2 en marcha desde el
-2026-09-10 con la salida a Cinépolis por Cloudflare WARP; el archivo vive hoy en un Postgres local y RDS es el destino.
+arquitectura, cambia este archivo, no la imagen. Refleja `ARCHITECTURE.md` al 2026-09-25: EC2 en marcha desde el
+2026-09-10 con la salida a Cinépolis por Cloudflare WARP; sin Postgres ni RDS (dos bases SQLite, un escritor cada una).
 """
 from pathlib import Path
 
 from diagrams import Cluster, Diagram, Edge
 from diagrams.custom import Custom
 from diagrams.aws.compute import EC2
-from diagrams.aws.database import RDS
 from diagrams.aws.engagement import SimpleEmailServiceSes
 from diagrams.aws.network import Route53
 from diagrams.aws.storage import S3
@@ -36,7 +35,7 @@ GRAPH = {"fontname": "Archivo, Helvetica", "fontsize": "12", "pad": "0.4", "spli
          "ranksep": "1.4", "nodesep": "0.6"}
 NODE = {"fontname": "Archivo, Helvetica", "fontsize": "11"}
 
-with Diagram("absolut-cinema · captura nacional en EC2, archivo histórico en PostgreSQL", filename=str(OUT),
+with Diagram("absolut-cinema · captura nacional en EC2, todo en SQLite", filename=str(OUT),
              show=False, direction="LR", graph_attr=GRAPH, node_attr=NODE):
     with Cluster("Fuentes externas (APIs públicas con clave embebida)"):
         cinepolis = logo("Cinépolis GraphQL\napi-g.cinepolis.com\ncartelera · planos · boletos · dulcería",
@@ -54,46 +53,41 @@ with Diagram("absolut-cinema · captura nacional en EC2, archivo histórico en P
 
         with Cluster("Captura (solo stdlib, /usr/bin/python3)"):
             snapshot = EC2("make snapshot · scraper.run\ncartelera nacional 07:30 · 13:30 · 20:30")
-            seats = EC2("make seats · sample --post-start\ncada hora (:50) · plazas de AC_SEATS_PLAZAS")
+            seats = EC2("make seats · sample --post-start\ncada hora (:50) · ambas cadenas · AC_SEATS_PLAZAS")
+            presale = EC2("make presale · 10:07\npreventas de ambas cadenas")
             prices = EC2("make prices concessions · 06:07\nboletos y menú de dulcería")
-            capacity = EC2("make capacity · día 1, 04:07\naforo por sala; Cinemex a mano (checkout)")
+            capacity = EC2("make capacity · día 1, 04:07\naforo por sala (plano público)")
             delivery = EC2("make delivery · 15:07\ndulcería a domicilio")
             health = EC2("make health · 08:07\nlogs/health.log · sale con 1 si hay problemas;\n"
                          "las mismas funciones pintan la página Operaciones")
 
-        sqlite = logo("snapshots.db\nSQLite WAL · un solo escritor", "sqlite")
-        sync = EC2("make sync · :22 y :52\npsycopg en el venv")
+        sqlite = logo("snapshots.db\nSQLite WAL · escribe solo la captura", "sqlite")
+        cuentas = logo("app.db\nSQLite WAL · escribe solo auth/\naccount · session · token · audit", "sqlite")
 
         with Cluster("Presentación"):
             caddy = logo("Caddy\nHTTPS (basic auth hasta el dominio)", "caddy")
             dashboard = logo("Streamlit · app.py\ncartelera · dulcería · datos\nusuarios · operaciones (admin)",
                              "streamlit")
 
-    with Cluster("PostgreSQL (hoy Docker local, RDS al desplegar)"):
-        archivo = RDS("esquema public · archivo append-only\nshowtime + showtime_state · event\nmuestreos · precios")
-        cuentas = RDS("esquema app · rol absolut_app\naccount · session · token · audit")
-
-    s3 = S3("S3\ncrudo .json.gz por captura\nrespaldo diario 05:07")
+    s3 = S3("S3\ncrudo .json.gz por captura\nrespaldo diario 05:07 de ambas bases")
     ses = SimpleEmailServiceSes("Amazon SES\ninvitación y restablecimiento")
     dns = Route53("dominio del cliente")
     directivos = Users("Directivos Cinemex")
-    analistas = User("Analistas del cliente\nSQL directo al archivo")
+    analistas = User("Analistas del cliente\nexplorador Datos")
 
     cinepolis >> Edge(color="gray", label="el WAF rechaza\nla IP de AWS") >> warp >> privoxy
-    privoxy >> Edge(color="gray") >> [snapshot, seats, prices, capacity]
-    cinemex >> Edge(color="gray") >> [snapshot, prices, capacity]
+    privoxy >> Edge(color="gray") >> [snapshot, seats, prices, capacity, presale]
+    cinemex >> Edge(color="gray") >> [snapshot, seats, prices, capacity, presale]
     [rappi, didi] >> Edge(color="gray") >> delivery
-    [snapshot, seats, prices, capacity, delivery] >> sqlite
+    [snapshot, seats, prices, capacity, delivery, presale] >> sqlite
     snapshot >> Edge(label="crudo") >> s3
     sqlite >> Edge(style="dashed", label="lee") >> health
-    sqlite >> Edge(label="solo lo nuevo, por marca de agua") >> sync >> archivo
-    sync >> Edge(style="dashed", label="sync_status.json") >> health
     sqlite >> Edge(style="dashed", label="respaldo 05:07") >> s3
     sqlite >> Edge(style="dashed", label="mode=ro · analytics/") >> dashboard
-    archivo >> Edge(style="dashed", label="solo lectura · archive/") >> dashboard
     dashboard >> Edge(label="auth/ · lo único\nque escribe") >> cuentas
+    cuentas >> Edge(style="dashed", label="respaldo 05:07") >> s3
     dashboard >> Edge(style="dashed") >> ses
     dashboard >> caddy >> dns >> directivos
-    archivo >> analistas
+    dns >> analistas
 
 print(f"generado: {OUT}.png")

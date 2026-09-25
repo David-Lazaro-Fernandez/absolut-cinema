@@ -1,0 +1,11 @@
+# Generado por `python3 -m jobs.units write` desde jobs/registry.py; no se edita a mano.
+[Unit]
+Description=absolut-cinema: auth-prune, domingos 04:07
+
+[Timer]
+OnCalendar=Sun *-*-* 04:07:00
+Persistent=true
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

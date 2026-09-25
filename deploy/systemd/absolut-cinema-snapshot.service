@@ -1,0 +1,16 @@
+# Generado por `python3 -m jobs.units write` desde jobs/registry.py; no se edita a mano.
+[Unit]
+Description=absolut-cinema: Captura nacional de cartelera de ambas cadenas (descarga en paralelo, 15–30 min)
+After=network-online.target warp-svc.service privoxy.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=absolut
+WorkingDirectory=/opt/absolut-cinema
+EnvironmentFile=-/etc/absolut-cinema.env
+ExecStart=/usr/bin/make -C /opt/absolut-cinema job KEY=snapshot
+TimeoutStartSec=50min
+Nice=5
+StandardOutput=append:/opt/absolut-cinema/data/logs/systemd.out
+StandardError=append:/opt/absolut-cinema/data/logs/systemd.out

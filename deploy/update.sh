@@ -2,7 +2,7 @@
 # Despliegue diario: trae el último commit estable (rama `stable`, la mueve GitHub Actions solo si pasaron las pruebas),
 # reinstala dependencias si cambiaron, recarga unidades si cambió deploy/ y reinicia el dashboard. Corre como root
 # desde absolut-cinema-deploy.timer (07:07) o a mano con `make deploy`; con REF=<commit|rama> despliega otro punto
-# (p. ej. para volver atrás). No toca data/ ni Postgres. Una línea por corrida en data/logs/deploy.log.
+# (p. ej. para volver atrás). No toca data/. Una línea por corrida en data/logs/deploy.log.
 set -euo pipefail
 
 APP="${APP:-/opt/absolut-cinema}"
@@ -26,11 +26,11 @@ sudo -u absolut git reset --hard --quiet "$target"
 
 if grep -q '^requirements-' <<< "$changed"; then
   log "cambiaron requirements: reinstalando el venv"
-  sudo -u absolut .venv/bin/pip install -q -r requirements-dashboard.txt -r requirements-sync.txt
+  sudo -u absolut .venv/bin/pip install -q -r requirements-dashboard.txt
 fi
 if grep -Eq '^deploy/.*\.(service|timer)$' <<< "$changed"; then
-  log "cambiaron unidades de systemd: daemon-reload"
-  systemctl daemon-reload
+  log "cambiaron unidades de systemd: enlazando, quitando las que ya no existen y encendiendo timers"
+  bash deploy/units.sh
 fi
 
 systemctl restart absolut-cinema-dashboard

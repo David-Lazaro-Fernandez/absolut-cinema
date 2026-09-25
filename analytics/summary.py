@@ -14,7 +14,7 @@ def general_summary(conn, d0=None, d1=None, from_now=True, hours=None, top=11, p
     (funciones Cinépolis / funciones Cinemex, None si Cinemex no la exhibe). `hours` recorta por hora de inicio."""
     where, params, _ = _window(d0, d1, from_now, hours=hours, plaza=plaza)
     data = rows(conn, f"""
-        WITH base AS (SELECT chain, cinema_id, title_norm, movie_title FROM current_showtime WHERE {where}),
+        WITH base AS (SELECT chain, cinema_id, title_key(title_norm) title_norm, movie_title FROM current_showtime WHERE {where}),
              tot AS (SELECT chain, COUNT(*) shows, COUNT(DISTINCT cinema_id) cinemas FROM base GROUP BY chain),
              topn AS (SELECT title_norm FROM base GROUP BY title_norm ORDER BY COUNT(*) DESC, title_norm LIMIT ?),
              grp AS (SELECT CASE WHEN title_norm IN (SELECT title_norm FROM topn) THEN title_norm ELSE '{REST}' END g,
