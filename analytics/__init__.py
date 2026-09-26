@@ -5,6 +5,7 @@ Sin dependencias fuera de la librería estándar, para que el dashboard (Streaml
 futuro API (FastAPI) llamen exactamente lo mismo. Los textos para usuarios viven en labels.py.
 """
 from . import datasets, labels
+from .cinema_locations import cinema_highlights, cinema_map, cinema_sites
 from .concessions import (
     BASKET,
     concession_basket,
@@ -72,5 +73,6 @@ __all__ = [
     "showtimes_by_slot", "snapshot_health", "today",
     "plaza_coverage", "plazas",
     "datasets", "presale_compare", "presale_curve", "presale_ranking",
+    "cinema_highlights", "cinema_map", "cinema_sites",
     "independent_conclusions", "independent_overlap", "independent_slots", "independent_summary", "independent_titles",
 ]

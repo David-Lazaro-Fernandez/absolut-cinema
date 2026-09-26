@@ -11,6 +11,7 @@ Las cuentas de prueba (`pytest-admin@example.test`, `pytest-viewer@example.test`
 """
 import sqlite3
 import sys
+from contextlib import closing
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -182,6 +183,23 @@ def test_datos_filters_apply(monkeypatch, conn, viewer):
 
 
 @needs_sqlite
+def test_mapa_for_viewer(monkeypatch, conn, viewer):
+    at = _run(monkeypatch, cookie=_cookie(conn, viewer), page="mapa")
+    _clean(at)
+    assert at.sidebar.radio(key="map_metric").value == "shows"
+    at.sidebar.radio(key="map_metric").set_value("ticket_price").run()
+    at.sidebar.checkbox(key="map_cineteca").uncheck().run()
+    _clean(at)
+    with closing(analytics.connect()) as db:
+        first = analytics.cinema_map(db, plaza=at.session_state["plaza"])[0]["cinema_id"]
+    at.session_state["map_cinemas"] = [first]                     # AppTest no elige en un multiselect con format_func
+    at.run()
+    _clean(at)
+    at.sidebar.radio(key="plaza").set_value("gdl" if "gdl" in at.sidebar.radio(key="plaza").options else None).run()
+    _clean(at)                                                    # el cine elegido ya no está en la zona: se suelta
+
+
+@needs_sqlite
 def test_independientes_for_viewer(monkeypatch, conn, viewer):
     at = _run(monkeypatch, cookie=_cookie(conn, viewer), page="independientes")
     _clean(at)
@@ -226,6 +244,13 @@ def test_independientes_with_recorded_capture(monkeypatch, conn, viewer, recorde
     at.sidebar.radio(key="plaza").set_value("gdl").run()
     _clean(at)
     assert [i.value for i in at.info] == [INDEP_TEXT["no_plaza"]]
+
+
+def test_mapa_with_recorded_capture(monkeypatch, conn, viewer, recorded_db):
+    at = _run(monkeypatch, cookie=_cookie(conn, viewer), page="mapa")
+    _clean(at)
+    at.sidebar.radio(key="plaza").set_value(None).run()
+    _clean(at)
 
 
 def test_datos_with_the_cineteca(monkeypatch, conn, viewer, recorded_db):

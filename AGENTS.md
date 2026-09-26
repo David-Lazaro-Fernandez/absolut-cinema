@@ -213,7 +213,7 @@ el timer lo note. Si añades un flujo de captura, añade su cobertura ahí y su 
 
 - Páginas con `st.navigation` (barra superior; en celular el CSS la fija abajo): `views/cartelera.py` (tres
   capas con los filtros de zona, periodo y franja en la barra lateral; la zona sale de `plaza_selector()` en `ui/common.py`
-  y viaja como `plaza=` en cada `load`), `views/dulceria.py`, `views/independientes.py` (la Cineteca Nacional),
+  y viaja como `plaza=` en cada `load`), `views/mapa.py` (mapa de cines, pydeck), `views/dulceria.py`, `views/independientes.py` (la Cineteca Nacional),
   `views/datos.py` (explorador de
   tablas de `snapshots.db`, `analytics/datasets.py`) y, solo para el rol admin, `views/usuarios.py` y `views/operaciones.py`. Un módulo que responde una
   pregunta propia del cliente y no depende del periodo va en su página; lo demás, en la cartelera. **Excepción:**

@@ -349,7 +349,7 @@ INDEP_TEXT = {
     "layer1": "Lo que importa hoy",
     "layer1_desc": "El hallazgo de la oferta independiente, si cruza su umbral; el mismo que aparece en la cartelera.",
     "layer1_none": "Ningún título de la Cineteca cruza el umbral: llenar {pct} % de sus butacas en al menos {n} funciones medidas sin que lo exhibamos en CDMX.",
-    "layer1_pending": "El hallazgo se enciende cuando la lectura de los planos de la Cineteca esté confirmada con una función llena.",
+    "layer1_pending": "El hallazgo se enciende cuando esté confirmada la lectura de las ventas en los planos de la Cineteca.",
     "layer2": "Evidencia",
     "layer2_desc": "Qué programa, cuánto se llena, cuánto se parece a nuestra cartelera y a qué horas.",
     "q_programa": "¿Qué programa la Cineteca en este periodo?",
@@ -358,9 +358,10 @@ INDEP_TEXT = {
     "q_franjas": "¿A qué horas programa?",
     "programa_chart": "Títulos con más funciones, en % de su programación",
     "programa_note": "Cada sede cuenta sus funciones; el título agrupa las versiones doblada y subtitulada.",
-    "ocupacion_pending": "Pendiente: la lectura del plano de asientos de la Cineteca aún no se confirma con una función llena. "
-                         "Se desbloquea al comparar el % vendido de una función agotada contra lo que muestra su sitio; "
-                         "los planos ya se guardan y se recalculan sin volver a pedirlos.",
+    "ocupacion_pending": "Pendiente: falta confirmar cómo marca el plano de asientos de la Cineteca una butaca vendida. "
+                         "Las butacas no vendibles ya se leen bien; se desbloquea con uno o dos días de planos de funciones "
+                         "con venta. Cada función medida guarda sus vendidas y sus no vendibles, así que se recalcula sin "
+                         "volver a pedir el plano.",
     "ocupacion_few": "Pendiente: hay {n} funciones medidas de la Cineteca en la última semana; hacen falta {min} para leer su ocupación.",
     "ocupacion_chart": "% de butacas vendidas por sede y franja, última semana",
     "ocupacion_titles": "Títulos con más ocupación",
@@ -407,6 +408,63 @@ COLUMN_LABEL.update({
     "shows_indep": "Funciones Cineteca", "share_indep": "% programación Cineteca", "shows_vs": "Funciones Cinemex CDMX",
     "cinemas_vs": "Cines Cinemex CDMX", "subtitled": "Subtituladas", "spanish": "En español", "other": "Lengua original",
     "first_date": "Desde", "last_date": "Hasta", "slot": "Franja", "days": "Días", "share": "% de funciones",
+})
+
+# --- Mapa de cines (analytics/cinema_locations.py, views/mapa.py) ---
+MAP_METRIC = {    # métrica → (etiqueta, formato del valor, qué destaca)
+    "shows": ("Funciones", "{:,.0f}", "Más funciones"),
+    "screens": ("Salas", "{:,.0f}", "Más salas"),
+    "seats": ("Butacas", "{:,.0f}", "Más butacas"),
+    "ticket_price": ("Boleto tradicional, vie–dom", "${:,.0f}", "Boleto más barato"),
+    "ticket_max": ("Boleto más caro", "${:,.0f}", "Boleto más caro"),
+    "popcorn_price": ("Palomitas en sala", "${:,.0f}", "Palomitas más baratas"),
+    "sold_pct": ("% de butacas vendidas", "{:.1f} %", "Más lleno"),
+}
+MAP_TEXT = {
+    "nav": "Mapa",
+    "title": "Mapa de cines: <span>Cinemex</span>, Cinépolis y la Cineteca",
+    "meta_zone": "Zona",
+    "meta_period": "Funciones",
+    "meta_note": "Cada dato con la fecha de su última lectura",
+    "no_db": "Aún no hay datos: la base no existe todavía. Ver la página de cartelera.",
+    "empty": "No hay cines con coordenadas en esta zona.",
+    "size_by": "Tamaño del punto",
+    "size_help": "El tamaño del punto sigue la métrica elegida; un cine sin ese dato queda como punto chico y tenue.",
+    "chains": "Cadenas",
+    "no_chains": "Elige al menos una cadena en la barra lateral.",
+    "cinemas": "Cines",
+    "cinemas_placeholder": "Todos los cines de la zona",
+    "cinemas_help": "Escribe parte del nombre para buscar; puedes elegir varios. Vacío muestra todos.",
+    "filtered": "{n} de {total} cines",
+    "highlights": "Destacados de la zona",
+    "highlights_desc": "El cine que destaca en cada métrica, dentro de su cadena; entre paréntesis, cuántos cines tienen el dato.",
+    "map": "Los cines en el mapa",
+    "map_desc": "Pasa el cursor sobre un punto para ver su ficha; haz clic para fijarla abajo. Cuando una plaza tiene "
+                "varios cines de la misma cadena (el complejo y su sala Platino o VIP), sus puntos se abren alrededor "
+                "del edificio y comparten ficha, para compararlos lado a lado.",
+    "detail": "Ficha del cine",
+    "site_count": "{n} cines en esta plaza",
+    "detail_hint": "Haz clic en un cine del mapa para ver su ficha.",
+    "table": "Todos los cines de la zona",
+    "no_value": "sin dato",
+    "sampled": "leído el {date}",
+    "popcorn_note": "Cinemex cobra la misma dulcería en todos sus cines, así que las palomitas por complejo solo existen en Cinépolis.",
+    "leer": "Cada punto es un complejo, en su color de cadena: Cinemex en rojo, Cinépolis en tinta y la Cineteca en gris. "
+            "Las funciones son las publicadas de hoy al miércoles (semana de cine), sin las que ya empezaron. Salas y butacas "
+            "salen del plano de asientos, medido una vez por sala. El boleto es el general de formato tradicional de "
+            "viernes a domingo, la lectura más reciente de cada cine (sin eventos ni matinés), para que dos cines sean "
+            "comparables. El boleto más caro es el general más alto del cine en cualquier formato (VIP, gran formato, "
+            "3D o 4D) y cualquier día, con su formato entre paréntesis. La ocupación es el % de butacas vendidas en las funciones medidas después de empezar en los "
+            "últimos 7 días, solo en cines con al menos 10 funciones medidas. El tamaño del punto "
+            "es la métrica elegida, relativa al cine con el valor más alto de los que se ven; no cambia con el zoom. "
+            "Los cines que comparten edificio se dibujan un poco separados de su ubicación real para que se vean todos.",
+    "footer": "Fuentes: cartelera pública de Cinemex, Cinépolis y la Cineteca Nacional; planos de asientos; precios de lista "
+              "muestreados por cine; menú de dulcería en línea de Cinépolis. Mapa base © OpenStreetMap y CARTO.",
+}
+COLUMN_LABEL.update({
+    "ticket_price": "Boleto tradicional vie–dom", "ticket_sampled_at": "Boleto leído",
+    "ticket_max": "Boleto más caro", "ticket_max_format": "Formato del más caro", "ticket_max_sampled_at": "Más caro leído", "popcorn_price": "Palomitas en sala",
+    "occupancy_samples": "Funciones medidas",
 })
 
 # --- Operaciones (scraper/health.py, views/operaciones.py; solo admin) ---

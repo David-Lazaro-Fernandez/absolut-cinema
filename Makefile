@@ -119,4 +119,4 @@ launchd-load:       ## Mac: genera en data/launchd los agentes del registro con 
 
 # `scraper` y `daily` son las etiquetas de antes del registro (hasta el 2026-09-25); se descargan por si siguen cargadas.
 launchd-unload:     ## Mac: descarga los agentes (antes de mover el scraper al servidor)
-	-for a in snapshot seats prices health delivery sync scraper daily; do launchctl bootout gui/$$(id -u)/com.absolut-cinema.$$a; done
+	-for p in data/launchd/com.absolut-cinema.*.plist; do launchctl bootout gui/$$(id -u) "$$p"; done

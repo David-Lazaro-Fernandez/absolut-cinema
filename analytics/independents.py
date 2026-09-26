@@ -8,7 +8,7 @@ programación de la propia cadena, y la comparación con nosotros es por franja 
 aniversario DOB" es la misma película que "Cars".
 
 La ocupación sale de los planos tras el inicio (`occupancy_sample`); `OCCUPANCY_CONFIRMED` dice si la lectura de sus
-planos ya se comprobó contra una función llena. Mientras sea False, nada de aquí afirma cifras de ocupación.
+planos ya se comprobó contra funciones con venta. Mientras sea False, nada de aquí afirma cifras de ocupación.
 """
 import re
 
@@ -18,8 +18,10 @@ from .queries import _SLOT_CASE, _window
 from .seats import occupancy_by_title
 
 # Lectura del plano de Vista de la Cineteca (`scraper.sample.cineteca_layout`): `OriginalStatus != 0` no vendible y
-# `Status != 0` ocupada. Una sola función leída al 2026-09-26, con poca venta; falta confirmarla con una función llena
-# (sold_pct contra lo que muestra la web). Al confirmarla se cambia a True y se anota la fecha en `project.md`.
+# `Status != 0` ocupada. La parte de no vendibles se verificó el 2026-09-26 (función 001:15098, sin ventas: 12 butacas
+# de la fila I con Status = OriginalStatus). Falta ver una venta: si llega con OriginalStatus 0 y Status != 0, la
+# regla queda; si no, las ventas se leen como lo que `broken` sube sobre la base de su sala. Al confirmarlo se cambia a
+# True y se anota la fecha en `project.md`.
 OCCUPANCY_CONFIRMED = False
 OCCUPANCY_DAYS = 7          # ventana de planos: una semana de cine
 OCCUPANCY_MIN_SAMPLES = 20  # funciones medidas en esa ventana para pintar la ocupación: menos es anécdota
