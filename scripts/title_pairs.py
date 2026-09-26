@@ -2,13 +2,15 @@
 
 Uso:
   python3 scripts/title_pairs.py                         # lista los pares por revisar, del más parecido al menos
+  python3 scripts/title_pairs.py --vs cineteca           # lo mismo, Cinemex frente a la Cineteca Nacional
   python3 scripts/title_pairs.py --accept A B [--note …]  # A y B son la misma película (title_norm de cada cadena)
   python3 scripts/title_pairs.py --reject A B [--note …]  # no lo son: deja de proponerse y los exime de las reglas
 
 Lee `current_showtime` de data/snapshots.db en solo lectura y propone con `scraper.titles.candidates`: parecido de
 texto y números iguales, con la duración y la distribuidora al lado como evidencia (no como regla: "Transformers: La
 película" dura 84 min en Cinemex y 96 en la edición de aniversario de Cinépolis). Nada se une sin `--accept`. Se corre
-cuando `scraper.health` avisa que hay pares por revisar. Solo librería estándar.
+cuando `scraper.health` avisa que hay pares por revisar. Con `--vs cineteca` propone Cinemex frente a la Cineteca: mucho
+cine de autor no tiene pareja en Cinemex, y eso es el dato, no un error. Solo librería estándar.
 """
 import argparse
 import csv
@@ -28,8 +30,8 @@ def load_titles(conn, chain):
         FROM current_showtime WHERE chain = ? AND title_norm <> '' GROUP BY title_norm""", (chain,))}
 
 
-def pending(conn):
-    return titles.candidates(load_titles(conn, "cinemex"), load_titles(conn, "cinepolis"))
+def pending(conn, vs="cinepolis"):
+    return titles.candidates(load_titles(conn, "cinemex"), load_titles(conn, vs))
 
 
 def decide(a, b, decision, note):
@@ -48,17 +50,19 @@ def main(argv=None):
     group.add_argument("--accept", nargs=2, metavar=("A", "B"), help="misma película")
     group.add_argument("--reject", nargs=2, metavar=("A", "B"), help="películas distintas")
     ap.add_argument("--note", default="", help="por qué, para quien lea la tabla después")
+    ap.add_argument("--vs", default="cinepolis", choices=("cinepolis", "cineteca"), help="la cadena contra la que se buscan pares")
     a = ap.parse_args(argv)
     if a.accept or a.reject:
         decide(*(a.accept or a.reject), "same" if a.accept else "different", a.note)
         return 0
     conn = sqlite3.connect(f"file:{config.DB_PATH}?mode=ro", uri=True)
-    found = pending(conn)
+    found = pending(conn, vs=a.vs)
+    other = {"cinepolis": "Cinépolis", "cineteca": "Cineteca"}[a.vs]
     if not found:
         print("Sin pares por revisar.")
     for c in found:
         print(f"{c['ratio']:.2f}  Cinemex  «{c['title_a']}» ({c['duration_a'] or '—'} min, {c['distributor_a'] or '—'}, {c['shows_a']} funciones)\n"
-              f"      Cinépolis «{c['title_b']}» ({c['duration_b'] or '—'} min, {c['distributor_b'] or '—'}, {c['shows_b']} funciones)\n"
+              f"      {other:<9} «{c['title_b']}» ({c['duration_b'] or '—'} min, {c['distributor_b'] or '—'}, {c['shows_b']} funciones)\n"
               f"      --accept \"{c['a']}\" \"{c['b']}\"   |   --reject \"{c['a']}\" \"{c['b']}\"\n")
     return 0
 

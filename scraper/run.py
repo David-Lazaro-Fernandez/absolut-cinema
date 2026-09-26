@@ -17,10 +17,12 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
-from . import cinemex, cinepolis, config, diff, normalize, store
+from . import cinemex, cinepolis, cineteca, config, diff, normalize, store
 from .http import AuthError, Blocked
 
-SNAPSHOTTERS = {"cinepolis": cinepolis.snapshot, "cinemex": cinemex.snapshot}
+SNAPSHOTTERS = {"cinepolis": cinepolis.snapshot, "cinemex": cinemex.snapshot, "cineteca": cineteca.snapshot}
+# Cómo se llama la unidad de captura de cada cadena, solo para el log.
+UNIT_NAME = {"cinepolis": "cities", "cinemex": "states", "cineteca": "days"}
 
 
 def log(msg):
@@ -41,7 +43,11 @@ def fetch(chain):
 
 
 def _units(chain, raw):
-    return len(raw.get("city_ids") or []) if chain == "cinepolis" else len(raw.get("state_ids") or [])
+    if chain == "cinepolis":
+        return len(raw.get("city_ids") or [])
+    if chain == "cineteca":
+        return len(raw.get("dates") or [])
+    return len(raw.get("state_ids") or [])
 
 
 def resolve_scope(unit_records, previous):
@@ -93,7 +99,7 @@ def commit(conn, chain, snapshot_id, taken_at, raw, fetch_s, save_raw=True):
                               n_units=len(unit_records), n_failed_units=len(failed))
         kinds = Counter(e["kind"] for e in events)
         detail = "baseline" if not prev_id else (", ".join(f"{k}={v}" for k, v in sorted(kinds.items())) or "none")
-        unit = "cities" if chain == "cinepolis" else "states"
+        unit = UNIT_NAME[chain]
         log(f"{chain} ok snapshot={snapshot_id} {unit}={_units(chain, raw)} cinemas={n_cinemas} shows={len(rows)} "
             f"events={len(events)} ({detail}) calls={raw.get('calls')} fetch={fetch_s:.0f}s write={time.time() - t0:.0f}s "
             f"rows=+{written['inserted']}/~{written['updated']}/-{written['deleted']} "

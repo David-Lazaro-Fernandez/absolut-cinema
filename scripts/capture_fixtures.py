@@ -26,21 +26,26 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from scraper import cinemex, cinepolis, normalize  # noqa: E402
+from scraper import cinemex, cinepolis, cineteca, normalize  # noqa: E402
 
 FIXTURE_DIR = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "capture"
 SCOPES = {
     "cinemex": {"state_ids": [18]},
     "cinepolis": {"city_ids": ["hermosillo"]},
+    "cineteca": {"dates": ["2026-09-27"]},
 }
-_MODULES = {"cinemex": cinemex, "cinepolis": cinepolis}
+_MODULES = {"cinemex": cinemex, "cinepolis": cinepolis, "cineteca": cineteca}
 
-# Columnas que la captura llena siempre en ambas cadenas (comprobado sobre toda la cartelera vigente el 2026-09-25).
-# Las que pueden venir vacías de la API: `genre`, `duration_min`, `distributor`, `experience` y `state_id` en Cinépolis.
+# Columnas que la captura llena siempre en toda cadena (comprobado sobre la cartelera vigente el 2026-09-25). Las que
+# pueden venir vacías de la API: `genre`, `duration_min`, `distributor`, `experience`, y `state_id` fuera de Cinemex.
 REQUIRED = ("chain", "show_id", "cinema_id", "cinema_name", "lat", "lng", "city_id", "state_code", "movie_id",
-            "movie_title", "title_norm", "rating", "date", "datetime_local", "datetime_utc", "screen", "language",
-            "language_raw", "format", "premium_tier", "version_raw")
-REQUIRED_BY_CHAIN = {"cinemex": ("state_id",), "cinepolis": ()}
+            "movie_title", "title_norm", "rating", "date", "datetime_local", "datetime_utc", "language",
+            "format", "premium_tier")
+# Columnas que solo unas cadenas garantizan: Cinemex publica su estado de API; ambas comerciales dan sala, idioma
+# crudo y versión. La Cineteca no trae sala en la cartelera (llega en el plano) ni etiqueta de versión.
+REQUIRED_BY_CHAIN = {"cinemex": ("state_id", "screen", "language_raw", "version_raw"),
+                     "cinepolis": ("screen", "language_raw", "version_raw"),
+                     "cineteca": ()}
 # Los campos de tiempo de una unidad cambian en cada corrida; no son parte del dato.
 _UNIT_VOLATILE = ("duration_s",)
 

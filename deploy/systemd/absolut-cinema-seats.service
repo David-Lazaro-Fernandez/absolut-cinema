@@ -1,6 +1,6 @@
 # Generado por `python3 -m jobs.units write` desde jobs/registry.py; no se edita a mano.
 [Unit]
-Description=absolut-cinema: Planos de asientos de ambas cadenas 15–75 min tras el inicio (asistencia final), plazas de AC_SEATS_PLAZAS
+Description=absolut-cinema: Planos de asientos de las tres cadenas 15–75 min tras el inicio (asistencia final), plazas de AC_SEATS_PLAZAS
 After=network-online.target warp-svc.service privoxy.service
 Wants=network-online.target
 

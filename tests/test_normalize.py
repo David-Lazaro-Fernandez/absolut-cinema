@@ -66,3 +66,29 @@ def test_state_code_is_per_cinema_not_per_city():
     assert states.state_code("cinepolis", "cinepolis-ajusco-cdmx", "cdmx") == "09"
     assert states.state_code("cinepolis", "cine-que-aun-no-existe", "cdmx") == "09"          # cine nuevo: el de su ciudad
     assert states.state_code("cinepolis", "cine-que-aun-no-existe", "ciudad-nueva") is None
+
+
+def _cineteca_raw():
+    from scraper import cineteca
+    return {"chain": "cineteca", "sedes": cineteca.SEDES, "dates": ["2026-09-27"], "days": [{"date": "2026-09-27", "films": [
+        {"titulo": "Cars 20 aniversario DOB", "film_id": "HO00009933", "clasificacion": "AA",
+         "sedes": [{"codigo_sede": "003", "nombre_sede": "Cineteca México", "horarios": [{"hora": "16:00", "session_id": "50011"}]}]},
+        {"titulo": "Deshilando luz", "film_id": "HO00008666", "clasificacion": "B",
+         "sedes": [{"codigo_sede": "001", "nombre_sede": "Cineteca Chapultepec", "horarios": [{"hora": "13:30", "session_id": "15061"}]}]}]}]}
+
+
+def test_cineteca_rows_carry_sede_language_and_cdmx_utc():
+    rows = {r["show_id"]: r for r in normalize.rows("cineteca", _cineteca_raw())}
+    cars = rows["003:50011"]
+    # show_id lleva la sede porque el sessionId de Vista solo es único por cine; el idioma sale del título (DOB = doblada).
+    assert (cars["cinema_id"], cars["language"], cars["premium_tier"], cars["format"]) == ("003", "spanish", "traditional", "2D")
+    assert cars["state_code"] == "09" and cars["screen"] is None       # CDMX; la sala llega del plano, no de la cartelera
+    assert cars["datetime_local"] == "2026-09-27T16:00:00" and cars["datetime_utc"] == "2026-09-27T22:00:00+00:00"   # CDMX es UTC−6
+    assert set(cars) == set(normalize.COLUMNS)                          # una fila completa, sin columnas de más ni de menos
+    assert rows["001:15061"]["language"] == "other"                    # sin marca de idioma: lengua original de cine de autor
+
+
+def test_cineteca_cinemas_are_the_three_cdmx_sedes():
+    cinemas = normalize.cinemas("cineteca", _cineteca_raw())
+    assert [c["cinema_id"] for c in cinemas] == ["001", "002", "003"]
+    assert all(c["state_code"] == "09" and c["vista_id"] == c["cinema_id"] and c["timezone"] == "America/Mexico_City" for c in cinemas)

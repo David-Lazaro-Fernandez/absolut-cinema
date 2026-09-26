@@ -38,11 +38,11 @@ def conn():
     c.close()
 
 
-def test_plaza_where_filters_rows_and_national_does_not(conn):
+def test_plaza_where_filters_rows_and_national_keeps_the_compared_chains(conn):
     where, params = aplazas.plaza_where("cdmx")
     got = {r[0] for r in conn.execute(f"SELECT cinema_id FROM current_showtime WHERE 1 = 1{where}", params)}
     assert got == {"cinepolis-universidad-cdmx", "26"}
-    assert aplazas.plaza_where(None) == ("", [])
+    assert aplazas.plaza_where(None) == (" AND chain IN (?,?)", ["cinemex", "cinepolis"])   # nacional: las dos comparables
     with pytest.raises(ValueError):
         aplazas.plaza_where("marte")
 

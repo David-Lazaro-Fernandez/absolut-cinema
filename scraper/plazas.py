@@ -14,7 +14,8 @@ del dashboard). Solo librería estándar; las etiquetas para el usuario viven en
 
 PLAZAS = {
     "cdmx": {"cinepolis": ("cdmx",),
-             "cinemex": ("15", "16", "17", "18", "19", "20")},                     # Centro, Nor-oriente, Norte, Oriente, Poniente, Sur
+             "cinemex": ("15", "16", "17", "18", "19", "20"),                      # Centro, Nor-oriente, Norte, Oriente, Poniente, Sur
+             "cineteca": ("001", "002", "003")},                                   # Cineteca: Chapultepec, de las Artes, México (Xoco)
     "gdl": {"cinepolis": ("guadalajara", "tlajomulco"),
             "cinemex": ("35", "38")},                                              # Guadalajara, Tonalá
     "mty": {"cinepolis": ("monterrey",),

@@ -8,7 +8,7 @@ from scraper.titles import title_key
 from .db import rows
 from .labels import SLOTS
 from .plaza import plaza_cinema_where
-from .queries import _FORMAT_CASE, _window
+from .queries import _FORMAT_CASE, _HOUR, _SLOT_CASE, _window
 
 # Tipo de día del muestreo de precios (scraper.sample.day_type_of), en SQL: vie–dom, mar–mié con precio reducido, lun y jue.
 _DAY_TYPE_CASE = """CASE WHEN strftime('%w', date) IN ('5', '6', '0') THEN 'weekend'
@@ -28,7 +28,7 @@ def capacity_summary(conn, plaza=None):
 
 def capacity_by_cinema(conn, chain="cinepolis", plaza=None):
     """Salas y butacas por complejo, con el nombre del cine y cuántas salas programan hoy."""
-    where, params = plaza_cinema_where(plaza, "a.")
+    where, params = plaza_cinema_where(plaza, "a.", chains=(chain,))
     return rows(conn, f"""
         SELECT a.cinema_id, COALESCE(c.name, a.cinema_id) cinema_name, COUNT(*) screens, SUM(a.seats) seats,
                ROUND(AVG(a.seats)) avg_seats, MIN(a.seats) min_seats, MAX(a.seats) max_seats
@@ -52,7 +52,7 @@ def offered_seats(conn, d0=None, d1=None, from_now=True, hours=None, plaza=None)
 
 def offered_by_title(conn, d0=None, d1=None, from_now=True, limit=15, chain="cinepolis", hours=None, plaza=None):
     """Share de butacas ofertadas por título frente a share de funciones (solo cadenas con aforo)."""
-    where, params, _ = _window(d0, d1, from_now, hours=hours, plaza=plaza, alias="s.")
+    where, params, _ = _window(d0, d1, from_now, hours=hours, plaza=plaza, alias="s.", chains=(chain,))
     return rows(conn, f"""
         WITH base AS (
           SELECT title_key(s.title_norm) title_norm, s.movie_title, a.seats
@@ -74,7 +74,7 @@ _PHASE = {"post": "minutes_to_start < 0", "pre": "minutes_to_start >= 0", "all":
 def occupancy_summary(conn, chain="cinepolis", phase="post", plaza=None):
     """Muestras de ocupación acumuladas por color del semáforo: cuántas, % vendido medio, mínimo y máximo.
     `phase`: post (asistencia final, por defecto), pre (preventa a T−60) o all."""
-    where, params = plaza_cinema_where(plaza)
+    where, params = plaza_cinema_where(plaza, chains=(chain,))
     return rows(conn, f"""
         SELECT COALESCE(NULLIF(availability, ''), '(sin color)') availability, COUNT(*) samples,
                ROUND(AVG(sold_pct), 1) avg_sold_pct, MIN(sold_pct) min_sold_pct, MAX(sold_pct) max_sold_pct,
@@ -84,12 +84,28 @@ def occupancy_summary(conn, chain="cinepolis", phase="post", plaza=None):
 
 def occupancy_recent(conn, limit=50, chain="cinepolis", phase="post", plaza=None):
     """Últimas muestras de ocupación de la cadena, con cine, función y % vendido."""
-    where, params = plaza_cinema_where(plaza, "o.")
+    where, params = plaza_cinema_where(plaza, "o.", chains=(chain,))
     return rows(conn, f"""
         SELECT o.sampled_at, COALESCE(c.name, o.cinema_id) cinema_name, o.screen, o.movie_title, o.datetime_local,
                o.minutes_to_start, o.seats, o.sold, o.sold_pct, o.availability
         FROM occupancy_sample o LEFT JOIN cinema c ON c.chain = o.chain AND c.cinema_id = o.cinema_id
         WHERE o.chain = ? AND {_PHASE[phase]}{where} ORDER BY o.id DESC LIMIT ?""", (chain, *params, limit))
+
+
+def occupancy_by_cinema(conn, days=7, chain="cineteca", phase="post", plaza=None):
+    """Ocupación por complejo y franja según los planos de los últimos `days` días (sin la cartelera: la sala sale del
+    plano). Por fila: `cinema_id`, `cinema_name`, `slot` (clave de `labels.SLOTS`), `samples`, `seats` (butacas
+    medidas) y `sold_pct` (% vendido ponderado por aforo). Orden: complejo y franja en el orden del día."""
+    where, params = plaza_cinema_where(plaza, "o.", chains=(chain,))
+    since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="seconds")
+    return rows(conn, f"""
+        SELECT o.cinema_id, COALESCE(MAX(c.name), o.cinema_id) cinema_name, {_SLOT_CASE} slot,
+               COUNT(*) samples, SUM(o.seats) seats, ROUND(100.0 * SUM(o.sold) / SUM(o.seats), 1) sold_pct
+        FROM occupancy_sample o LEFT JOIN cinema c ON c.chain = o.chain AND c.cinema_id = o.cinema_id
+        WHERE o.chain = ? AND {_PHASE[phase]} AND o.seats > 0
+          AND o.sold IS NOT NULL AND o.sampled_at >= ?{where}
+        GROUP BY o.cinema_id, slot ORDER BY o.cinema_id, MIN({_HOUR})""",
+                (chain, since, *params))
 
 
 def prices(conn, days=14, plaza=None):
@@ -140,7 +156,7 @@ def occupancy_by_title(conn, days=7, chain="cinepolis", min_samples=20, plaza=No
     (`demand_index`: 1 = lo normal para su horario, 1.5 = vende 50 % más). Así un título programado de noche no
     parece más demandado solo por su hora. Por título normalizado con al menos `min_samples` funciones: `title_norm`,
     `title`, `samples`, `sold_pct`, `expected_pct`, `demand_index`, `last_sampled`. Orden: `demand_index` desc."""
-    where, params = plaza_cinema_where(plaza)
+    where, params = plaza_cinema_where(plaza, chains=(chain,))
     since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="seconds")
     samples = rows(conn, f"""
         SELECT movie_title, datetime_local, date(datetime_local) date, seats, sold, sampled_at
@@ -181,7 +197,7 @@ def occupancy_by_title(conn, days=7, chain="cinepolis", min_samples=20, plaza=No
 def semaphore_calibration(conn, chain="cinemex", min_samples=5, plaza=None):
     """Qué % vendido corresponde a cada nivel del semáforo de una cadena, según las muestras de plano.
     Sirve para convertir el `availability` gratuito de cada snapshot en ocupación estimada."""
-    where, params = plaza_cinema_where(plaza)
+    where, params = plaza_cinema_where(plaza, chains=(chain,))
     return rows(conn, f"""
         SELECT COALESCE(NULLIF(availability, ''), '(sin color)') level, COUNT(*) samples,
                ROUND(100.0 * SUM(sold) / SUM(seats), 1) sold_pct,
@@ -194,7 +210,7 @@ def estimated_occupancy(conn, d0=None, d1=None, from_now=True, chain="cinemex", 
     """Butacas ocupadas estimadas en la ventana: aforo de la sala × % vendido calibrado del nivel de
     semáforo de cada función. Solo funciones con aforo conocido y nivel calibrado. La calibración del semáforo
     es nacional (el color significa lo mismo en todos los cines); la ventana sí se acota a la plaza."""
-    where, params, _ = _window(d0, d1, from_now, hours=hours, plaza=plaza, alias="s.")
+    where, params, _ = _window(d0, d1, from_now, hours=hours, plaza=plaza, alias="s.", chains=(chain,))
     return rows(conn, f"""
         WITH cal AS (SELECT COALESCE(NULLIF(availability, ''), '(sin color)') level,
                             100.0 * SUM(sold) / SUM(seats) sold_pct, COUNT(*) n

@@ -29,12 +29,12 @@ if "platform" in filters:
                                 format_func=lambda v: DATA_TEXT["all"] if v is None else PLATFORM_LABEL[v], key="platform")
     kwargs["platform"] = plat
 if "chain" in filters:
-    chain = st.sidebar.radio(DATA_TEXT["chain"], options=[None, *CHAINS],
-                             format_func=lambda v: DATA_TEXT["both"] if v is None else CHAIN_LABEL[v], horizontal=True, key="chain")
+    chain = st.sidebar.radio(DATA_TEXT["chain"], options=[None, *CHAIN_LABEL],
+                             format_func=lambda v: DATA_TEXT["all"] if v is None else CHAIN_LABEL[v], horizontal=True, key="chain")
     kwargs["chain"] = chain
 if "cinema_ids" in filters:
     opts = load_dataset("cinema_options", chain=kwargs.get("chain"))
-    names = {r.cinema_id: (r.cinema_name if kwargs.get("chain") else f"{CHAIN_LABEL[r.chain]} · {r.cinema_name}")
+    names = {r.cinema_id: (r.cinema_name if kwargs.get("chain") else f"{CHAIN_LABEL.get(r.chain, r.chain)} · {r.cinema_name}")
              for r in opts.itertuples()} if not opts.empty else {}
     chosen = st.sidebar.multiselect(DATA_TEXT["cinemas"], options=list(names), format_func=names.get, key="cinema_ids")
     kwargs["cinema_ids"] = tuple(chosen) or None

@@ -138,6 +138,8 @@ for f in hallazgos:
     hallazgo(f)
 if any(f["topic"] == "dulceria" for f in hallazgos):
     st.page_link("views/dulceria.py", label="Ver el módulo de dulcería: precios en sala y a domicilio", icon=":material/fastfood:")
+if any(f["topic"] == "independientes" for f in hallazgos):
+    st.page_link("views/independientes.py", label=INDEP_TEXT["link"], icon=":material/theaters:")
 
 # ============ CAPA 2 ============
 capa(2, "Evidencia por pregunta",
