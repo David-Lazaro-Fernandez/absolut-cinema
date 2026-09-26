@@ -1,5 +1,5 @@
 # Pruebas en cada push a main y en cada pull request. Si pasan en main, mueve la rama `stable` a ese commit: es lo que
-# el servidor despliega cada mañana (deploy/update.sh, 07:07). Si fallan, `stable` no se mueve y el commit queda en rojo.
+# el servidor despliega en los siguientes 15 min (deploy/update.sh). Si fallan, `stable` no se mueve y el commit queda en rojo.
 # La rama `stable` la mueve solo este workflow; no se toca a mano.
 name: pruebas y commit estable
 

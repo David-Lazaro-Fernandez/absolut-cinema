@@ -1,9 +1,12 @@
 # Generado por `python3 -m jobs.units write` desde jobs/registry.py; no se edita a mano.
 [Unit]
-Description=absolut-cinema: deploy, 07:07
+Description=absolut-cinema: deploy, cada hora a :02 y :17 y :32 y :47
 
 [Timer]
-OnCalendar=*-*-* 07:07:00
+OnCalendar=*-*-* *:02:00
+OnCalendar=*-*-* *:17:00
+OnCalendar=*-*-* *:32:00
+OnCalendar=*-*-* *:47:00
 Persistent=true
 AccuracySec=30s
 

@@ -258,7 +258,18 @@ La verificación principal es correr el flujo de verdad contra la base. Hay adem
 `tests/` (pytest, `requirements-dev.txt`, solo en el venv): lógica pura que no toca red (diff de snapshots,
 parsers, cuentas sobre un `app.db` temporal, conjuntos del explorador) y un recorrido por pantalla con `AppTest`
 (`tests/test_views.py`: acceso, cartelera, dulcería, datos y usuarios, por rol). Las pantallas de acceso corren en
-cualquier máquina (crean su propio `app.db`); las de datos se omiten donde no hay `data/snapshots.db`. Corre `.venv/bin/python -m pytest -q tests/` si tocas `scraper/diff.py`,
+cualquier máquina (crean su propio `app.db`); las de datos se omiten donde no hay `data/snapshots.db`.
+La captura se prueba de punta a punta contra respuestas reales grabadas de ambas APIs (`tests/test_capture_replay.py`,
+`tests/fixtures/capture/`, `scripts/capture_fixtures.py`): Cinemex estado 18 y Cinépolis `hermosillo` pasan por
+`snapshot()`, `normalize` y `store`, y el resultado debe ser idéntico al esperado grabado y cumplir las reglas de
+`capture_fixtures.problems()` (columnas siempre llenas, fecha y UTC coherentes, cines con estado). Si cambias algo que
+pide o transforma el dato (`cinemex.py`, `cinepolis.py`, `normalize.py`, `store.py`, `units.py`) y la prueba falla, no la
+ajustes: lee la diferencia que imprime; si el cambio era a propósito, regenera el esperado con `make fixtures EXPECTED=1`
+y di en el commit qué dato cambió. `make fixtures` vuelve a grabar de las APIs (cuando cambie su forma) y
+`make test-live` aplica las mismas reglas a una captura en vivo; ninguna de las dos corre en CI (red, y el WAF de
+Cinépolis bloquea IPs de nube).
+
+Corre `.venv/bin/python -m pytest -q tests/` si tocas `scraper/diff.py`,
 una vista o añades lógica pura; añade una prueba cuando el caso quepa en memoria y, si es una pantalla, en `test_views.py`. Antes de dar por bueno un cambio:
 
 ```sh
@@ -296,6 +307,6 @@ sqlite3 data/snapshots.db "SELECT * FROM snapshot ORDER BY id DESC LIMIT 4;"
   no tienen contrato y lo que hoy responde puede cambiar.
 - `data/` está fuera de git. No versiones la base, el crudo ni los logs.
 - La rama principal es `main`. No hagas commit ni push salvo que se te pida. La rama `stable` la mueve GitHub Actions
-  (`.github/workflows/tests.yml`) cuando las pruebas pasan en `main`, y es lo que el servidor despliega cada mañana
-  (`make deploy`, 07:07): no la muevas a mano. Si un commit rompe las pruebas, `stable` se queda atrás hasta que se
+  (`.github/workflows/tests.yml`) cuando las pruebas pasan en `main`, y es lo que el servidor despliega
+  (`make deploy`, cada 15 min): no la muevas a mano. Si un commit rompe las pruebas, `stable` se queda atrás hasta que se
   arregle; por eso una prueba que falla en CI bloquea el despliegue de todo lo posterior.

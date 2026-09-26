@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
-# Despliegue diario: trae el último commit estable (rama `stable`, la mueve GitHub Actions solo si pasaron las pruebas),
-# reinstala dependencias si cambiaron, recarga unidades si cambió deploy/ y reinicia el dashboard. Corre como root
-# desde absolut-cinema-deploy.timer (07:07) o a mano con `make deploy`; con REF=<commit|rama> despliega otro punto
-# (p. ej. para volver atrás). No toca data/. Una línea por corrida en data/logs/deploy.log.
+# Despliegue continuo: trae el último commit estable (rama `stable`, la mueve GitHub Actions solo si pasaron las
+# pruebas), reinstala dependencias si cambiaron, recarga unidades si cambió deploy/ y reinicia el dashboard. Corre como
+# root desde absolut-cinema-deploy.timer (cada 15 min) o a mano con `make deploy`; con REF=<commit|rama> despliega otro
+# punto (p. ej. para volver atrás). No toca data/. Una línea en data/logs/deploy.log solo cuando despliega o falla.
+#
+# Las capturas en curso no se tocan ni se esperan: cada corrida ya cargó sus módulos al arrancar y la siguiente toma el
+# código nuevo.
 set -euo pipefail
 
 APP="${APP:-/opt/absolut-cinema}"
@@ -16,8 +19,8 @@ before="$(sudo -u absolut git rev-parse HEAD)"
 sudo -u absolut git fetch --quiet --prune origin
 target="$(sudo -u absolut git rev-parse "$REF")"
 
+# Cada 15 min casi siempre no hay nada nuevo: se sale en silencio para no llenar deploy.log.
 if [ "$before" = "$target" ]; then
-  log "sin cambios: ya está en ${target:0:10} ($REF)"
   exit 0
 fi
 
