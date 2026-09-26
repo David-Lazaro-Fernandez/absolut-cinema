@@ -73,24 +73,28 @@ en las plazas de `AC_SEATS_PLAZAS` (por defecto `cdmx`; claves de `scraper/plaza
 cobertura de la página Operaciones diga qué plazas pesan. Al cambiar el `.env`, `systemctl daemon-reload` no hace falta
 (lo leen los units al arrancar cada corrida).
 
-Actualizar código: lo hace solo el despliegue diario (sección siguiente). Para forzarlo ahora: `make deploy` como root
+Actualizar código: lo hace solo el despliegue continuo (sección siguiente). Para forzarlo ahora: `make deploy` como root
 (o `systemctl start absolut-cinema-deploy.service`). Los timers toman el código nuevo en su siguiente ejecución.
 
-## Despliegue diario y commit estable
+## Despliegue continuo y commit estable
 
-No se despliega cada push: un piloto sin entornos de staging no lo necesita y una recarga a media mañana molestaría
-al cliente. En su lugar hay dos piezas desacopladas:
+Cada commit que pasa las pruebas llega al servidor en menos de 15 min, sin credenciales de AWS en GitHub ni puertos
+abiertos: GitHub solo marca qué es seguro y el servidor lo trae. Hasta el 2026-09-25 el despliegue era uno diario a las
+07:07 para no reiniciar el dashboard a media mañana; se cambió a continuo (decisión de David) porque un arreglo esperaba
+hasta el día siguiente. El costo es un reinicio del dashboard de unos segundos cuando llega un commit, a cualquier hora.
+Son dos piezas desacopladas:
 
 1. **GitHub Actions decide qué es seguro** (`.github/workflows/tests.yml`). En cada push a `main` corre `pytest` y
    comprueba que `scraper/` y `analytics/` siguen importando sin dependencias externas. Si todo pasa, mueve la rama
    `stable` a ese commit; si algo falla, `stable` no se mueve y el commit queda en rojo en GitHub. La rama `stable` la
    mueve solo el workflow: no se toca a mano. Así el "último commit seguro" siempre es `origin/stable`.
-2. **El servidor decide cuándo** (`deploy/update.sh`, `make deploy`, `absolut-cinema-deploy.timer` a las 07:07, hora de
-   poco uso y antes de la captura de las 07:30). Trae `origin/stable`, y solo si hay algo nuevo: `git reset --hard` a ese
-   commit como el usuario `absolut`, reinstala el venv si cambió algún `requirements-*.txt`, `deploy/units.sh` si cambió una
-   unidad en `deploy/`, reinicia el dashboard y espera a que `/_stcore/health` responda. Escribe una línea por corrida en
-   `data/logs/deploy.log` y sale con 1 si el dashboard no levanta (queda visible en `systemctl list-timers`). No toca
-   `data/`: los cambios de esquema de ambas bases son aditivos y se aplican solos al conectar (`store.py`, `auth/db.py`).
+2. **El servidor decide cuándo** (`deploy/update.sh`, `make deploy`, `absolut-cinema-deploy.timer` a :02, :17, :32 y
+   :47). Hace `git fetch`; si `origin/stable` no se movió, sale en silencio. Si se movió, `git reset --hard` a ese commit
+   como el usuario `absolut`, reinstala el venv si cambió algún `requirements-*.txt`, `deploy/units.sh` si cambió una
+   unidad en `deploy/`, reinicia el dashboard y espera a que `/_stcore/health` responda. Escribe una línea en
+   `data/logs/deploy.log` solo cuando despliega o falla, y sale con 1 si el dashboard no levanta (queda visible en
+   `systemctl list-timers`). No toca `data/`: los cambios de esquema de ambas bases son aditivos y se aplican solos al
+   conectar (`store.py`, `auth/db.py`).
 
 ```sh
 tail -5 /opt/absolut-cinema/data/logs/deploy.log        # qué se desplegó y cuándo
@@ -99,8 +103,10 @@ REF=<commit> make deploy                                 # volver a un commit an
 git -C /opt/absolut-cinema log -1 --oneline              # qué corre hoy
 ```
 
-Los timers del scraper no se reinician: Python ya cargó sus módulos al arrancar cada corrida, y la siguiente toma el
-código nuevo. El único reinicio es el del dashboard, unos segundos a las 07:07.
+Para volver atrás de forma duradera hay que revertir en `main`: con `REF=<commit>` el servidor regresa, pero el siguiente
+tick vuelve a traer `origin/stable`. No se espera a que termine una captura en curso ni se
+reinician los timers: Python ya cargó sus módulos al arrancar cada corrida (no hay imports del repo dentro de
+funciones), y la siguiente toma el código nuevo. El único reinicio es el del dashboard, de unos segundos.
 
 ## Acceso por usuario y correo (SES)
 

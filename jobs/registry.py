@@ -135,11 +135,12 @@ REGISTRY = {
         "retry_delay_s": 600,
         "writes": ("bucket de respaldo",),
     },
-    # Como root: recarga unidades y reinicia el dashboard; el código lo trae como absolut (deploy/update.sh).
+    # Como root: recarga unidades y reinicia el dashboard; el código lo trae como absolut (deploy/update.sh). Sin nada
+    # nuevo en stable sale en segundos.
     keys.DEPLOY: {
-        "description": "Trae origin/stable, reinstala si cambió requirements, sincroniza unidades y reinicia el dashboard",
+        "description": "Trae origin/stable si se movió, reinstala si cambió requirements, sincroniza unidades y reinicia el dashboard",
         "steps": (("bash", "deploy/update.sh"),),
-        "schedule": ("07:07",),
+        "schedule": ("*:02", "*:17", "*:32", "*:47"),
         "timeout_min": 10,
         "user": "root",
         "nice": 0,

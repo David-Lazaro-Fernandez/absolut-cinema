@@ -26,8 +26,9 @@ Inteligencia competitiva de cartelera: Cinemex vs Cinépolis (México).
 - `marketing/`: landing page pública del producto (Next.js, independiente del resto del repo, sitio estático). Ver
   `marketing/README.md` y `marketing/design.md`.
 - `ARCHITECTURE.md`: qué proceso toca qué dato y qué lo programa. `AGENTS.md`: convenciones del repo. `make help`: comandos.
-- Calidad: `make check` (lint con `ruff`, imports sin dependencias, `pytest`) corre en el hook `pre-push` (`make hooks` lo
-  activa) y en GitHub Actions, que mueve la rama `stable` cuando pasa; el servidor despliega `stable` cada mañana.
+- Calidad: `make check` (lint con `ruff`, imports sin dependencias, `pytest`, con la captura de ambas cadenas contra
+  respuestas reales grabadas) corre en el hook `pre-push` (`make hooks` lo
+  activa) y en GitHub Actions, que mueve la rama `stable` cuando pasa; el servidor despliega `stable` en los siguientes 15 min.
 
 ```sh
 make snapshot                                # una captura de ambas cadenas (~5 min)

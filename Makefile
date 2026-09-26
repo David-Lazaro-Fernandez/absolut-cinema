@@ -7,7 +7,7 @@ VENV ?= .venv/bin
 
 .PHONY: help job units units-check tick snapshot seats occupancy post-start health prices concessions delivery capacity capacity-cinemex presale \
         calibrate-cinemex dashboard backup launchd-load launchd-unload \
-        user-create user-list user-reset user-deactivate user-activate auth-prune deploy check lint test hooks \
+        user-create user-list user-reset user-deactivate user-activate auth-prune deploy check lint test test-live fixtures hooks \
         marketing-dev marketing-build
 
 help:               ## lista los targets
@@ -100,8 +100,14 @@ lint:               ## ruff (pyproject.toml) y comprobación de que scraper/ y a
 	$(PY) -m compileall -q scraper analytics jobs
 	$(PY) -c "import analytics, scraper.run, scraper.sample, scraper.health, scraper.delivery, jobs.run, jobs.units"
 
-test:               ## pruebas (las de pantalla se omiten si no hay data/snapshots.db)
+test:               ## pruebas (las de pantalla se omiten si no hay data/snapshots.db); la captura corre contra respuestas grabadas
 	$(VENV)/python -m pytest -q tests/
+
+test-live:          ## la captura contra las APIs reales, alcance chico de cada cadena (red; Cinépolis necesita WARP fuera de la Mac)
+	AC_LIVE=1 $(VENV)/python -m pytest -q tests/test_live_capture.py
+
+fixtures:           ## graba de nuevo las respuestas reales de ambas APIs y el esperado; EXPECTED=1 solo regenera el esperado
+	$(PY) scripts/capture_fixtures.py $(if $(EXPECTED),--expected,)
 
 hooks:              ## activa los hooks de git del repo (.githooks: pre-push corre make check); una vez por clon
 	git config core.hooksPath .githooks

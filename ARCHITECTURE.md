@@ -119,7 +119,7 @@ línea por corrida en `data/logs/jobs.jsonl` con la duración, el resultado y el
 | `health` | operación | Salud de la captura en 24 h; sale con 1 si hay huecos o fallos | 08:07 | 5 min | servidor y Mac | `data/logs/health.log` |
 | `auth-prune` | acceso | Borra sesiones y enlaces de acceso vencidos hace más de 90 días | domingos 04:07 | 10 min | servidor | `app.db: session`, `token` |
 | `backup` | operación | Copia consistente de snapshots.db y del crudo al bucket | 05:07 | 30 min; 1 reintento a los 10 min | servidor | `bucket de respaldo` |
-| `deploy` | operación | Trae origin/stable, reinstala si cambió requirements, sincroniza unidades y reinicia el dashboard | 07:07 | 10 min | servidor | `código en /opt/absolut-cinema`, `data/logs/deploy.log` |
+| `deploy` | operación | Trae origin/stable si se movió, reinstala si cambió requirements, sincroniza unidades y reinicia el dashboard | cada hora a :02 y :17 y :32 y :47 | 10 min | servidor | `código en /opt/absolut-cinema`, `data/logs/deploy.log` |
 <!-- jobs:end -->
 
 Fuera del registro, siempre encendidos en el servidor: `absolut-cinema-dashboard.service` (Streamlit en 127.0.0.1:8501,
@@ -148,7 +148,7 @@ cuando pasan las pruebas y el trabajo `deploy` la trae. A mano, con `!` en la se
 | `auth.cli` (`make user-create`, `user-list`, `user-reset`, `user-deactivate`, `user-activate`) | administración de cuentas desde la terminal; así nace el primer admin | a mano | `app.db`; correo por SES o `data/logs/mail.log` | manual |
 | `auth.cli prune` (`make auth-prune`) | borra sesiones y enlaces vencidos hace más de 90 días | domingos 04:07 | `app.db`: `session`, `token` | trabajo `auth-prune` |
 | GitHub Actions `tests.yml` | pruebas en cada push a `main`; si pasan, mueve la rama `stable` a ese commit | cada push | rama `stable` del repo | GitHub |
-| `deploy/update.sh` (`make deploy`) | trae `origin/stable`, reinstala si cambió `requirements-*`, reinicia el dashboard, comprueba salud | diario 07:07 | código en `/opt/absolut-cinema`, `logs/deploy.log` | trabajo `deploy` |
+| `deploy/update.sh` (`make deploy`) | si `origin/stable` se movió: lo trae, reinstala si cambió `requirements-*`, reinicia el dashboard, comprueba salud | cada 15 min | código en `/opt/absolut-cinema`, `logs/deploy.log` | trabajo `deploy` |
 | `warp-svc` + `privoxy` (solo servidor) | salida por Cloudflare WARP para `api-g.cinepolis.com`, cuyo WAF bloquea AWS; `http.py` la usa vía `AC_EGRESS_PROXY` | siempre | nada | systemd, instalados por `install.sh` |
 | `geo/` (futuro) | features de zona y arquetipos | trimestral | `geo.db` | a mano en la Mac |
 

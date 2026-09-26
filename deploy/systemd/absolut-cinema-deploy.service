@@ -1,6 +1,6 @@
 # Generado por `python3 -m jobs.units write` desde jobs/registry.py; no se edita a mano.
 [Unit]
-Description=absolut-cinema: Trae origin/stable, reinstala si cambió requirements, sincroniza unidades y reinicia el dashboard
+Description=absolut-cinema: Trae origin/stable si se movió, reinstala si cambió requirements, sincroniza unidades y reinicia el dashboard
 After=network-online.target
 Wants=network-online.target
 
