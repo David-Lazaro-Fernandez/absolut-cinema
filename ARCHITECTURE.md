@@ -18,9 +18,9 @@ flowchart LR
     WARP["Solo servidor: Cloudflare WARP (SOCKS5) + Privoxy (HTTP :8118)<br/>AC_EGRESS_PROXY · solo hosts de AC_EGRESS_PROXY_HOSTS<br/>el WAF de Cinépolis bloquea las IPs de AWS"]
 
     subgraph scraper["scraper/ (solo stdlib, /usr/bin/python3)"]
-        RUN["scraper.run · make snapshot<br/>captura nacional de cartelera 3/día<br/>cinepolis.py · cinemex.py (en paralelo) → normalize → diff"]
+        RUN["scraper.run · make snapshot<br/>captura de cartelera 3/día: nacional de ambas cadenas + Cineteca (CDMX)<br/>cinepolis.py · cinemex.py · cineteca.py (en paralelo) → normalize → diff"]
         OCC["scraper.sample --occupancy<br/>plano a T−60 (preventa, solo a mano)"]
-        POST["scraper.sample --post-start<br/>plano a +15…75 min (asistencia final), ambas cadenas<br/>solo plazas de AC_SEATS_PLAZAS"]
+        POST["scraper.sample --post-start<br/>plano a +15…75 min (asistencia final), las tres cadenas<br/>solo plazas de AC_SEATS_PLAZAS"]
         PRE["scraper.presale<br/>preventas de ambas cadenas: lista + panel diario"]
         PRICE["scraper.sample --prices<br/>boletos por cine, formato y tipo de día"]
         CAP["scraper.sample --capacity<br/>aforo por sala"]
@@ -40,7 +40,7 @@ flowchart LR
     subgraph producto["Producto"]
         AN["analytics/ (funciones puras, sin dependencias)<br/>queries · findings · summary · history · seats · presale · concessions · delivery · datasets · labels"]
         AUTH["auth/ (venv, boto3 solo para SES)<br/>cuentas · sesiones · enlaces · correo SES/console · auth.cli"]
-        APP["app.py · Streamlit (.venv) · st.navigation según sesión y rol<br/>views/login · olvide · restablecer<br/>views/cartelera (3 capas) · dulceria · datos · usuarios · operaciones (admin)<br/>ui/common.py helpers · ui/session.py cookie"]
+        APP["app.py · Streamlit (.venv) · st.navigation según sesión y rol<br/>views/login · olvide · restablecer<br/>views/cartelera (3 capas) · dulceria · independientes · datos · usuarios · operaciones (admin)<br/>ui/common.py helpers · ui/session.py cookie"]
         CADDY["Caddy · HTTPS (basic auth opcional hasta tener dominio)"]
     end
 
@@ -109,8 +109,8 @@ línea por corrida en `data/logs/jobs.jsonl` con la duración, el resultado y el
 <!-- jobs:begin -->
 | Llave (`make job KEY=…`) | Área | Qué hace | Cuándo (CDMX) | Tope | Dónde | Escribe |
 | --- | --- | --- | --- | --- | --- | --- |
-| `snapshot` | captura | Captura nacional de cartelera de ambas cadenas (descarga en paralelo, 15–30 min) | 07:30, 13:30, 20:30 | 45 min | servidor y Mac | `snapshot`, `snapshot_unit`, `cinema`, `current_showtime`, `event`, `data/raw` |
-| `seats` | captura | Planos de asientos de ambas cadenas 15–75 min tras el inicio (asistencia final), plazas de AC_SEATS_PLAZAS | cada hora a :50 | 30 min | servidor y Mac | `occupancy_sample` |
+| `snapshot` | captura | Captura de cartelera: nacional de ambas cadenas más la Cineteca Nacional en CDMX (descarga en paralelo, 15–30 min) | 07:30, 13:30, 20:30 | 45 min | servidor y Mac | `snapshot`, `snapshot_unit`, `cinema`, `current_showtime`, `event`, `data/raw` |
+| `seats` | captura | Planos de asientos de las tres cadenas 15–75 min tras el inicio (asistencia final), plazas de AC_SEATS_PLAZAS | cada hora a :50 | 30 min | servidor y Mac | `occupancy_sample` |
 | `prices` | captura | Precios de boleto por cine, formato y tipo de día, y menú de dulcería de Cinépolis | 06:07 | 60 min | servidor y Mac | `price_sample`, `concession_price` |
 | `delivery` | captura | Dulcería a domicilio de ambas cadenas en Rappi y DiDi Food (las tiendas abren a las 13:00) | 15:07 | 60 min | servidor y Mac | `delivery_price` |
 | `capacity` | captura | Aforo por sala de Cinépolis en AC_SEATS_PLAZAS, refresco mensual | día 1, 04:07 | 90 min | servidor | `auditorium` |
@@ -131,9 +131,9 @@ cuando pasan las pruebas y el trabajo `deploy` la trae. A mano, con `!` en la se
 
 | Servicio | Tipo | Cadencia | Escribe en | Quién lo lanza |
 | --- | --- | --- | --- | --- |
-| `scraper.run` (`make snapshot`) | captura nacional de cartelera, ambas cadenas (descarga en paralelo, 15–30 min) | 07:30, 13:30, 20:30 | `snapshot`, `snapshot_unit`, `cinema`, `current_showtime`, `event` (incl. `expired`), crudo | trabajo `snapshot` |
+| `scraper.run` (`make snapshot`) | captura de cartelera (descarga en paralelo, 15–30 min): nacional de ambas cadenas más la Cineteca Nacional en CDMX (`cineteca.py`, aditiva, fuera del head-to-head) | 07:30, 13:30, 20:30 | `snapshot`, `snapshot_unit`, `cinema`, `current_showtime`, `event` (incl. `expired`), crudo | trabajo `snapshot` |
 | `sample --occupancy` (`make occupancy`) | plano a T−60 (preventa), Cinépolis | a mano | `occupancy_sample` (`minutes_to_start` ≥ 0) | manual |
-| `sample --post-start` (`make seats`) | plano 15–75 min tras el inicio, ambas cadenas (asistencia final; Cinemex desde 2026-09-25), solo plazas de `AC_SEATS_PLAZAS` | cada hora | `occupancy_sample` (`minutes_to_start` < 0) | trabajo `seats` |
+| `sample --post-start` (`make seats`) | plano 15–75 min tras el inicio, las tres cadenas (asistencia final; Cinemex desde 2026-09-25, Cineteca desde 2026-09-26), solo plazas de `AC_SEATS_PLAZAS` | cada hora | `occupancy_sample` (`minutes_to_start` < 0) | trabajo `seats` |
 | `scraper.presale` (`make presale`) | preventas de ambas cadenas: títulos de la landing `preventas` de Cinemex y de "Próximamente" de Cinépolis, panel de hasta 30 funciones por título y cadena releído a diario con el plano | diario 10:07 | `presale_sample`, crudo `raw/{chain}_presale/` | trabajo `presale` |
 | `sample --prices` (`make prices`) | boletos por cine, formato, tipo de día | diario | `price_sample` | trabajo `prices` |
 | `sample --concessions` (`make concessions`) | menú de dulcería con precio, Cinépolis | diario; cada cine se renueva a los 7 días | `concession_price` | idem |
@@ -144,7 +144,7 @@ cuando pasan las pruebas y el trabajo `deploy` la trae. A mano, con `!` en la se
 | `jobs.run` (`make job KEY=…`) | ejecuta un trabajo del registro: candado por llave, tope, reintentos; genera las unidades con `jobs.units` | lo lanza cada timer | `logs/jobs.jsonl` (duración, resultado, pico de memoria), `data/locks/` | systemd / launchd / a mano |
 | `scraper.health` (`make health`) | salud de la captura: capturas programadas, fallos, muestreos; las mismas funciones alimentan en vivo la página Operaciones | diario | `logs/health.log` | trabajo `health` |
 | `backup.sh` | copias en línea de `snapshots.db` y `app.db` y sync del crudo | diario 05:07 | bucket (`db/`, `app/`, `raw/`) | trabajo `backup` |
-| `app.py` (+ `ui/`, `views/`) | dashboard Streamlit con login por usuario: Cartelera, Dulcería, Datos (explorador de tablas de SQLite) y, para admin, Usuarios y Operaciones (estado de captura, bases, servidor y logs; lee `scraper.health`) | siempre | `app.db` vía `auth/` (cuentas, sesiones, enlaces, auditoría); `snapshots.db`, solo lectura | `dashboard.service`, detrás de Caddy |
+| `app.py` (+ `ui/`, `views/`) | dashboard Streamlit con login por usuario: Cartelera, Dulcería, Independientes (Cineteca Nacional), Datos (explorador de tablas de SQLite) y, para admin, Usuarios y Operaciones (estado de captura, bases, servidor y logs; lee `scraper.health`) | siempre | `app.db` vía `auth/` (cuentas, sesiones, enlaces, auditoría); `snapshots.db`, solo lectura | `dashboard.service`, detrás de Caddy |
 | `auth.cli` (`make user-create`, `user-list`, `user-reset`, `user-deactivate`, `user-activate`) | administración de cuentas desde la terminal; así nace el primer admin | a mano | `app.db`; correo por SES o `data/logs/mail.log` | manual |
 | `auth.cli prune` (`make auth-prune`) | borra sesiones y enlaces vencidos hace más de 90 días | domingos 04:07 | `app.db`: `session`, `token` | trabajo `auth-prune` |
 | GitHub Actions `tests.yml` | pruebas en cada push a `main`; si pasan, mueve la rama `stable` a ese commit | cada push | rama `stable` del repo | GitHub |

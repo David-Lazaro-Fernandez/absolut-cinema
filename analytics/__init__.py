@@ -21,9 +21,10 @@ from .delivery import (
     delivery_stores,
     delivery_summary,
 )
-from .findings import conclusions, findings
+from .findings import conclusions, findings, independent_conclusions
 from .headlines import headlines
 from .history import board_as_of, cinemas, dates_known, functions_on, showtime_timeline, snapshot_times
+from .independents import independent_overlap, independent_slots, independent_summary, independent_titles
 from .plaza import plaza_coverage, plazas
 from .presale import presale_compare, presale_curve, presale_ranking
 from .queries import (
@@ -48,6 +49,7 @@ from .seats import (
     capacity_summary,
     effective_ticket_price,
     estimated_occupancy,
+    occupancy_by_cinema,
     occupancy_by_title,
     occupancy_recent,
     occupancy_summary,
@@ -63,11 +65,12 @@ __all__ = [
     "general_summary",
     "DELIVERY_BUCKETS", "delivery_compare", "delivery_products", "delivery_stores", "delivery_summary",
     "BASKET", "concession_basket", "concession_by_cinema", "concession_categories", "concession_product_by_cinema", "concession_summary",
-    "capacity_by_cinema", "capacity_summary", "effective_ticket_price", "estimated_occupancy", "occupancy_by_title", "occupancy_recent", "occupancy_summary",
+    "capacity_by_cinema", "capacity_summary", "effective_ticket_price", "estimated_occupancy", "occupancy_by_cinema", "occupancy_by_title", "occupancy_recent", "occupancy_summary",
     "offered_by_title", "offered_seats", "prices", "semaphore_calibration",
     "cinema_week", "concentration", "conclusions", "connect", "coverage", "events_by_kind", "findings", "headlines",
     "heatmap_day_slot", "is_full_day", "kpis", "kpis_today", "labels", "mix", "movies_by_chain", "programming_moves", "recent_events",
     "showtimes_by_slot", "snapshot_health", "today",
     "plaza_coverage", "plazas",
     "datasets", "presale_compare", "presale_curve", "presale_ranking",
+    "independent_conclusions", "independent_overlap", "independent_slots", "independent_summary", "independent_titles",
 ]

@@ -349,6 +349,40 @@ versions: [{id, label, type, sessions: [...]}]}]}]}`.
 Área Sur (17 cines, un día): 442 funciones, 1.5 MB, ~8 s. Con `date=` sin cartelera publicada, ~1.5 s. Estado 8
 completo (87 cines, un día): ~12 s; un estado de 2 cines, 1.5 s.
 
+## Cineteca Nacional (tercera cadena, cine independiente CDMX, verificado 2026-09-26)
+
+Primer cine independiente en la captura. Tres sedes en CDMX: `001` Chapultepec, `002` de las Artes (CNA), `003`
+México (Xoco). Se captura como `chain="cineteca"` y **no entra a las comparaciones head-to-head Cinemex↔Cinépolis**
+(cine de autor, un solo precio, pocas funciones: los shares engañarían). Su presentación propia es la página
+Independientes (ver "Oferta independiente" en el Dashboard ejecutivo).
+
+**Cartelera** — `GET cinetecanacional.net/obtener_cartelera.php?busqueda=&fecha=YYYY-MM-DD&sede=` → JSON público, sin
+clave ni WAF, una respuesta por día. `sede=` filtra por sede; vacío = las tres. Forma:
+`{status, data:[{titulo, film_id, clasificacion, poster, claves_sedes, sedes:[{nombre_sede, codigo_sede,
+horarios:[{hora, session_id}]}]}]}`. Llega completa hasta el miércoles siguiente (semana de cine jue–mié). No trae
+género, duración, distribuidora ni sala (viven en `detallePelicula.php`, sin capturar). El idioma va en el título
+(sufijos `DOB`/`DUB` doblada, `SUB` subtitulada; sin marca = lengua original de cine de autor → `other`). `cinema_id =
+codigo_sede`; el `session_id` de Vista solo es único por sede, así que `show_id = "{sede}:{session_id}"`, como Cinépolis.
+Coordenadas de las sedes tomadas del propio sitio de Vista (`Browsing/Cinemas/Details`). Se captura como una sola unidad
+(las tres sedes por día); si un día falla, `run.py` conserva el tablero anterior.
+
+**Ocupación** — la Cineteca corre sobre **Vista** (mismo motor que Cinépolis). Su Connect API expone el plano de solo
+lectura, sin abrir orden: `GET rbvfcn.cinetecanacional.net/WSVistaWebClient/RESTData.svc/cinemas/{sede}/sessions/
+{sessionId}/seat-plan` con cabecera `connectapitoken`. El token está embebido en la app oficial
+(`nz.co.vista.android.movie.cineteca`, `res/raw/local_config.json` → `Settings.local_connectSecurityToken`), como
+`CINEPOLIS_API_KEY`; en `config.CINETECA_CONNECT_TOKEN`, sobreescribible por entorno. Respuesta:
+`SeatLayoutData.Areas[].Rows[].Seats[]`, cada butaca con `Status` y `OriginalStatus`, y `Areas[].Description` = la sala
+("Sala 3"), de donde sale el `screen` que la cartelera no da. Lectura pura → va en el timer de planos (`scraper.sample
+--post-start --chain cineteca`). **Semántica de estado, PENDIENTE confirmar contra una función llena** (2026-09-26: una
+función con poca venta salía todo en `Status:0`): se asume `OriginalStatus != 0` = butaca no vendible (rota/casa) y
+`Status != 0` en una vendible = ocupada. Se guarda el histograma completo de ambos campos en `auditorium.areas_json`,
+así el reparto exacto se recalcula sin volver a pedir si la suposición resulta errónea.
+
+**Precio** — uniforme, un solo boleto `GENERAL` a $70.00 (visto en `visSelectTickets.aspx`, 2026-09-26). **Pendiente**:
+esa página necesita el handshake de cookie de ASP.NET (302 en bucle sin `cookiejar`) que el cliente stdlib no hace, y el
+endpoint de boletos de Connect API está sin verificar; el muestreo de precio de la Cineteca queda para la fase de
+presentación.
+
 ## Asientos y precios (verificado 2026-09-08)
 
 Qué expone cada API para pasar de funciones a **butacas** (aforo, ocupación) y a **precios**.
@@ -715,12 +749,14 @@ función de SQLite en `analytics.connect()` (`db.register`), así no hay columna
 toda la historia. Tres capas:
 
 1. **Reglas explícitas**: quitan solo decoraciones con palabra clave (reestreno, "25 aniversario", "Evento Especial",
-   "En Vivo" / "Live Viewing", "Infinity Vision", "4K", "The" inicial). No quitan años ni números sueltos ("Blade Runner
+   "En Vivo" / "Live Viewing", "Infinity Vision", "4K", "The" inicial, y el sufijo de idioma de la Cineteca `DOB`/`DUB`/`SUB`
+   al final, 2026-09-26; no cambió ninguna llave de Cinemex ni de Cinépolis de la base). No quitan años ni números sueltos ("Blade Runner
    2049", "Parte 1" frente a "Parte 3").
 2. **Tabla `scraper/title_pairs.csv`** (versionada): `same` une lo que las reglas no alcanzan (One Piece: "La Película"
    frente a "La Pelicula 2000"); `different` deja de proponer un par y, solo si las reglas los habían unido, los separa.
 3. **Candidatos** (`scripts/title_pairs.py`): parecido de texto (difflib ≥ 0.6) entre títulos sin pareja con los mismos
-   números, con duración y distribuidora como evidencia; `--accept` / `--reject` escriben la tabla. `scraper.health`
+   números, con duración y distribuidora como evidencia; `--accept` / `--reject` escriben la tabla. `--vs cineteca` propone
+   pares de Cinemex frente a la Cineteca. `scraper.health`
    avisa cuántos pares hay por revisar. Nada se une solo: el parecido no distingue sedes (dos conciertos de BTS se
    parecen más de 80 %).
 
@@ -847,6 +883,31 @@ están (p. ej. el 8 de septiembre en Ajusco aparece vacío).
 
 El bloque oscuro "Qué se desbloquea con tus datos" que cerraba la página se quitó el 2026-09-25 (decisión de David):
 cada panel pendiente lo dice en su propio apéndice.
+
+### Oferta independiente: la Cineteca Nacional (2026-09-26)
+
+Página propia `views/independientes.py` ("Independientes", entre Dulcería y Datos, ambos roles), con la lógica en
+`analytics/independents.py`. La Cineteca **no entra a los shares** de la cartelera: `_window`, `plaza_where` y
+`plaza_cinema_where` acotan a `COMPARED` (Cinemex y Cinépolis) por defecto, también con zona nacional
+(`tests/test_chain_scope.py` comprueba que agregar la Cineteca a la base no cambia ninguna cifra head-to-head). Solo tiene
+sedes en CDMX: con zona CDMX o Nacional la página muestra todo; con otra plaza avisa y se detiene. Periodo propio: hoy,
+mañana, el resto de la semana de cine o fechas hasta el miércoles (la Cineteca no publica más allá).
+
+| Capa | Pregunta | Fuente |
+| --- | --- | --- |
+| 1 | Títulos que llenan la Cineteca y no exhibimos en CDMX | `findings._independent_finding`, `topic="independientes"`; también entra al ranking de la cartelera |
+| 2 | ¿Qué programa la Cineteca en este periodo? | `independent_summary` (por sede), `independent_titles` (por `title_key`, con idioma) |
+| 2 | ¿Cuánto se llena? | `occupancy_by_cinema` (sede × franja), `occupancy_by_title(chain="cineteca")` |
+| 2 | ¿Compite con nuestra cartelera? | `independent_overlap`: % de sus funciones con título que también exhibimos en CDMX y la lista de los solo suyos |
+| 2 | ¿A qué horas programa? | `independent_slots`: share por franja, Cinemex CDMX frente a la Cineteca |
+| 3 | Cartelera completa, aforo por sala, pendientes (precio; sala en la cartelera) | `independent_titles`, `capacity_by_cinema(chain="cineteca")` |
+
+Frases de apertura: `findings.independent_conclusions`. Umbrales del hallazgo en `analytics/independents.py`:
+`INDEP_MIN_SOLD_PCT = 60` (% vendido tras el inicio de un título solo suyo) e `INDEP_MIN_SAMPLES = 5` (funciones medidas
+en 7 días); ajustarlos con una o dos semanas de planos. La ocupación (panel y hallazgo) está **apagada** mientras
+`independents.OCCUPANCY_CONFIRMED` sea `False`: falta confirmar la semántica del plano (ver "Cineteca Nacional" ›
+Ocupación) con una función llena; al confirmarla se cambia la constante y se anota aquí la fecha. El panel además pide
+`OCCUPANCY_MIN_SAMPLES = 20` funciones medidas en la semana. Precio: pendiente en Capa 3, sin cifra.
 
 ### Implementación
 

@@ -75,6 +75,15 @@ CINEMEX_DAYS_AHEAD = 14           # días hacia adelante a pedir por estado (cub
 # ritmo lo fija PAUSE_BY_HOST, no el número de hilos.
 CINEMEX_WORKERS = int(os.environ.get("AC_CINEMEX_WORKERS", "3"))
 
+# --- Cineteca Nacional (tercera cadena, ver project.md) ---
+# Cine independiente de CDMX (tres sedes). La cartelera es un JSON público sin clave; la ocupación sale del plano de
+# asientos de Vista (mismo motor que Cinépolis) con un token embebido en la app oficial, como CINEPOLIS_API_KEY.
+# No entra a las comparaciones head-to-head Cinemex↔Cinépolis: se captura aparte (decisión 2026-09-26).
+CINETECA_CARTELERA_URL = os.environ.get("CINETECA_CARTELERA_URL", "https://www.cinetecanacional.net/obtener_cartelera.php")
+CINETECA_VISTA_BASE_URL = os.environ.get("CINETECA_VISTA_BASE_URL", "https://rbvfcn.cinetecanacional.net/WSVistaWebClient")
+CINETECA_CONNECT_TOKEN = os.environ.get("CINETECA_CONNECT_TOKEN", "00Hce1yZxXdQtA9ZgvQR69ElXrBgLT")
+CINETECA_DAYS_AHEAD = 14           # días hacia adelante a pedir (cubre la semana de cine siguiente, como Cinemex)
+
 # Una función que desaparece del snapshot solo cuenta como "eliminada" si aún faltaban
 # más de estos minutos para que empezara; si no, simplemente expiró.
 REMOVED_GRACE_MINUTES = 30

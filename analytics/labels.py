@@ -3,8 +3,9 @@ nombres internos (chain, kind, franjas, buckets)."""
 
 US = "cinemex"            # la cadena del cliente: en las frases hablamos en primera persona
 THEM = "cinepolis"
+COMPARED = (US, THEM)      # las cadenas del head-to-head; la Cineteca se captura pero no entra a los shares
 
-CHAIN_LABEL = {"cinemex": "Cinemex", "cinepolis": "Cinépolis"}
+CHAIN_LABEL = {"cinemex": "Cinemex", "cinepolis": "Cinépolis", "cineteca": "Cineteca Nacional"}
 
 # Paleta (ver DESIGN.md). El rojo significa Cinemex o acción; Cinépolis va en tinta (casi negro) para
 # no competir con él. Cinemex siempre primero en las escalas, nunca se ciclan.
@@ -17,11 +18,12 @@ GRAY = "#5C6068"           # texto secundario
 GRAY_LIGHT = "#F6F6F4"     # fondo de página
 LINE = "#E4E5E9"           # bordes y divisores
 PAPER = "#FFFFFF"          # tarjetas
-CHAIN_COLOR = {"cinemex": RED, "cinepolis": INK}
+INDEP = "#8C8E95"          # gris medio: serie de la Cineteca, cine independiente (el centro de DIVERGING)
+CHAIN_COLOR = {"cinemex": RED, "cinepolis": INK, "cineteca": INDEP}
 NEUTRAL = "#C9CBD0"        # líneas de referencia (la barra del dumbbell)
 GRID = "#ECEDEF"           # rejilla de gráficas
 RED_RAMP = [RED_DARK, RED, "#F08497", "#F7CDD5"]                 # ordinal de un solo tono para cubetas ordenadas
-DIVERGING = [INK, "#8C8E95", "#EFEFEF", "#F6B7C2", RED]          # Cinépolis (tinta) ↔ centro ↔ Cinemex (rojo)
+DIVERGING = [INK, INDEP, "#EFEFEF", "#F6B7C2", RED]          # Cinépolis (tinta) ↔ centro ↔ Cinemex (rojo)
 WARN = "#B45309"           # ámbar: estado con problema, solo en la página de operaciones (el rojo es Cinemex)
 OK = "#2F6F4E"             # verde apagado: estado sano, solo en la página de operaciones
 
@@ -297,7 +299,6 @@ DATA_TEXT = {
     "lead": "Las tablas del archivo histórico, para ordenar, filtrar, buscar y descargar.",
     "dataset": "Tabla",
     "chain": "Cadena",
-    "both": "Ambas",
     "cinemas": "Cines",
     "dates": "Fechas",
     "platform": "Plataforma",
@@ -325,6 +326,87 @@ COLUMN_LABEL.update({
     "movie_title": "Película", "sampled_at": "Muestreado",
     "email": "Correo", "name": "Nombre", "role": "Rol", "last_login_at": "Último acceso", "created_at": "Creada",
     "pending_invite": "Invitación pendiente", "has_password": "Con contraseña", "id": "Id",
+})
+
+# --- Oferta independiente (analytics/independents.py, views/independientes.py) ---
+INDEP_TEXT = {
+    "nav": "Independientes",
+    "title": "Oferta independiente: la <span>Cineteca Nacional</span>",
+    "meta_zone": "Zona",
+    "meta_zone_value": "CDMX (sus tres sedes)",
+    "meta_period": "Periodo",
+    "meta_note": "Fuera de los shares frente a Cinépolis: cine de autor, un solo precio",
+    "no_db": "Aún no hay datos: la base no existe todavía. Ver la página de cartelera.",
+    "no_plaza": "La Cineteca solo tiene sedes en CDMX. Elige CDMX o Nacional en la zona para ver su oferta.",
+    "no_data": "No hay cartelera de la Cineteca publicada para {period}. Se captura con la cartelera, tres veces al día.",
+    "period_header": "Periodo",
+    "period_today": "Hoy",
+    "period_tomorrow": "Mañana",
+    "period_week": "Resto de la semana de cine (hasta el {d1})",
+    "period_pick": "Elegir fechas",
+    "period_range": "Del … al …",
+    "period_caption": "La Cineteca publica su cartelera hasta el miércoles de la semana en curso.",
+    "layer1": "Lo que importa hoy",
+    "layer1_desc": "El hallazgo de la oferta independiente, si cruza su umbral; el mismo que aparece en la cartelera.",
+    "layer1_none": "Ningún título de la Cineteca cruza el umbral: llenar {pct} % de sus butacas en al menos {n} funciones medidas sin que lo exhibamos en CDMX.",
+    "layer1_pending": "El hallazgo se enciende cuando la lectura de los planos de la Cineteca esté confirmada con una función llena.",
+    "layer2": "Evidencia",
+    "layer2_desc": "Qué programa, cuánto se llena, cuánto se parece a nuestra cartelera y a qué horas.",
+    "q_programa": "¿Qué programa la Cineteca en este periodo?",
+    "q_ocupacion": "¿Cuánto se llena?",
+    "q_solape": "¿Compite con nuestra cartelera?",
+    "q_franjas": "¿A qué horas programa?",
+    "programa_chart": "Títulos con más funciones, en % de su programación",
+    "programa_note": "Cada sede cuenta sus funciones; el título agrupa las versiones doblada y subtitulada.",
+    "ocupacion_pending": "Pendiente: la lectura del plano de asientos de la Cineteca aún no se confirma con una función llena. "
+                         "Se desbloquea al comparar el % vendido de una función agotada contra lo que muestra su sitio; "
+                         "los planos ya se guardan y se recalculan sin volver a pedirlos.",
+    "ocupacion_few": "Pendiente: hay {n} funciones medidas de la Cineteca en la última semana; hacen falta {min} para leer su ocupación.",
+    "ocupacion_chart": "% de butacas vendidas por sede y franja, última semana",
+    "ocupacion_titles": "Títulos con más ocupación",
+    "solape_chart": "Sus títulos con más funciones, según si también los exhibimos en CDMX",
+    "solape_only": "Solo en la Cineteca: la oportunidad",
+    "franjas_chart": "% de la programación de cada cadena por franja",
+    "status": {"shared": "También en Cinemex", "indep_only": "Solo en la Cineteca"},
+    "leer_programa": "Cada barra es la parte de las funciones de la Cineteca en el periodo que se lleva un título, sumando sus tres "
+                     "sedes (Chapultepec, de las Artes y México). La Cineteca marca el idioma en el título (DOB, SUB); aquí se agrupan "
+                     "las versiones de una misma película. \"Lengua original\" son las funciones sin marca de idioma, lo normal en su "
+                     "cartelera. Para hoy solo se cuentan funciones que aún no empiezan.",
+    "leer_ocupacion": "La ocupación se lee del plano de asientos de cada función entre 15 y 75 minutos después de empezar: la "
+                      "asistencia final. Se pondera por butacas, así una sala grande pesa más. La sala sale del plano, no de la "
+                      "cartelera, que no la publica.",
+    "leer_solape": "Una película de la Cineteca cuenta como \"También en Cinemex\" si en el mismo periodo tenemos al menos una función "
+                   "de ella en algún cine de CDMX. Las películas se emparejan por título con las mismas reglas que Cinemex y "
+                   "Cinépolis. Mucho cine de autor no tiene pareja en nuestra cartelera: es el dato, no un error.",
+    "leer_franjas": "Cada barra es la parte de la programación de cada cadena que empieza en esa franja, en % de sus propias "
+                    "funciones del periodo: la Cineteca contra Cinemex en CDMX. No se compara con Cinépolis ni entra a los shares "
+                    "de la cartelera.",
+    "layer3": "Apéndice",
+    "layer3_desc": "La cartelera completa del periodo, el aforo de sus salas y lo que aún no se captura.",
+    "app_board": "Cartelera completa del periodo",
+    "app_board_summary": "{titles} títulos · {shows} funciones",
+    "app_capacity": "Aforo por sala",
+    "app_capacity_summary": "{screens} salas medidas en {cinemas} sedes",
+    "app_capacity_empty": "Aún no hay salas medidas: el aforo sale del plano de las funciones que ya empezaron.",
+    "app_pending": "Pendientes",
+    "app_pending_summary": "precio del boleto y sala en la cartelera",
+    "pending_items": [
+        "**Precio del boleto.** No se captura todavía. El boleto general está en la página de compra de la Cineteca, que pide "
+        "una cookie de sesión; se desbloquea al darle manejo de cookies a la captura o al verificar el servicio de boletos "
+        "de su taquilla en línea. Sin cifra hasta capturarlo.",
+        "**Sala en la cartelera.** La cartelera pública no dice en qué sala es cada función; la sala solo llega del plano de "
+        "asientos, así que el aforo ofertado por título no se puede calcular como en las cadenas.",
+    ],
+    "back": "Volver a la cartelera",
+    "link": "Ver la oferta independiente: qué programa y cuánto llena la Cineteca",
+    "footer": "Fuentes: cartelera pública de la Cineteca Nacional (sedes Chapultepec, de las Artes y México), capturada con la "
+              "cartelera de las cadenas tres veces al día; ocupación leída del plano de asientos de cada función después de "
+              "empezar. La Cineteca no entra a los shares de Cinemex frente a Cinépolis. Historia desde el {first}.",
+}
+COLUMN_LABEL.update({
+    "shows_indep": "Funciones Cineteca", "share_indep": "% programación Cineteca", "shows_vs": "Funciones Cinemex CDMX",
+    "cinemas_vs": "Cines Cinemex CDMX", "subtitled": "Subtituladas", "spanish": "En español", "other": "Lengua original",
+    "first_date": "Desde", "last_date": "Hasta", "slot": "Franja", "days": "Días", "share": "% de funciones",
 })
 
 # --- Operaciones (scraper/health.py, views/operaciones.py; solo admin) ---

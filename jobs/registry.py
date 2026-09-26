@@ -38,7 +38,7 @@ DEFAULTS = {
 
 REGISTRY = {
     keys.SNAPSHOT: {
-        "description": "Captura nacional de cartelera de ambas cadenas (descarga en paralelo, 15–30 min)",
+        "description": "Captura de cartelera: nacional de ambas cadenas más la Cineteca Nacional en CDMX (descarga en paralelo, 15–30 min)",
         "steps": (("python", "scraper.run"),),
         "schedule": ("07:30", "13:30", "20:30"),
         "timeout_min": 45,
@@ -48,9 +48,10 @@ REGISTRY = {
         "writes": ("snapshot", "snapshot_unit", "cinema", "current_showtime", "event", "data/raw"),
     },
     keys.SEATS: {
-        "description": "Planos de asientos de ambas cadenas 15–75 min tras el inicio (asistencia final), plazas de AC_SEATS_PLAZAS",
+        "description": "Planos de asientos de las tres cadenas 15–75 min tras el inicio (asistencia final), plazas de AC_SEATS_PLAZAS",
         "steps": (("python", "scraper.sample", "--post-start"),
-                  ("python", "scraper.sample", "--post-start", "--chain", "cinemex")),
+                  ("python", "scraper.sample", "--post-start", "--chain", "cinemex"),
+                  ("python", "scraper.sample", "--post-start", "--chain", "cineteca")),
         "schedule": ("*:50",),
         "timeout_min": 30,
         "hosts": ("server", "mac"),

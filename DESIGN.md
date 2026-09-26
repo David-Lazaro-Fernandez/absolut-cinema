@@ -15,6 +15,7 @@ gris `#333333` de la primera versión.
 | `--red-soft` | `#FDEDF0` | Fondo de chips y hover de botones y navegación |
 | `--red-dark` | `#9E0F26` | Primer tono de la rampa ordinal (Premium / VIP) |
 | `--ink` | `#191A1E` | Texto fuerte, Cinépolis en gráficas, rótulos "CAPA" |
+| `--indep` | `#8C8E95` | La Cineteca Nacional (cine independiente) en gráficas, `INDEP` en `labels.py`. Solo en la página Independientes y en las listas de tres cadenas (Datos, Operaciones); es el mismo gris del centro de la paleta divergente |
 | `--gris` | `#5C6068` | Texto secundario, ejes y leyendas |
 | `--linea` | `#E4E5E9` | Bordes de tarjetas y divisores de tabla |
 | `--papel` | `#FFFFFF` | Tarjetas y secciones |
@@ -26,6 +27,8 @@ gris `#333333` de la primera versión.
 
 - **Rojo solo para Cinemex y para acción.** Un rojo en pantalla significa "Cinemex" o "decisión / haz clic". No se usa
   para alertas ni para valores negativos.
+- **La Cineteca en gris medio.** No compite con ninguna de las dos cadenas: ni rojo (Cinemex) ni tinta (Cinépolis). Al
+  lado de Cinemex, Cinemex va primero y en rojo.
 - **Cinépolis en tinta.** En comparativas, Cinépolis va en `#191A1E` (barras, puntos) y sus cifras en negro; las de
   Cinemex pueden ir en rojo. El rojo domina sin competir.
 - **Contraste alto.** Texto blanco sobre rojo o tinta; texto `#191A1E` sobre blanco o `#F6F6F4`. Gris `#5C6068` solo
@@ -139,7 +142,7 @@ Compactas, sin fondo en el encabezado: cabecera en gris con borde inferior 1.5 p
 - **Tema Streamlit.** El bloque `[theme]` de `.streamlit/config.toml` fija colores, radios, la familia Archivo y los
   pesos de encabezado. Fondo de página `#F6F6F4`, fondo secundario blanco (tarjetas, barra lateral).
 - **Constantes de color.** Viven en `analytics/labels.py`: `RED`, `RED_DARK`, `RED_SOFT`, `INK`, `GRAY`, `GRAY_DARK`,
-  `GRAY_LIGHT`, `LINE`, `PAPER`, `NEUTRAL`, `GRID`, `CHAIN_COLOR`, `RED_RAMP`, `DIVERGING`, y los de estado `OK` y `WARN`
+  `GRAY_LIGHT`, `LINE`, `PAPER`, `NEUTRAL`, `GRID`, `INDEP`, `CHAIN_COLOR`, `RED_RAMP`, `DIVERGING`, y los de estado `OK` y `WARN`
   (solo Operaciones). Ningún hex se escribe
   directo en la presentación.
 - **CSS complementario.** `ui/common.py` (`inject_css`, llamado desde `app.py`) inyecta la fuente variable Archivo desde Google Fonts, el ancho de lectura
@@ -157,9 +160,16 @@ oscuro de pendientes y la cola de logs en `st.code`. Es la única página con no
 con los colores de estado `OK`/`WARN` (chip `.estado`, celdas `td.mal`). La gráfica de corridas mantiene las cadenas en
 sus colores y marca las fallidas con una cruz ámbar.
 
+### Página Independientes
+
+La oferta de la Cineteca Nacional (`views/independientes.py`) con la misma estructura de tres capas que la cartelera y
+la dulcería: la serie de la Cineteca en `INDEP` y, cuando se compara con nosotros (solape de títulos, franjas), Cinemex
+primero y en rojo. Cinépolis no aparece: la Cineteca no entra al head-to-head. Los paneles de ocupación se muestran como
+pendientes (`st.info`) mientras la lectura de sus planos no esté confirmada.
+
 ### Navegación entre páginas
 
-`st.navigation(position="top")`: pestañas "Cartelera", "Dulcería", "Datos" y, para el rol admin, "Usuarios" y "Operaciones" en la barra
+`st.navigation(position="top")`: pestañas "Cartelera", "Dulcería", "Independientes", "Datos" y, para el rol admin, "Usuarios" y "Operaciones" en la barra
 superior en escritorio. Sin sesión la navegación va oculta (`position="hidden"`) y solo existen las páginas de acceso. En pantallas de
 768 px o menos, una regla `@media` fija la barra al pie de la pantalla (fondo papel, borde superior, sombra suave) y
 deja 84 px de aire al final del contenido, para que quede al alcance del pulgar. No probado en dispositivo real

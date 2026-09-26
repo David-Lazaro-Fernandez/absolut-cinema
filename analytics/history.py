@@ -18,7 +18,7 @@ CLOSING_KINDS = ("removed", "expired")
 
 def cinemas(conn, chain="cinemex", plaza=None):
     """Cines con cartelera vigente: `cinema_id`, `cinema_name`, ordenados por nombre."""
-    where, params = plaza_where(plaza)
+    where, params = plaza_where(plaza, chains=(chain,))
     return rows(conn, f"""
         SELECT cinema_id, MAX(cinema_name) cinema_name FROM current_showtime WHERE chain = ?{where}
         GROUP BY cinema_id ORDER BY cinema_name""", (chain, *params))

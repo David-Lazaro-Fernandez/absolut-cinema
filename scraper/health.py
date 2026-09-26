@@ -39,7 +39,9 @@ from . import config, sample, states, store, titles
 MAX_AGE_MIN = 12 * 60        # tres capturas al día: el hueco normal más largo (20:30 → 07:30) es de 11 h
 SLOT_TOLERANCE_MIN = 30      # una captura programada cuenta si hay snapshot bueno a ±30 min
 COVERAGE_MIN_RATIO = 0.9     # cines en la última captura frente al máximo de 7 días: menos es un estado o ciudad que llegó vacío
-CHAINS = ("cinemex", "cinepolis")
+# La Cineteca se captura en el mismo trabajo `snapshot`, así que se vigila igual (frescura y cobertura). Las revisiones
+# específicas de dulcería, preventa y semáforo están acotadas por cadena y no le aplican.
+CHAINS = ("cinemex", "cinepolis", "cineteca")
 # Logs que se pueden consultar desde el dashboard: nombre → archivo en config.LOG_DIR. Lista cerrada a propósito, para
 # que la página nunca reciba una ruta arbitraria.
 LOGS = {"run": "run.log", "sample": "sample.log", "delivery": "delivery.log", "health": "health.log",

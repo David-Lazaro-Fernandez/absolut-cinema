@@ -1,8 +1,8 @@
 """Dashboard ejecutivo: Cinemex frente a Cinépolis, por plaza o nacional.
 
 Entrada de Streamlit con navegación entre páginas (`views/`). La lista de páginas depende de la sesión: sin cookie
-válida solo existen entrar, olvidé mi contraseña y restablecer; con sesión, la cartelera en tres capas, la dulcería y
-el explorador de datos, y para el rol admin también usuarios y operaciones. Streamlit resuelve la URL contra esa lista, así que una
+válida solo existen entrar, olvidé mi contraseña y restablecer; con sesión, la cartelera en tres capas, la dulcería, la
+oferta independiente (Cineteca Nacional) y el explorador de datos, y para el rol admin también usuarios y operaciones. Streamlit resuelve la URL contra esa lista, así que una
 ruta que no corresponde al rol cae en la página por defecto. Los helpers compartidos viven en `ui/common.py`, la
 sesión en `ui/session.py`, la lógica de negocio en `analytics/` y `archive/`, las cuentas en `auth/`.
 
@@ -17,7 +17,7 @@ from pathlib import Path
 import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from analytics.labels import AUTH_TEXT, OPS_TEXT  # noqa: E402
+from analytics.labels import AUTH_TEXT, INDEP_TEXT, OPS_TEXT  # noqa: E402
 from ui import session  # noqa: E402
 from ui.common import PAGE_TITLE, inject_css  # noqa: E402
 
@@ -36,6 +36,7 @@ else:
     pages = [
         st.Page("views/cartelera.py", title="Cartelera", icon=":material/movie:", default=True),
         st.Page("views/dulceria.py", title="Dulcería", icon=":material/fastfood:"),
+        st.Page("views/independientes.py", title=INDEP_TEXT["nav"], icon=":material/theaters:", url_path="independientes"),
         st.Page("views/datos.py", title="Datos", icon=":material/table:", url_path="datos"),
     ]
     if user["role"] == "admin":

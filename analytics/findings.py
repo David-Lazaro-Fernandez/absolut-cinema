@@ -8,12 +8,22 @@ aquí: si el dato no existe, el hallazgo no aparece. Hablamos en primera persona
 se evalúan todas las reglas y entran las más fuertes (`strength` = brecha / umbral). `as_of` es la fecha del dato
 muestreado que sostiene el hallazgo (None si solo usa la cartelera vigente).
 `conclusions()` devuelve {peliculas, peliculas_note, franjas, formatos}: la frase que abre cada
-sección de evidencia."""
+sección de evidencia; `independent_conclusions()` lo mismo para la página de la oferta independiente."""
 from datetime import datetime, timedelta, timezone
 
 from .concessions import concession_basket
 from .db import rows
 from .delivery import delivery_compare, delivery_summary
+from .independents import (
+    INDEP_MIN_SAMPLES,
+    INDEP_MIN_SOLD_PCT,
+    OCCUPANCY_CONFIRMED,
+    OCCUPANCY_DAYS,
+    independent_overlap,
+    independent_slots,
+    independent_summary,
+    independent_titles,
+)
 from .labels import (
     CHAIN_LABEL,
     DAY_TYPE_LABEL,
@@ -39,7 +49,7 @@ from .queries import (
     showtimes_by_slot,
     today,
 )
-from .seats import effective_ticket_price, occupancy_by_title, offered_by_title, prices
+from .seats import effective_ticket_price, occupancy_by_cinema, occupancy_by_title, offered_by_title, prices
 from .summary import general_summary
 
 THEM_NAME = CHAIN_LABEL[THEM]
@@ -538,13 +548,39 @@ def _presale_exclusive_finding(conn, plaza=None):
             "support": [{"label": _short(r["title"], 22), "value": f"{r['sold_pct_cinepolis']:.0f} %", "cmx": False} for r in hot[:3]]
                        + [{"label": f"Exclusivas de {THEM_NAME}", "value": f"{len(theirs)}", "cmx": False}]}
 
+def _independent_finding(conn, d0, d1, hours=None, plaza=None):
+    """Un título que llena la Cineteca y que no exhibimos en CDMX. Solo con zona CDMX o nacional (la Cineteca solo tiene
+    sedes en CDMX) y solo si la lectura de sus planos está confirmada (`independents.OCCUPANCY_CONFIRMED`)."""
+    if plaza not in (None, "cdmx") or not OCCUPANCY_CONFIRMED:
+        return None
+    overlap = independent_overlap(conn, d0, d1, hours=hours)
+    full = [r for r in overlap if r["status"] == "indep_only" and r["samples"] >= INDEP_MIN_SAMPLES
+            and (r["sold_pct"] or 0) >= INDEP_MIN_SOLD_PCT]
+    if not full:
+        return None
+    best = max(full, key=lambda r: (r["sold_pct"], r["title_norm"]))
+    t = _short(best["title"])
+    more = len(full) - 1
+    title = f"{t} llena {_pct(best['sold_pct'])} de las butacas de la Cineteca y no la exhibimos en CDMX."
+    body = (f"Medido en {best['samples']:,} funciones ya empezadas en sus sedes en los últimos {OCCUPANCY_DAYS} días; "
+            f"tiene {best['shows_indep']:,} funciones suyas en el periodo."
+            + (f" Otros {more} títulos solo suyos pasan de {_pct(INDEP_MIN_SOLD_PCT)}." if more else "")
+            + " Es cine de autor con un solo precio: no compite por share, pero es demanda que no atendemos.")
+    return {"topic": "independientes", "title": title, "body": body,
+            "action": f"Decisión: ¿abrir funciones de {t} en una sala de CDMX?",
+            "strength": best["sold_pct"] / INDEP_MIN_SOLD_PCT, "as_of": None,
+            "support": [{"label": "Vendido en la Cineteca", "value": _pct(best["sold_pct"]), "cmx": False},
+                        {"label": "Funciones medidas", "value": f"{best['samples']:,}", "cmx": False},
+                        {"label": "Funciones Cineteca", "value": f"{best['shows_indep']:,}", "cmx": False},
+                        {"label": "Funciones Cinemex CDMX", "value": "0", "cmx": True}]}
+
 
 def findings(conn, d0=None, d1=None, top=3, hours=None, plaza=None):
     """Los `top` hallazgos más fuertes (`strength` = brecha / umbral). Cada regla solo entra si
     cruza su umbral y, si depende de un muestreo, si el dato está vigente: movimientos del competidor, demanda por
     título (ocupación de Cinépolis), nuestra preventa que se despega, brecha de preventa en un
-    mismo título, preventa exclusiva de Cinépolis que ya vende, título por butacas, concentración, dulcería, precio del boleto, franjas, formato y
-    exclusivas; un empate conserva ese orden. Precio y formato pesan la mitad: cambian poco de semana a semana. `plaza` acota la
+    mismo título, preventa exclusiva de Cinépolis que ya vende, título por butacas, concentración, dulcería, precio del boleto, franjas, formato,
+    exclusivas y títulos que llenan la Cineteca sin funciones nuestras; un empate conserva ese orden. Precio y formato pesan la mitad: cambian poco de semana a semana. `plaza` acota la
     cartelera; la dulcería a domicilio no depende de la plaza (Rappi y DiDi se leen en CDMX)."""
     d0 = d0 or today()
     d1 = d1 or d0
@@ -564,7 +600,8 @@ def findings(conn, d0=None, d1=None, top=3, hours=None, plaza=None):
                lambda: _price_finding(conn, d0, d1, hours=hours, plaza=plaza),
                lambda: _slot_finding(conn, d0, d1, hours=hours, plaza=plaza),
                lambda: _format_finding(conn, d0, d1, kp, hours=hours, plaza=plaza),
-               lambda: _exclusive_finding(movies)):
+               lambda: _exclusive_finding(movies),
+               lambda: _independent_finding(conn, d0, d1, hours=hours, plaza=plaza)):
         f = fn()
         if f:
             f.setdefault("as_of", None)
@@ -685,4 +722,47 @@ def conclusions(conn, d0=None, d1=None, shown=8, total=15, hours=None, plaza=Non
     elif pop:
         out["dulceria"] = (f"{THEM_NAME} fija el precio de dulcería por complejo: palomitas de ${pop['min_price']:,.0f} a "
                            f"${pop['max_price']:,.0f} en {int(pop['distinct_prices'])} niveles. Nuestra lista llegará con tus datos.")
+    return out
+
+
+def independent_conclusions(conn, d0=None, d1=None, hours=None):
+    """Frase de apertura de cada sección de la página de la oferta independiente: {programa, ocupacion, solape,
+    franjas}. Una clave falta si no hay dato que la sostenga (sin cartelera, o sin planos confirmados)."""
+    d0 = d0 or today()
+    d1 = d1 or d0
+    out = {}
+    venues = independent_summary(conn, d0, d1, hours=hours)
+    if not venues:
+        return out
+    titles = independent_titles(conn, d0, d1, hours=hours, limit=1000)
+    shows = sum(v["shows"] for v in venues)
+    original = sum(t["other"] for t in titles)
+    top = titles[0]
+    out["programa"] = (f"La Cineteca programa {shows:,} funciones de {len(titles)} títulos en sus {len(venues)} sedes; "
+                       f"la más programada es {_short(top['title'], 40)} ({_pct(top['share_shows'])} de su parrilla) y "
+                       f"{_pct(100.0 * original / shows)} de sus funciones van en lengua original.")
+
+    occ = occupancy_by_cinema(conn, days=OCCUPANCY_DAYS)
+    if OCCUPANCY_CONFIRMED and occ:
+        sold = sum(r["seats"] * r["sold_pct"] / 100.0 for r in occ)
+        seats = sum(r["seats"] for r in occ)
+        best = max(occ, key=lambda r: (r["sold_pct"], r["cinema_id"]))
+        out["ocupacion"] = (f"En la última semana sus funciones vendieron {_pct(100.0 * sold / seats)} de las butacas "
+                            f"({sum(r['samples'] for r in occ):,} funciones medidas); lo más lleno es {best['cinema_name']} "
+                            f"{_slot_phrase(best['slot'])} ({_pct(best['sold_pct'])}).")
+
+    overlap = independent_overlap(conn, d0, d1, hours=hours)
+    shared = [r for r in overlap if r["status"] == "shared"]
+    shared_shows = sum(r["shows_indep"] for r in shared)
+    out["solape"] = (f"{_pct(100.0 * shared_shows / shows)} de sus funciones son de títulos que también exhibimos en CDMX "
+                     f"({len(shared)} de {len(overlap)} títulos); el resto es oferta que no tenemos.")
+    out["solape"] = out["solape"][0].upper() + out["solape"][1:]
+
+    slots = {(r["chain"], r["slot"]): r["share"] for r in independent_slots(conn, d0, d1, hours=hours)}
+    gaps = {k: slots.get(("cineteca", k), 0) - slots.get((US, k), 0) for k, _, _, _ in SLOTS
+            if ("cineteca", k) in slots and (US, k) in slots}
+    if gaps:
+        k = max(gaps, key=lambda k: (gaps[k], k))
+        out["franjas"] = (f"La Cineteca pone {_pct(slots[('cineteca', k)])} de sus funciones {_slot_phrase(k)}, "
+                          f"frente a {_pct(slots[(US, k)])} de las nuestras en CDMX ({_pp(gaps[k])}).")
     return out
