@@ -909,6 +909,32 @@ en 7 días); ajustarlos con una o dos semanas de planos. La ocupación (panel y 
 Ocupación) con una función llena; al confirmarla se cambia la constante y se anota aquí la fecha. El panel además pide
 `OCCUPANCY_MIN_SAMPLES = 20` funciones medidas en la semana. Precio: pendiente en Capa 3, sin cifra.
 
+### Mapa de cines (2026-09-26)
+
+Página "Mapa" (`views/mapa.py`, ambos roles, después de la cartelera) con la lógica en `analytics/cinema_locations.py`:
+`cinema_map` da una fila por complejo con coordenadas (las tres cadenas; con zona CDMX son 87 Cinemex, 74 Cinépolis y 3
+Cineteca), `cinema_sites` los agrupa por lugar y `cinema_highlights` da el mejor cine de cada cadena en cada métrica.
+El complejo y su sala Platino o VIP comparten coordenadas exactas (Antara Market y Antara Platino; 28 lugares de
+Cinemex y 54 de Cinépolis a nivel nacional el 2026-09-26): el mapa dibuja un punto por cine, abre en círculo (~130 m)
+los de un mismo edificio y les da a todos el tooltip del edificio completo ("2 cines en esta plaza"); al hacer clic,
+la ficha los pone lado a lado. Cinépolis llama igual al complejo y a su VIP ("Plaza Carso"), así que `cinema_map`
+agrega "VIP" al nombre cuando el id lo trae. El tamaño del punto va en píxeles (5–22), relativo al valor más alto de
+los cines visibles, y no crece con el zoom. El filtro
+"Cines" de la barra lateral (`cinema_ids`) acota mapa, destacados y tabla. Métricas y de dónde salen:
+
+| Métrica | Fuente | Nota |
+| --- | --- | --- |
+| Funciones, títulos | `current_showtime`, de hoy al miércoles | sin las que ya empezaron |
+| Salas, butacas | `auditorium` | medidas una vez por sala |
+| Boleto | `price_sample`, tradicional de viernes a domingo, la lectura más reciente | sin eventos ni matinés (lecturas del 2026-09-08 a $15) |
+| Boleto más caro | `price_sample`, el general más alto entre la lectura más reciente de cada formato y tipo de día | con su formato; sin eventos ni matinés |
+| Palomitas en sala | `concession_price`, producto "Palomitas" | solo Cinépolis: Cinemex tiene precio único |
+| Ocupación | `occupancy_sample` tras el inicio, 7 días | solo con ≥ 10 funciones medidas en el cine |
+
+Mapa base: CARTO claro sobre OpenStreetMap vía pydeck (viene con Streamlit, sin clave). **Siguiente paso (decidido
+2026-09-26): versión pública** en la landing (`marketing/`) con MapLibre GL y los mismos datos exportados a un JSON con
+fecha de corte; se pueden mostrar todos los datos (son públicos en los sitios de las cadenas).
+
 ### Implementación
 
 **Páginas (2026-09-09, a petición de David):** `st.navigation(position="top")` con "Cartelera" (tres capas y los

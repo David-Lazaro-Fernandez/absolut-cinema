@@ -51,6 +51,8 @@ from analytics.labels import (  # noqa: E402
     LANGUAGE_BUCKETS,
     LANGUAGE_LABEL,
     LINE,
+    MAP_METRIC,
+    MAP_TEXT,
     NATIONAL_LABEL,
     NEUTRAL,
     OK,
@@ -357,6 +359,12 @@ def pretty(df, index=None):
     return df
 
 
+def rgb(hex_color, alpha=255):
+    """'#E31837' → [227, 24, 55, alpha], el color que piden las capas de pydeck."""
+    h = hex_color.lstrip("#")
+    return [int(h[i:i + 2], 16) for i in (0, 2, 4)] + [alpha]
+
+
 def has(v):
     """Valor numérico presente y mayor que cero (los LEFT JOIN dejan NaN)."""
     return v is not None and pd.notna(v) and float(v) > 0
@@ -397,8 +405,9 @@ def seccion(slug):
 
 
 def pregunta(texto, conclusion, nota=None):
-    md(f'<h3 class="pregunta">{esc(texto)}</h3>'
-       f'<p class="conclusion">{esc(conclusion)}{f" <em>{esc(nota)}</em>" if nota else ""}</p>')
+    """Pregunta de la sección y su conclusión; sin conclusión (un panel pendiente) no pinta el recuadro vacío."""
+    cierre = f'<p class="conclusion">{esc(conclusion)}{f" <em>{esc(nota)}</em>" if nota else ""}</p>' if conclusion else ""
+    md(f'<h3 class="pregunta">{esc(texto)}</h3>{cierre}')
 
 
 def leerla(slug, texto):

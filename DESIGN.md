@@ -160,6 +160,14 @@ oscuro de pendientes y la cola de logs en `st.code`. Es la única página con no
 con los colores de estado `OK`/`WARN` (chip `.estado`, celdas `td.mal`). La gráfica de corridas mantiene las cadenas en
 sus colores y marca las fallidas con una cruz ámbar.
 
+### Página Mapa
+
+Mapa de cines (`views/mapa.py`) con pydeck sobre el mapa base claro de CARTO (datos de OpenStreetMap, sin clave; el
+crédito va en el pie de la página). Cada cine es un punto en su color de cadena (los de un mismo edificio se abren en círculo y comparten tooltip y ficha) (`CHAIN_COLOR`, convertido con
+`rgb()` de `ui/common.py`), con borde papel; el tamaño (en píxeles, 5–22, no crece con el zoom) sigue la métrica elegida
+en la barra lateral y un cine sin ese dato queda chico y tenue (alfa 70). Ficha al pasar el cursor (fondo papel, texto tinta) y ficha fija al hacer clic.
+Encima, la tabla de destacados por cadena; debajo, la tabla completa en un apéndice.
+
 ### Página Independientes
 
 La oferta de la Cineteca Nacional (`views/independientes.py`) con la misma estructura de tres capas que la cartelera y
@@ -169,7 +177,7 @@ pendientes (`st.info`) mientras la lectura de sus planos no esté confirmada.
 
 ### Navegación entre páginas
 
-`st.navigation(position="top")`: pestañas "Cartelera", "Dulcería", "Independientes", "Datos" y, para el rol admin, "Usuarios" y "Operaciones" en la barra
+`st.navigation(position="top")`: pestañas "Cartelera", "Mapa", "Dulcería", "Independientes", "Datos" y, para el rol admin, "Usuarios" y "Operaciones" en la barra
 superior en escritorio. Sin sesión la navegación va oculta (`position="hidden"`) y solo existen las páginas de acceso. En pantallas de
 768 px o menos, una regla `@media` fija la barra al pie de la pantalla (fondo papel, borde superior, sombra suave) y
 deja 84 px de aire al final del contenido, para que quede al alcance del pulgar. No probado en dispositivo real
