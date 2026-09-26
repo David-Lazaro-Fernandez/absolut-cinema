@@ -21,6 +21,7 @@ PAIRS_PATH = Path(__file__).resolve().parent / "title_pairs.csv"
 
 # Cada regla, con el caso que la justifica (vistos en la cartelera del 2026-09-25).
 _DECORATIONS = [
+    re.compile(r" (dob|dub|sub)$"),              # Cineteca: "Cars 20 aniversario DOB", "Mary y Max SUB"; antes de aniversario
     re.compile(r"\bre ?estrenos?( \d{4})?\b"),   # "Coraline … (Re-estreno 2026)", "Reestreno Rápido Y Furioso"
     re.compile(r"\b\d{1,3} aniversario\b"),      # "Rápido y Furioso (25° Aniversario)", "Transformers … 40 Aniversario"
     re.compile(r"^evento especial "),            # "Evento Especial: Puella Magi Madoka Magica"

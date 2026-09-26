@@ -24,6 +24,14 @@ def test_same_movie_across_chains():
         assert key(a) == key(b), (a, b)
 
 
+def test_the_cineteca_language_suffix_is_dropped():
+    # La Cineteca marca el idioma en el título (cartelera del 2026-09-26); Cinemex lo marca aparte.
+    assert key("Cars 20 aniversario DOB") == key("Cars") == "cars"
+    assert key("Mary y Max SUB") == key("Mary y Max DOB") == "mary y max"
+    assert key("Coyote vs. Acme DUB") == key("Coyote vs. Acme")
+    assert key("Subterráneo") != key("Terráneo")          # la regla solo quita la palabra suelta al final
+
+
 def test_never_merge():
     for a, b in [("BTS WORLD TOUR 'ARIRANG' IN BUENOS AIRES: EN VIVO", "BTS WORLD TOUR 'ARIRANG' IN SÃO PAULO: EN VIVO"),
                  ("Puella Magi Madoka Mágica: La Película Parte 1", "Puella Magi Madoka Magica: Walpurgisnacht Rising"),

@@ -30,7 +30,7 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from . import cinemex, cinepolis, config, plazas, store
-from .http import ApiError
+from .http import ApiError, request_json
 from .normalize import format_bucket
 
 TZ = ZoneInfo(config.PILOT_TIMEZONE)
@@ -183,13 +183,46 @@ def cinemex_layout(session_id, stats=None):
     return {"seats": total, "sold": sold, "broken": 0, "areas": by_area}
 
 
+# --- Cineteca Nacional ---------------------------------------------------------------------------------
+# La Cineteca corre sobre Vista (como Cinépolis) pero se lee directo de su Connect API con el token embebido en su app
+# (config.CINETECA_CONNECT_TOKEN). El plano trae la sala en `Areas[].Description`. Semántica de estado (PENDIENTE
+# confirmar contra una función llena, 2026-09-26: la primera lectura salía todo en 0): `OriginalStatus` es el estado
+# físico de la butaca (≠ 0 = no vendible: rota/casa) y `Status` el estado en vivo (≠ 0 en una butaca vendible = ocupada).
+# Se guarda el histograma completo de ambos en `areas_json`, así el reparto exacto se recalcula sin volver a pedir.
+def cineteca_layout(session_id, cinema_code, stats=None):
+    """Plano de una función de la Cineteca desde el Connect API de Vista (RESTData.svc, solo lectura, sin abrir orden).
+    Devuelve {seats, sold, broken, areas, screen} o None si la función no tiene plano."""
+    url = f"{config.CINETECA_VISTA_BASE_URL}/RESTData.svc/cinemas/{cinema_code}/sessions/{session_id}/seat-plan"
+    data = request_json(url, headers={"connectapitoken": config.CINETECA_CONNECT_TOKEN})
+    if stats is not None:
+        stats["calls"] = stats.get("calls", 0) + 1
+    areas = ((data.get("SeatLayoutData") or {}).get("Areas")) or []
+    if not areas:
+        return None
+    total = sold = broken = 0
+    by_area = []
+    for a in areas:
+        seats = [s for row in a.get("Rows") or [] for s in row.get("Seats") or []]
+        b = sum(1 for s in seats if s.get("OriginalStatus") not in (0, None))
+        so = sum(1 for s in seats if s.get("OriginalStatus") in (0, None) and s.get("Status") not in (0, None))
+        total += len(seats); broken += b; sold += so
+        by_area.append({"area": a.get("Description"), "code": a.get("AreaCategoryCode"), "seats": len(seats) - b,
+                        "broken": b, "sold": so,
+                        "status": dict(Counter(s.get("Status") for s in seats)),
+                        "original_status": dict(Counter(s.get("OriginalStatus") for s in seats))})
+    return {"seats": total - broken, "sold": sold, "broken": broken, "areas": by_area,
+            "screen": by_area[0]["area"] if by_area else None}
+
+
 def layout_for(chain, row, vids, stats):
-    """Plano según la cadena. Cinépolis: sesión + vistaId; Cinemex: id de sesión nacional."""
+    """Plano según la cadena. Cinépolis: sesión + vistaId; Cinemex: id de sesión nacional; Cineteca: sesión + sede."""
     if chain == "cinepolis":
         vid = vids.get(row["cinema_id"])
         if not vid:
             raise ApiError(f"sin vistaId para {row['cinema_id']}")
         return seat_layout(row["show_id"].rsplit(":", 1)[1], vid, stats)
+    if chain == "cineteca":
+        return cineteca_layout(row["show_id"].rsplit(":", 1)[1], row["cinema_id"], stats)
     return cinemex_layout(row["show_id"], stats)
 
 
@@ -370,18 +403,20 @@ def _take_layouts(conn, chain, rows, stats, label):
         time.sleep(config.SAMPLE_PAUSE)
         if not lay:
             fail += 1; continue
+        # La Cineteca no publica la sala en la cartelera: llega en el plano (`Areas[].Description`).
+        screen = r["screen"] or lay.get("screen")
         starts = datetime.fromisoformat(r["datetime_local"])
         mins = int(round((starts - now_local()).total_seconds() / 60))
         pct = round(100.0 * lay["sold"] / lay["seats"], 1) if lay["seats"] else None
         conn.execute("""INSERT INTO occupancy_sample (chain, show_id, cinema_id, screen, movie_id, movie_title, datetime_local,
                             sampled_at, minutes_to_start, seats, sold, broken, sold_pct, availability)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                     (chain, r["show_id"], r["cinema_id"], r["screen"], r["movie_id"], r["movie_title"], r["datetime_local"],
+                     (chain, r["show_id"], r["cinema_id"], screen, r["movie_id"], r["movie_title"], r["datetime_local"],
                       utc_now(), mins, lay["seats"], lay["sold"], lay["broken"], pct, r["availability"]))
         # de paso, el aforo de la sala si aún no lo tenemos
         conn.execute("""INSERT OR IGNORE INTO auditorium (chain, cinema_id, screen, seats, broken, areas_json, session_id, sampled_at)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                     (chain, r["cinema_id"], r["screen"], lay["seats"], lay["broken"], json.dumps(lay["areas"], ensure_ascii=False),
+                     (chain, r["cinema_id"], screen, lay["seats"], lay["broken"], json.dumps(lay["areas"], ensure_ascii=False),
                       r["show_id"].rsplit(":", 1)[-1], utc_now()))
         conn.commit(); ok += 1
     log(f"{label} {chain} ok={ok} fail={fail} calls={stats['calls']}")
@@ -477,8 +512,8 @@ def main(argv=None):
     ap.add_argument("--post-start", action="store_true", help="planos de funciones ya iniciadas (asistencia final)")
     ap.add_argument("--prices", action="store_true")
     ap.add_argument("--concessions", action="store_true", help="menú de dulcería con precios por cine (Cinépolis)")
-    ap.add_argument("--chain", choices=["cinepolis", "cinemex"], default="cinepolis",
-                    help="cadena para --capacity / --occupancy (los precios siempre son de ambas)")
+    ap.add_argument("--chain", choices=["cinepolis", "cinemex", "cineteca"], default="cinepolis",
+                    help="cadena para --capacity / --occupancy / --post-start (los precios siempre son de ambas)")
     ap.add_argument("--per-level", type=int, help="occupancy: calibración, máximo N funciones por nivel del semáforo")
     ap.add_argument("--lead", type=int, default=60, help="minutos antes de la función (ocupación)")
     ap.add_argument("--tolerance", type=int, default=None, help="ocupación: ±min (15 con --lead, config.POST_START_TOLERANCE_MIN con --after)")

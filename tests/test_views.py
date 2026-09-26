@@ -1,14 +1,17 @@
 """Recorrido de cada pantalla del dashboard con `streamlit.testing.v1.AppTest`: acceso (login, olvidé, restablecer),
-cartelera, dulcería, datos, usuarios y operaciones, con los roles admin y viewer.
+cartelera, dulcería, independientes, datos, usuarios y operaciones, con los roles admin y viewer.
 
 Las cuentas viven en un `app.db` temporal que crea este módulo, así que acceso y usuarios corren en cualquier máquina,
 también en CI. Las páginas de datos necesitan `data/snapshots.db` real (cartelera, dulcería, datos, operaciones) y se
-omiten donde no existe. La cookie se simula parcheando `ui.session._raw_cookie`; lo único que AppTest no ejerce es el
+omiten donde no existe; independientes y datos corren además sobre una base armada con la captura grabada de las tres
+cadenas (`tests/conftest.py`), así que también corren en CI. La cookie se simula parcheando `ui.session._raw_cookie`; lo único que AppTest no ejerce es el
 ciclo real de la cookie en el navegador.
 
 Las cuentas de prueba (`pytest-admin@example.test`, `pytest-viewer@example.test`) se crean una vez por corrida.
 """
+import sqlite3
 import sys
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -22,10 +25,12 @@ from scraper import config  # noqa: E402
 config.APP_DB_PATH = Path(tempfile.mkdtemp(prefix="absolut-app-")) / "app.db"
 
 pytest.importorskip("streamlit")
+import streamlit as st  # noqa: E402
 from streamlit.testing.v1 import AppTest  # noqa: E402
 
+import analytics  # noqa: E402
 import auth  # noqa: E402
-from analytics.labels import AUTH_TEXT, DATASET_LABEL, OPS_TEXT  # noqa: E402
+from analytics.labels import AUTH_TEXT, CHAIN_LABEL, DATASET_LABEL, INDEP_TEXT, OPS_TEXT  # noqa: E402
 from auth import security, sessions, users  # noqa: E402
 from ui import session  # noqa: E402
 
@@ -174,6 +179,62 @@ def test_datos_filters_apply(monkeypatch, conn, viewer):
     _clean(at)
     assert len(at.dataframe[0].value) <= total
     assert set(at.dataframe[0].value["Cadena"]) <= {"Cinemex"}   # el botón de descarga no lo expone AppTest
+
+
+@needs_sqlite
+def test_independientes_for_viewer(monkeypatch, conn, viewer):
+    at = _run(monkeypatch, cookie=_cookie(conn, viewer), page="independientes")
+    _clean(at)
+
+
+def _to_tomorrow(db):
+    """Mueve la cartelera grabada a mañana, conservando la hora, para que la página la cuente sin congelar el reloj."""
+    tomorrow = date.fromisoformat(analytics.today()) + timedelta(days=1)
+    for r in db.execute("SELECT chain, show_id, date, datetime_local, datetime_utc FROM current_showtime").fetchall():
+        delta = tomorrow - date.fromisoformat(r[2])
+        db.execute("UPDATE current_showtime SET date = ?, datetime_local = ?, datetime_utc = ? WHERE chain = ? AND show_id = ?",
+                   (tomorrow.isoformat(), (datetime.fromisoformat(r[3]) + delta).isoformat(),
+                    (datetime.fromisoformat(r[4]) + delta).isoformat(), r[0], r[1]))
+
+
+@pytest.fixture
+def recorded_db(capture_db, tmp_path, monkeypatch):
+    """`config.DB_PATH` apuntando a una base con la captura grabada de las tres cadenas, con Cinemex mudado a CDMX,
+    Cinépolis a Guadalajara y la cartelera movida a mañana. Vacía la caché de Streamlit antes y después para no mezclar bases entre pruebas."""
+    mem = capture_db("cinemex", "cinepolis", "cineteca")
+    mem.execute("UPDATE current_showtime SET city_id = '15' WHERE chain = 'cinemex'")
+    mem.execute("UPDATE cinema SET city_id = '15' WHERE chain = 'cinemex'")
+    mem.execute("UPDATE current_showtime SET city_id = 'guadalajara' WHERE chain = 'cinepolis'")
+    mem.execute("UPDATE cinema SET city_id = 'guadalajara' WHERE chain = 'cinepolis'")
+    _to_tomorrow(mem)
+    mem.commit()                                        # backup() espera sin fin a una transacción abierta
+    path = tmp_path / "snapshots.db"
+    with sqlite3.connect(path) as dst:
+        mem.backup(dst)
+    monkeypatch.setattr(config, "DB_PATH", path)
+    st.cache_data.clear()
+    yield path
+    st.cache_data.clear()
+
+
+def test_independientes_with_recorded_capture(monkeypatch, conn, viewer, recorded_db):
+    at = _run(monkeypatch, cookie=_cookie(conn, viewer), page="independientes")
+    at.sidebar.radio(key="indep_period").set_value(INDEP_TEXT["period_tomorrow"]).run()
+    _clean(at)
+    assert len(at.dataframe) >= 2                       # sedes y cartelera completa
+    assert INDEP_TEXT["ocupacion_pending"] in [i.value for i in at.info]
+    at.sidebar.radio(key="plaza").set_value("gdl").run()
+    _clean(at)
+    assert [i.value for i in at.info] == [INDEP_TEXT["no_plaza"]]
+
+
+def test_datos_with_the_cineteca(monkeypatch, conn, viewer, recorded_db):
+    at = _run(monkeypatch, cookie=_cookie(conn, viewer), page="datos")
+    at.sidebar.selectbox(key="dataset").set_value("cinemas").run()
+    _clean(at)
+    at.sidebar.radio(key="chain").set_value("cineteca").run()
+    _clean(at)
+    assert set(at.dataframe[0].value["Cadena"]) == {CHAIN_LABEL["cineteca"]}
 
 
 def test_usuarios_for_admin_lists_and_rejects_duplicate(monkeypatch, conn, admin, viewer):

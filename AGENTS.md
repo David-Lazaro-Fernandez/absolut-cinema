@@ -40,6 +40,15 @@ defecto, la del piloto) o a nivel nacional. Tres capas, sin mezclarse:
   devuelve `analytics/`. Si para una vista nueva hace falta un cálculo, va en `analytics/`, no en el dashboard.
 - **Un solo escritor** sobre `snapshots.db`. Todo lo que escribe corre en serie desde el mismo trabajo
   o en minutos distintos (`:07`). No añadas un proceso escritor sin ubicarlo en ese calendario.
+- **La comparación es de dos cadenas; la captura, de las que haya.** Cinemex y Cinépolis son las comparables
+  (`US`/`THEM`, shares head-to-head en `analytics/queries.py`). La **Cineteca Nacional** (`chain="cineteca"`, cine
+  independiente de CDMX) se captura en el mismo esquema (`scraper/cineteca.py`, plano de Vista en `sample.py`) pero **no
+  entra a los shares** (cine de autor, un precio, pocas funciones: engañaría). Lo que compara dos cadenas —
+  `analytics/plaza.py`, `analytics/queries.py`, `views/cartelera.py` — se queda en Cinemex↔Cinépolis: `_window`,
+  `plaza_where` y `plaza_cinema_where` reciben `chains=COMPARED` (`analytics/labels.py`) por defecto, también con zona
+  nacional, y lo que pide una cadena explícita (`chain="cineteca"`) pasa `chains=(chain,)`. La Cineteca tiene su propia
+  vista (`views/independientes.py`, `analytics/independents.py`). Un cine independiente nuevo sigue este patrón:
+  captura aditiva, `chains=` explícito, presentación aparte.
 - **El calendario tiene una sola fuente: `jobs/registry.py`.** Cada trabajo programado tiene una llave en `jobs/keys.py`
   (con su área, la capa dueña) y una entrada en el registro: pasos, horario, tope, reintentos y dónde corre. De ahí se
   generan las unidades de systemd (`deploy/systemd/`, `make units`), los agentes de launchd (`make launchd-load`), las
@@ -131,7 +140,7 @@ Los mismos nombres en todo el repo. Esto es sagrado; renombrar rompe la lectura 
 
 | Nombre | Significado |
 | --- | --- |
-| `chain` | `"cinemex"` \| `"cinepolis"` |
+| `chain` | `"cinemex"` \| `"cinepolis"` \| `"cineteca"` (cine independiente CDMX; se captura aparte, no entra al head-to-head) |
 | `conn` | conexión SQLite de solo lectura, siempre primer argumento en `analytics/` |
 | `d0`, `d1` | rango de fechas ISO inclusivo, en hora local de la plaza |
 | `from_now` | recorta el día en curso para comparar justo |
@@ -204,9 +213,12 @@ el timer lo note. Si añades un flujo de captura, añade su cobertura ahí y su 
 
 - Páginas con `st.navigation` (barra superior; en celular el CSS la fija abajo): `views/cartelera.py` (tres
   capas con los filtros de zona, periodo y franja en la barra lateral; la zona sale de `plaza_selector()` en `ui/common.py`
-  y viaja como `plaza=` en cada `load`), `views/dulceria.py`, `views/datos.py` (explorador de
+  y viaja como `plaza=` en cada `load`), `views/dulceria.py`, `views/independientes.py` (la Cineteca Nacional),
+  `views/datos.py` (explorador de
   tablas de `snapshots.db`, `analytics/datasets.py`) y, solo para el rol admin, `views/usuarios.py` y `views/operaciones.py`. Un módulo que responde una
-  pregunta propia del cliente y no depende del periodo va en su página; lo demás, en la cartelera. Las páginas
+  pregunta propia del cliente y no depende del periodo va en su página; lo demás, en la cartelera. **Excepción:**
+  `views/independientes.py` sí depende del periodo (con su propio selector, hasta el miércoles de la semana en curso) y
+  aun así va aparte, para que la Cineteca nunca se mezcle con los shares Cinemex↔Cinépolis. Las páginas
   hacen `from ui.common import *` a propósito: comparten un espacio de nombres de presentación.
 - **`views/operaciones.py` es la excepción documentada** a "ningún nombre interno llega al usuario": su público es quien
   opera la plataforma, así que muestra nombres de tablas, logs y módulos tal cual, y usa los colores de estado `OK` y
@@ -257,7 +269,7 @@ usa a propósito); sí por imports sin usar, nombres sin definir, orden de impor
 La verificación principal es correr el flujo de verdad contra la base. Hay además pruebas unitarias en
 `tests/` (pytest, `requirements-dev.txt`, solo en el venv): lógica pura que no toca red (diff de snapshots,
 parsers, cuentas sobre un `app.db` temporal, conjuntos del explorador) y un recorrido por pantalla con `AppTest`
-(`tests/test_views.py`: acceso, cartelera, dulcería, datos y usuarios, por rol). Las pantallas de acceso corren en
+(`tests/test_views.py`: acceso, cartelera, dulcería, independientes, datos y usuarios, por rol). Las pantallas de acceso corren en
 cualquier máquina (crean su propio `app.db`); las de datos se omiten donde no hay `data/snapshots.db`.
 La captura se prueba de punta a punta contra respuestas reales grabadas de ambas APIs (`tests/test_capture_replay.py`,
 `tests/fixtures/capture/`, `scripts/capture_fixtures.py`): Cinemex estado 18 y Cinépolis `hermosillo` pasan por

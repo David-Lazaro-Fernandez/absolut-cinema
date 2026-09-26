@@ -22,7 +22,7 @@ def presale_ranking(conn, chain="cinemex", plaza=None):
     dos lecturas comparables), `pace_per_show_day` (butacas por función y día), `pace_pct_day` (puntos de aforo vendidos
     por día sobre esas funciones; None sin dos lecturas) y `last_sampled`. Todo en % del aforo para que una sala IMAX
     no pese más que una tradicional. Orden: ritmo descendente (sin ritmo al final), luego % vendido y título."""
-    where, params = plaza_cinema_where(plaza)
+    where, params = plaza_cinema_where(plaza, chains=(chain,))
     now = datetime.now(timezone.utc)
     since = (now - timedelta(days=_CURRENT_DAYS)).isoformat(timespec="seconds")
     readings = rows(conn, f"""
@@ -71,7 +71,7 @@ def presale_ranking(conn, chain="cinemex", plaza=None):
 def presale_curve(conn, title_norm, chain="cinemex", plaza=None):
     """Curva de venta de un título (`title_norm` es la llave de `presale_ranking`): por días al inicio de la función (entero, hacia abajo), `readings`, `seats`, `sold` y
     `sold_pct` de todas las lecturas del panel. Orden: más días al inicio primero, como se lee una preventa."""
-    where, params = plaza_cinema_where(plaza)
+    where, params = plaza_cinema_where(plaza, chains=(chain,))
     return rows(conn, f"""
         SELECT CAST(days_to_start AS INTEGER) days_to_start, COUNT(*) readings, SUM(seats) seats, SUM(sold) sold,
                ROUND(100.0 * SUM(sold) / SUM(seats), 1) sold_pct

@@ -43,6 +43,8 @@ from analytics.labels import (  # noqa: E402
     GRID,
     HOUR_MARKS,
     HOUR_PRESETS,
+    INDEP,
+    INDEP_TEXT,
     INK,
     KIND_HELP,
     KIND_LABEL,

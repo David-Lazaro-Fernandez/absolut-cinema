@@ -1,42 +1,56 @@
 """Filtro de plaza para las consultas: qué cines entran en una comparación.
 
 La membresía (qué ciudades de Cinépolis y qué áreas de Cinemex forman cada plaza) vive en `scraper/plazas.py` y la
-comparte el muestreo de planos; aquí solo se traduce a SQL. `plaza=None` significa nacional: sin filtro. Las filas de
-`current_showtime` llevan `city_id`; las tablas de muestreo no, y se filtran a través de la dimensión `cinema`.
+comparte el muestreo de planos; aquí solo se traduce a SQL. `plaza=None` significa nacional: todos los cines de las
+cadenas pedidas. Las filas de `current_showtime` llevan `city_id`; las tablas de muestreo no, y se filtran a través de
+la dimensión `cinema`.
+
+Alcance de cadenas: `chains` vale `COMPARED` (Cinemex y Cinépolis) por defecto, así ninguna consulta head-to-head
+cuenta a la Cineteca aunque esté en la base. Las funciones de la oferta independiente piden sus cadenas explícitamente
+(`chains=("cineteca",)`).
 """
 from scraper.plazas import PLAZAS, city_ids
 
 from .db import rows
+from .labels import COMPARED
 
 
-def _pairs(plaza):
-    """[(chain, (city_id, …)), …] de la plaza; ValueError si no existe (es un error de programación, no un dato)."""
+def _pairs(plaza, chains=COMPARED):
+    """[(chain, (city_id, …)), …] de la plaza, solo de las cadenas pedidas; ValueError si la plaza no existe (es un
+    error de programación, no un dato)."""
     if plaza not in PLAZAS:
         raise ValueError(f"plaza desconocida: {plaza!r}; las conocidas son {sorted(PLAZAS)}")
-    return [(chain, city_ids(plaza, chain)) for chain in ("cinemex", "cinepolis") if city_ids(plaza, chain)]
+    return [(chain, city_ids(plaza, chain)) for chain in chains if city_ids(plaza, chain)]
 
 
-def plaza_where(plaza, alias=""):
+def _chain_in(chains, alias):
+    return f" AND {alias}chain IN ({','.join('?' for _ in chains)})", list(chains)
+
+
+def plaza_where(plaza, alias="", chains=COMPARED):
     """Cláusula `AND (…)` sobre `chain` y `city_id` de una tabla que los tiene (`current_showtime`). Devuelve
-    (sql, params); vacío para `plaza=None`. `alias` es el prefijo de la tabla ('s.')."""
+    (sql, params); con `plaza=None` solo acota a `chains`. `alias` es el prefijo de la tabla ('s.')."""
     if plaza is None:
-        return "", []
+        return _chain_in(chains, alias)
     parts, params = [], []
-    for chain, keys in _pairs(plaza):
+    for chain, keys in _pairs(plaza, chains):
         parts.append(f"({alias}chain = ? AND {alias}city_id IN ({','.join('?' for _ in keys)}))")
         params += [chain, *keys]
-    return " AND (" + " OR ".join(parts) + ")", params
+    return (" AND (" + " OR ".join(parts) + ")", params) if parts else (" AND 0", [])
 
 
-def plaza_cinema_where(plaza, alias=""):
+def plaza_cinema_where(plaza, alias="", chains=COMPARED):
     """Cláusula `AND …` para tablas sin geografía propia (`occupancy_sample`, `price_sample`, `concession_price`,
-    `auditorium`, `event`): el cine debe estar en la plaza según la dimensión `cinema`."""
+    `auditorium`, `event`): el cine debe estar en la plaza según la dimensión `cinema`. Con `plaza=None` solo acota a
+    `chains` (todas esas tablas llevan `chain`)."""
     if plaza is None:
-        return "", []
+        return _chain_in(chains, alias)
     parts, params = [], []
-    for chain, keys in _pairs(plaza):
+    for chain, keys in _pairs(plaza, chains):
         parts.append(f"(chain = ? AND city_id IN ({','.join('?' for _ in keys)}))")
         params += [chain, *keys]
+    if not parts:
+        return " AND 0", []
     return f" AND {alias}cinema_id IN (SELECT cinema_id FROM cinema WHERE {' OR '.join(parts)})", params
 
 

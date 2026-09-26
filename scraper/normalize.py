@@ -229,18 +229,84 @@ def cinemex_rows(raw):
                         }
 
 
+def cineteca_language(title):
+    """Idioma desde el título: la Cineteca marca el doblaje/subtitulaje con sufijos (DOB/DUB, SUB); sin marca es
+    lengua original (cine de autor), que se deja como `other` porque el endpoint no distingue original de local."""
+    t = (title or "").upper()
+    if "SUB" in t:
+        return "subtitled"
+    if "DOB" in t or "DUB" in t:
+        return "spanish"
+    return "other"
+
+
+def cineteca_cinemas(raw):
+    """Dimensión de cines desde el crudo de la Cineteca (una fila por sede, columnas CINEMA_COLUMNS). Las tres sedes
+    son fijas y de CDMX; `cinema_id = city_id = vista_id = codigo_sede` (el cinemacode que pide el plano de Vista)."""
+    for code, s in sorted((raw.get("sedes") or {}).items()):
+        yield {"chain": "cineteca", "cinema_id": code, "name": s.get("name"), "lat": s.get("lat"), "lng": s.get("lng"),
+               "city_id": code, "state_id": None, "state_code": states.state_code("cineteca", code, code),
+               "timezone": config.PILOT_TIMEZONE, "vista_id": code}
+
+
+def cineteca_rows(raw):
+    place_by_id = {c["cinema_id"]: c for c in cineteca_cinemas(raw)}
+    tz = config.PILOT_TIMEZONE
+    for day in raw.get("days") or []:
+        date = day.get("date")
+        for film in day.get("films") or []:
+            title = film.get("titulo")
+            for sede in film.get("sedes") or []:
+                code = sede.get("codigo_sede")
+                place = place_by_id.get(code, {})
+                for h in sede.get("horarios") or []:
+                    session_id = h.get("session_id")
+                    local = f"{date}T{h.get('hora')}:00" if date and h.get("hora") else None
+                    yield {
+                        "chain": "cineteca",
+                        # El sessionId de Vista solo es único dentro de cada sede, igual que en Cinépolis: la identidad
+                        # lleva la sede.
+                        "show_id": f"{code}:{session_id}",
+                        "cinema_id": code,
+                        "cinema_name": place.get("name"),
+                        "lat": place.get("lat"), "lng": place.get("lng"),
+                        "city_id": code, "state_id": None, "state_code": place.get("state_code"),
+                        "movie_id": film.get("film_id"),
+                        "movie_title": title,
+                        "title_norm": norm_title(title),
+                        "genre": None,
+                        "rating": film.get("clasificacion"),
+                        "duration_min": None,
+                        "distributor": None,
+                        "date": date,
+                        "datetime_local": local,
+                        "datetime_utc": _utc(local, tz),
+                        # La cartelera no trae la sala; se llena desde el plano de asientos (scraper/sample.py).
+                        "screen": None,
+                        "language": cineteca_language(title),
+                        "language_raw": None,
+                        "format": "2D",
+                        "experience": None,
+                        "premium_tier": "traditional",
+                        "version_raw": None,
+                        "availability": None,
+                    }
+
+
+_ROWS = {"cinepolis": cinepolis_rows, "cinemex": cinemex_rows, "cineteca": cineteca_rows}
+_CINEMAS = {"cinepolis": cinepolis_cinemas, "cinemex": cinemex_cinemas, "cineteca": cineteca_cinemas}
+
+
 def rows(chain, raw):
-    gen = cinepolis_rows(raw) if chain == "cinepolis" else cinemex_rows(raw)
     seen = {}
-    for r in gen:
+    for r in _ROWS[chain](raw):
         seen.setdefault(r["show_id"], r)   # una fila por función aunque aparezca dos veces
     return list(seen.values())
 
 
 def cinemas(chain, raw):
     """Dimensión de cines de un crudo: lista de dicts con CINEMA_COLUMNS, una por cine, ordenada por `cinema_id`."""
-    gen = cinepolis_cinemas(raw) if chain == "cinepolis" else cinemex_cinemas(raw)
-    return sorted(gen, key=lambda c: c["cinema_id"])
+    return sorted(_CINEMAS[chain](raw), key=lambda c: c["cinema_id"])
 
 
 def format_bucket(row):

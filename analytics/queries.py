@@ -25,7 +25,7 @@ from scraper.plazas import city_ids
 from scraper.titles import title_key
 
 from .db import rows
-from .labels import FULL_DAY, PRIME_START_HOUR, SLOTS
+from .labels import COMPARED, FULL_DAY, PRIME_START_HOUR, SLOTS
 from .plaza import plaza_cinema_where, plaza_where
 
 
@@ -52,11 +52,11 @@ def is_full_day(hours):
     return hours is None or tuple(hours) == FULL_DAY
 
 
-def _window(d0, d1=None, from_now=True, hours=None, plaza=None, alias=""):
+def _window(d0, d1=None, from_now=True, hours=None, plaza=None, alias="", chains=COMPARED):
     """WHERE para [d0, d1]; si incluye hoy y from_now, excluye lo que ya empezó (en UTC, exacto en cualquier zona).
     `hours=(h0, h1)` deja solo las funciones que empiezan entre esas horas locales (h1 exclusiva); con None o
     (0, 24) no añade nada. `plaza` acota a los cines de esa plaza; None es nacional. `alias` es el prefijo de la
-    tabla ('s.') cuando la consulta hace JOIN. Devuelve (sql, params, hhmm_desde | None), con la hora de
+    tabla ('s.') cuando la consulta hace JOIN y `chains` las cadenas que entran (las dos comparables por defecto). Devuelve (sql, params, hhmm_desde | None), con la hora de
     referencia solo para rotular."""
     d0 = d0 or today()
     d1 = d1 or d0
@@ -70,7 +70,7 @@ def _window(d0, d1=None, from_now=True, hours=None, plaza=None, alias=""):
         hour = _HOUR.replace("datetime_local", f"{alias}datetime_local")
         where += f" AND {hour} >= ? AND {hour} < ?"
         params += [int(hours[0]), int(hours[1])]
-    pw, pp = plaza_where(plaza, alias)
+    pw, pp = plaza_where(plaza, alias, chains=chains)
     return where + pw, params + pp, hhmm
 
 
@@ -83,6 +83,7 @@ _FORMAT_CASE = """CASE
 _LANG_CASE = "CASE WHEN language = 'subtitled' THEN 'subtitled' ELSE 'spanish' END"
 _WEEKDAY = "(CAST(strftime('%w', date) AS INTEGER) + 6) % 7"      # 0 = lunes
 _IS_PRIME = f"({_WEEKDAY} >= 4 AND {_HOUR} >= {PRIME_START_HOUR})"
+_SLOT_CASE = "CASE " + " ".join(f"WHEN {_HOUR} BETWEEN {lo} AND {hi - 1} THEN '{key}'" for key, lo, hi, _ in SLOTS) + " END"
 
 
 def snapshot_health(conn, limit=20):
@@ -135,9 +136,8 @@ def heatmap_day_slot(conn, d0=None, d1=None, from_now=True, hours=None, plaza=No
     """Share de la programación de cada cadena por día de la semana y franja (en % del total de
     la cadena en la ventana) y la diferencia en puntos (positivo = Cinemex pone más)."""
     where, params, _ = _window(d0, d1, from_now, hours=hours, plaza=plaza)
-    slot_case = "CASE " + " ".join(f"WHEN {_HOUR} BETWEEN {lo} AND {hi - 1} THEN '{key}'" for key, lo, hi, _ in SLOTS) + " END"
     return rows(conn, f"""
-        WITH base AS (SELECT chain, {_WEEKDAY} weekday, {slot_case} slot FROM current_showtime WHERE {where}),
+        WITH base AS (SELECT chain, {_WEEKDAY} weekday, {_SLOT_CASE} slot FROM current_showtime WHERE {where}),
              tot AS (SELECT chain, COUNT(*) n FROM base GROUP BY chain),
              cell AS (SELECT chain, weekday, slot, COUNT(*) n FROM base GROUP BY chain, weekday, slot)
         SELECT c.weekday, c.slot,
@@ -223,7 +223,7 @@ def recent_events(conn, limit=200, kinds=None, chain=None, plaza=None):
     if chain:
         where.append("chain = ?")
         params.append(chain)
-    pw, pp = plaza_cinema_where(plaza, "e.")
+    pw, pp = plaza_cinema_where(plaza, "e.", chains=(chain,) if chain else COMPARED)
     if pw:
         where.append(pw[len(" AND "):])
         params.extend(pp)

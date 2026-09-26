@@ -58,7 +58,7 @@ else:
 if report:
     with seccion("captura"):
         encabezado("captura", OPS_TEXT["capture"], OPS_TEXT["capture_lead"])
-        chains = [c for c in CHAINS if report["chains"].get(c)]
+        chains = [c for c in CHAIN_LABEL if report["chains"].get(c)]
         rows = []
 
         def fila(label, fn, cls_fn=None):
@@ -122,7 +122,8 @@ if report:
             runs["ok"] = runs["ok"].fillna(0).astype(int).astype(bool)
             plot = runs.assign(chain_label=runs["chain"].map(CHAIN_LABEL), at=pd.to_datetime(runs["taken_at"], utc=True).dt.tz_convert(TZ),
                                duration_s=runs["duration_s"].fillna(0))
-            leyenda([(CHAIN_LABEL[c], CHAIN_COLOR[c]) for c in CHAINS] + [(OPS_TEXT["runs_failed_legend"], WARN)])
+            run_chains = [c for c in CHAIN_LABEL if c in set(runs["chain"])]
+            leyenda([(CHAIN_LABEL[c], CHAIN_COLOR[c]) for c in run_chains] + [(OPS_TEXT["runs_failed_legend"], WARN)])
             base = alt.Chart(plot).encode(
                 x=alt.X("at:T", title=OPS_TEXT["runs_chart_x"], axis=alt.Axis(format="%d/%m %H:%M")),
                 y=alt.Y("duration_s:Q", title=OPS_TEXT["runs_chart_y"]),
@@ -130,7 +131,8 @@ if report:
                          alt.Tooltip("duration_s:Q", title=COLUMN_LABEL["duration_s"], format=".0f"),
                          alt.Tooltip("n_shows:Q", title=COLUMN_LABEL["n_shows"], format=","), alt.Tooltip("calls:Q", title=COLUMN_LABEL["calls"])])
             good = base.transform_filter(alt.datum.ok).mark_circle(size=70).encode(
-                color=alt.Color("chain_label:N", scale=alt.Scale(domain=CHAIN_DOMAIN, range=CHAIN_RANGE), legend=None))
+                color=alt.Color("chain_label:N", scale=alt.Scale(domain=[CHAIN_LABEL[c] for c in run_chains],
+                                                            range=[CHAIN_COLOR[c] for c in run_chains]), legend=None))
             bad = base.transform_filter(~alt.datum.ok).mark_point(size=110, shape="cross", filled=True, color=WARN)
             chart((good + bad).properties(height=200))
             shown = runs[["taken_at", "chain", "ok", "n_shows", "n_cinemas", "n_events", "calls", "duration_s", "error"]]
