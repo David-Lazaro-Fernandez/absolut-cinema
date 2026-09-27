@@ -26,6 +26,14 @@ _SITE_DECIMALS = 4
 HIGHLIGHTS = {"ticket_price": "min", "ticket_max": "max", "popcorn_price": "min", "shows": "max", "screens": "max", "seats": "max", "sold_pct": "max"}
 
 
+def display_name(cinema_id, name):
+    """Nombre del cine para mostrar: Cinépolis llama igual al complejo y a su VIP ("Plaza Carso") y solo el id los
+    distingue, así que al VIP se le agrega "VIP"."""
+    if "vip" in cinema_id and "vip" not in (name or "").lower():
+        return f"{name} {CINEMA_TYPE_LABEL['vip']}"
+    return name
+
+
 def cinema_map(conn, d0=None, d1=None, from_now=True, plaza=None, chains=MAP_CHAINS, cinema_ids=None):
     """Por cine con coordenadas: `chain`, `cinema_id`, `cinema_name`, `lat`, `lng`, `shows` y `titles` (en la ventana),
     `screens` y `seats` (aforo medido), `ticket_price` y `ticket_sampled_at` (boleto general tradicional de viernes a
@@ -80,9 +88,7 @@ def cinema_map(conn, d0=None, d1=None, from_now=True, plaza=None, chains=MAP_CHA
 
     for r in cinemas:
         k = key(r)
-        # Cinépolis llama igual al complejo y a su VIP ("Plaza Carso"); solo el id lo distingue.
-        if "vip" in r["cinema_id"] and "vip" not in (r["cinema_name"] or "").lower():
-            r["cinema_name"] = f"{r['cinema_name']} {CINEMA_TYPE_LABEL['vip']}"
+        r["cinema_name"] = display_name(r["cinema_id"], r["cinema_name"])
         s, c, t, o, x = shows.get(k, {}), capacity.get(k, {}), tickets.get(k, {}), occupancy.get(k, {}), top_tickets.get(k, {})
         r.update(shows=s.get("shows", 0), titles=s.get("titles", 0), screens=c.get("screens"), seats=c.get("seats"),
                  ticket_price=t.get("ticket_price"), ticket_sampled_at=t.get("ticket_sampled_at"),

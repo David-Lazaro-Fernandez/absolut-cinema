@@ -162,11 +162,22 @@ sus colores y marca las fallidas con una cruz ámbar.
 
 ### Página Mapa
 
-Mapa de cines (`views/mapa.py`) con pydeck sobre el mapa base claro de CARTO (datos de OpenStreetMap, sin clave; el
+Mapa de cines (`views/mapa.py`) con pydeck sobre el mapa base claro *Positron* de OpenFreeMap (`BASEMAP_STYLE` en `ui/common.py`,
+vectorial, sin clave, datos de OpenStreetMap; el
 crédito va en el pie de la página). Cada cine es un punto en su color de cadena (los de un mismo edificio se abren en círculo y comparten tooltip y ficha) (`CHAIN_COLOR`, convertido con
 `rgb()` de `ui/common.py`), con borde papel; el tamaño (en píxeles, 5–22, no crece con el zoom) sigue la métrica elegida
 en la barra lateral y un cine sin ese dato queda chico y tenue (alfa 70). Ficha al pasar el cursor (fondo papel, texto tinta) y ficha fija al hacer clic.
 Encima, la tabla de destacados por cadena; debajo, la tabla completa en un apéndice.
+
+### Página ¿A dónde ir? (recomendador)
+
+`views/recomendador.py`: arriba el formulario "Tu plan" (dirección con botón Buscar, "Usar mi ubicación", grupo por
+tipo de boleto, presupuesto, dulcería y día) y "Más filtros" en un expander; luego el mapa Leaflet (`streamlit-folium`, el mismo mapa base de la página Mapa, dibujado con
+MapLibre dentro de Leaflet por `vector_basemap()`) porque el
+clic en un punto vacío tiene que devolver su coordenada, y pydeck solo avisa de clics sobre un objeto. El punto de
+partida es un círculo papel con borde tinta; el radio, una línea gris; los cines con funciones que caben, puntos en su
+color de cadena. Resultados en `table.mk` (boletos, dulcería y total), con Cinemex en rojo; las funciones sin precio de
+dulcería en su propia sección y las sin precio de boletos en un apéndice.
 
 ### Página Independientes
 
@@ -177,7 +188,7 @@ pendientes (`st.info`) mientras la lectura de sus planos no esté confirmada.
 
 ### Navegación entre páginas
 
-`st.navigation(position="top")`: pestañas "Cartelera", "Mapa", "Dulcería", "Independientes", "Datos" y, para el rol admin, "Usuarios" y "Operaciones" en la barra
+`st.navigation(position="top")`: pestañas "Cartelera", "Mapa", "¿A dónde ir?", "Dulcería", "Independientes", "Datos" y, para el rol admin, "Usuarios" y "Operaciones" en la barra
 superior en escritorio. Sin sesión la navegación va oculta (`position="hidden"`) y solo existen las páginas de acceso. En pantallas de
 768 px o menos, una regla `@media` fija la barra al pie de la pantalla (fondo papel, borde superior, sombra suave) y
 deja 84 px de aire al final del contenido, para que quede al alcance del pulgar. No probado en dispositivo real

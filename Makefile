@@ -8,7 +8,7 @@ VENV ?= .venv/bin
 .PHONY: help job units units-check tick snapshot seats occupancy post-start health prices concessions delivery capacity capacity-cinemex presale \
         calibrate-cinemex dashboard backup launchd-load launchd-unload \
         user-create user-list user-reset user-deactivate user-activate auth-prune deploy check lint test test-live fixtures hooks \
-        marketing-dev marketing-build
+        marketing-dev marketing-build export-recommender export-places
 
 help:               ## lista los targets
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-20s %s\n", $$1, $$2}'
@@ -66,8 +66,14 @@ dashboard:          ## Streamlit local
 marketing-dev:      ## landing page pública en local (Next.js, marketing/); requiere `npm install` una vez ahí
 	cd marketing && npm run dev
 
-marketing-build:    ## exporta la landing page pública como sitio estático a marketing/out
+marketing-build: export-recommender export-places  ## exporta la landing page pública como sitio estático a marketing/out
 	cd marketing && npm run build
+
+export-recommender: ## datos de /a-donde-ir/ de la landing (CDMX, Guadalajara y Monterrey, 7 días) a marketing/public/data/a-donde-ir.json
+	$(PY) scripts/export_recommender.py
+
+export-places:      ## índice de lugares de CDMX, Guadalajara y Monterrey (OpenStreetMap) para las sugerencias instantáneas de /a-donde-ir/
+	$(PY) scripts/export_places.py
 
 user-create:        ## cuenta nueva con enlace de invitación: EMAIL= NAME= [ROLE=admin|viewer] [NOMAIL=1]
 	$(VENV)/python -m auth.cli create --email "$(EMAIL)" --name "$(NAME)" --role $(or $(ROLE),viewer) $(if $(NOMAIL),--no-mail,)

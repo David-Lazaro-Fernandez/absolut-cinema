@@ -15,8 +15,9 @@ alguien en dirección comercial o revenue management de **una cadena de cine que
 sin acceso al producto — decidiendo si vale la pena pedir una demo. Su trabajo en la página es uno
 solo: entender qué hace el producto en los primeros diez segundos y decidir si escribe.
 
-No es un blog, no tiene rutas más allá de la portada, y no necesita servidor: es contenido
-estático (`next.config.mjs` usa `output: 'export'`).
+No es un blog y no necesita servidor: es contenido estático (`next.config.mjs` usa `output: 'export'`). Tiene dos
+rutas: la portada y `/a-donde-ir/`, la demo pública del recomendador (§7), que le enseña a cualquiera —no solo a una
+cadena— lo que Matiné sabe de la cartelera con datos reales.
 
 ## 2. Identidad heredada, no inventada
 
@@ -106,6 +107,10 @@ marca. Un componente por sección en `components/`, en este orden:
 9. **`footer-section.tsx`.** Marca + dos columnas (Producto, Contacto) + barra inferior. Sin redes
    sociales ni "todos los sistemas operativos": no hay página de estado pública.
 
+**Movimiento.** Toda transición y animación usa la curva `--ease-out` (`cubic-bezier(0.22, 1, 0.36, 1)`), también el
+movimiento del mapa de `/a-donde-ir/` (MapLibre recibe esa misma curva, leída de la variable). Las únicas en `linear`
+son las continuas o de tiempo: la cinta del hero y la barra de progreso de "Cómo funciona".
+
 Ancho de lectura `--wrap: 1120px`, el mismo que `.block-container` del dashboard; la barra de
 navegación llega a 1400 px solo sin scroll. Todo lo que aparece al hacer scroll usa `Reveal` /
 `useReveal` (`components/reveal.tsx`, `IntersectionObserver`), y `prefers-reduced-motion` apaga
@@ -135,6 +140,7 @@ clase con otro nombre para lo mismo:
 | `.hgrid__*` | Rejilla con hairlines (gap 1 px sobre `--line`) |
 | `.cta__*` | Llamado final enmarcado |
 | `.footer__*` | Pie |
+| `.rec-stage*`, `.rec-dock*`, `.rec-card*`, `.rec-ask*`, `.rec-menu*`, `.rec-screen*`, `.rec-tabs*`, `.rec__*` | `/a-donde-ir/`: pantalla de búsqueda (mapa a pantalla completa con velo, barra que baja al pie, ficha de cine, menú de opciones) y de resultados (pestañas, tabla que en celular se vuelve tarjetas) |
 
 Sin Tailwind ni framework de CSS: las clases son pocas y con nombre, y eso es parte del contrato
 con este documento. Si el sitio crece a varias rutas, esa es la señal para reconsiderarlo.
@@ -157,7 +163,71 @@ con este documento. Si el sitio crece a varias rutas, esa es la señal para reco
 - **Formulario con backend.** El CTA es un `mailto:` (`lib/site.ts`); el correo es un marcador hasta
   que exista la bandeja real.
 
-## 7. Verificar un cambio
+## 7. `/a-donde-ir/`: demo pública del recomendador
+
+`app/a-donde-ir/page.tsx` + `components/recommender.tsx` (formulario, resultados) + `components/recommender-map.tsx`
+(mapa) + `lib/recommend.ts` (cálculo en el navegador). El visitante da su punto de partida (dirección, ubicación del
+navegador o clic en el mapa), su grupo (adultos, niños, adultos mayores), un paquete de dulcería, su presupuesto y el
+día; ve las funciones que le quedan cerca y caben.
+
+- **Tres ciudades** (2026-09-27): CDMX, Guadalajara y Monterrey van en el mismo catálogo (`plazas`, con el centro y la
+  caja de sus cines). Sin punto de partida, tres chips bajo la barra (`.rec-stage__cities`, los mismos `.rec__chip`)
+  eligen la ciudad: mueven el mapa de fondo y acotan el buscador y su caché a esa zona. Con punto de partida, la ciudad
+  es la más cercana a él y los chips desaparecen.
+
+- **Datos.** `/data/a-donde-ir.json`, que genera `make export-recommender` (`../scripts/export_recommender.py`, formato
+  documentado ahí) con la misma lógica de precios del dashboard (`../analytics/recommender.py`). No se versiona
+  (cae en el `data/` del `.gitignore` raíz): `make marketing-build` lo regenera antes de construir. Si falta, la página
+  dice que los datos no están disponibles. El JSON trae su fecha de corte y la página la muestra.
+- **Neutral entre cadenas** (decisión 2026-09-27): a diferencia del dashboard, aquí no se destaca a Cinemex. Los
+  cines van todos en tinta, sin color por cadena, y un empate se resuelve por distancia y hora. El único rojo es la
+  acción: el botón Buscar, los rótulos de los pasos y el punto de partida.
+- **Sin cifras inventadas.** Una función sin precio de su cine va aparte ("sin precio de boletos"); si el grupo pide
+  dulcería y el cine no publica su menú en sala (Cinemex, la Cineteca), la función va en "Sin precio de dulcería en
+  sala" con solo los boletos. Sin paquete, la columna Dulcería muestra la referencia de palomitas y refresco donde
+  existe.
+- **Mapa.** MapLibre (`maplibre-gl`, la única dependencia nueva) con el estilo Positron de OpenFreeMap: sin clave,
+  uso comercial permitido. Sin WebGL, el mapa se reemplaza por un aviso y el resto sigue funcionando.
+- **Direcciones, con sugerencias mientras se escribe** (2026-09-27). Tres capas, para que una red lenta no se note:
+  1. *Índice local* (`/data/lugares.json`, `make export-places` → `../scripts/export_places.py`): unos 6 mil
+     lugares de las tres ciudades de OpenStreetMap (colonias, alcaldías, ciudades, estaciones de Metro, Metrobús, Tren
+     Ligero, Cablebús, Mi Macro, Metrorrey y Ecovía, plazas comerciales, universidades) más los cines del catálogo;
+     88 KB comprimido. A igual coincidencia gana lo más cercano a la ciudad elegida. Se busca en el navegador
+     (`lib/places.ts`): cada palabra escrita debe iniciar una palabra del nombre, sin acentos ni mayúsculas; primero lo
+     que empieza igual, luego por tipo (alcaldía y colonia antes que universidad) y cercanía. Desde 2 letras, en ~15 ms.
+  2. *Photon* (komoot, datos de OSM, sin clave) solo si lo local no llena 3 sugerencias o si hay un número (una calle
+     con número): desde 3 letras y tras 250 ms sin teclear, dentro de la zona de la ciudad elegida y cerca del punto actual,
+     `lang=default` (con `lang=es` no responde). Nominatim, el buscador nativo de OSM, prohíbe autocompletar.
+  3. *Caché*: cada respuesta de Photon se guarda por ciudad y texto en memoria y en `localStorage` (las últimas 60); mientras
+     llega una nueva se filtra la del texto guardado más largo que empiece igual. `preconnect` abre la conexión con
+     Photon al cargar, para ahorrar el saludo TLS de la primera búsqueda.
+  Nombre en tinta y contexto en gris (el tipo, salvo que el nombre ya lo diga); clic, ↑↓ + Enter o Esc; enviar sin
+  elegir toma la primera. Con tráfico real, cambiar Photon por una instancia propia o un proveedor con clave es cambiar
+  `geocode()` en `components/recommender.tsx`. Crédito a OpenStreetMap en el pie. La ubicación del navegador pide
+  HTTPS (o localhost).
+- **Compartir.** `?lat=…&lng=…` en la URL abre la página con ese punto de partida.
+- **Celular.** Debajo de 700 px cada función es una tarjeta con el cine y el total arriba (`.rec__c-*`).
+
+- **Estructura: una pantalla por cosa** (2026-09-27, a pedido de David; fondo papel y reglas de `../DESIGN.md`: sin
+  sombras, radio 8 px en tarjetas, píldora solo en controles). Nada se lee haciendo scroll por toda la página:
+  1. *Búsqueda*: el mapa llena la pantalla bajo el nav. Sin punto de partida, un velo de papel al 90 % con desenfoque
+     lo deja como fondo apenas visible y no recibe clics; al centro, el título y una sola barra en píldora (opciones ·
+     dirección · mi ubicación · buscar en rojo). Con punto de partida el velo se desvanece, el mapa se vuelve
+     interactivo y la barra baja al pie con una transición (el "dock", como un chat): encima de ella, una línea con el
+     plan y el botón rojo "Ver funciones en N cines". Los cines que tienen funciones que caben son puntos en tinta;
+     tocar uno lo agranda y abre su ficha flotante (todas sus funciones que caben, por hora, con total); tocar fuera
+     de un cine mueve el punto de partida. El crédito del mapa va arriba a la izquierda. El botón de opciones abre un
+     menú con quiénes van, dulcería, cuándo, presupuesto y más filtros (hacia abajo con la barra al centro, hacia
+     arriba con la barra al pie): cada fila es una línea (ícono, qué y su valor en gris) que al tocarla muestra sus
+     controles y una ×; se cierra con un clic afuera o Esc.
+  2. *Resultados*: "← Cambiar búsqueda" con el plan en una línea, el resumen y pestañas (Caben, Sin precio de dulcería,
+     Sin precio de boletos, cada una con su total) en vez de secciones apiladas; 10 funciones a la vez con "Ver más".
+
+Clases: `.rec-stage*` (pantalla de búsqueda: mapa, velo, título), `.rec-dock*` (barra al centro o al pie),
+`.rec-card*` (ficha de un cine), `.rec-ask*` (barra), `.rec-menu*` (menú de opciones), `.rec-screen*` y
+`.rec-tabs*` (pantalla de resultados), `.rec__*` (contador, fichas, campos, tabla y tarjetas de resultados).
+
+## 8. Verificar un cambio
 
 ```sh
 cd marketing
@@ -171,7 +241,10 @@ node scripts/screenshot.mjs http://localhost:3000/ 1440 900 /tmp/hero.png
 node scripts/screenshot.mjs http://localhost:3000/ 390 844 /tmp/movil.png full
 ```
 
-No hay pruebas automatizadas: es una sola página estática. Antes de dar por bueno un cambio de copy
+No hay pruebas automatizadas del sitio; el cálculo de precios de `/a-donde-ir/` se prueba del lado de Python
+(`../tests/test_recommend.py`, incluido el formato del JSON). Para `/a-donde-ir/`, captura con un punto de partida:
+`node scripts/screenshot.mjs "http://localhost:3000/a-donde-ir/?lat=19.35&lng=-99.162" 1440 900 /tmp/rec.png full`
+(el script activa WebGL por software para que se dibuje el mapa). Antes de dar por bueno un cambio de copy
 o de sección, mira la página entera en escritorio (1440) y en celular (390): la cinta del hero debe
 quedar dentro del primer viewport en 1440 × 900, la ventana de la sección oscura debe verse completa,
 y las rejillas (`.feat__body`, `.hgrid`, `.pilot__grid`, `.cta__inner`) deben apilarse sin desbordar.

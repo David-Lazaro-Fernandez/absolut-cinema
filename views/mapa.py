@@ -148,7 +148,7 @@ with seccion("mapa-mapa"):
                       radius_units="'pixels'",   # pydeck toma un texto suelto como expresión JS: el literal va entre comillas
                       get_line_color=rgb(PAPER), line_width_min_pixels=1, stroked=True, pickable=True, auto_highlight=True)
     view = pdk.ViewState(latitude=float(data.lat.mean()), longitude=float(data.lng.mean()), zoom=zoom_for(data, plaza, cinema_ids))
-    event = st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view, tooltip=tooltip, map_provider="carto", map_style="light"),
+    event = st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view, tooltip=tooltip, map_style=BASEMAP_STYLE),
                             on_select="rerun", selection_mode="single-object", key="map", height=560)
     picked = (event.selection.objects.get("cines") or [None])[0] if event and event.selection else None
     site = next((x for x in sites if picked and x["site_id"] == picked.get("site_id")), None)

@@ -411,6 +411,8 @@ COLUMN_LABEL.update({
 })
 
 # --- Mapa de cines (analytics/cinema_locations.py, views/mapa.py) ---
+MAP_ATTRIBUTION = '© <a href="https://openfreemap.org">OpenFreeMap</a> © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+
 MAP_METRIC = {    # métrica → (etiqueta, formato del valor, qué destaca)
     "shows": ("Funciones", "{:,.0f}", "Más funciones"),
     "screens": ("Salas", "{:,.0f}", "Más salas"),
@@ -459,13 +461,94 @@ MAP_TEXT = {
             "es la métrica elegida, relativa al cine con el valor más alto de los que se ven; no cambia con el zoom. "
             "Los cines que comparten edificio se dibujan un poco separados de su ubicación real para que se vean todos.",
     "footer": "Fuentes: cartelera pública de Cinemex, Cinépolis y la Cineteca Nacional; planos de asientos; precios de lista "
-              "muestreados por cine; menú de dulcería en línea de Cinépolis. Mapa base © OpenStreetMap y CARTO.",
+              "muestreados por cine; menú de dulcería en línea de Cinépolis. Mapa base © OpenFreeMap y OpenStreetMap.",
 }
 COLUMN_LABEL.update({
     "ticket_price": "Boleto tradicional vie–dom", "ticket_sampled_at": "Boleto leído",
     "ticket_max": "Boleto más caro", "ticket_max_format": "Formato del más caro", "ticket_max_sampled_at": "Más caro leído", "popcorn_price": "Palomitas en sala",
     "occupancy_samples": "Funciones medidas",
 })
+
+# --- Recomendador (analytics/recommender.py, views/recomendador.py) ---
+RECOMMEND_SORT = {"distance": "Más cerca", "price": "Más barato", "time": "Más pronto"}
+SNACK_LABEL = {"none": "Sin dulcería", "popcorn": "Palomitas y refresco por persona", "combo": "Un Combo Clásico cada dos"}
+GROUP_LABEL = {    # tipo de boleto → (singular, plural)
+    "adults": ("adulto", "adultos"), "children": ("niño", "niños"), "seniors": ("adulto mayor", "adultos mayores"),
+}
+RECOMMEND_TEXT = {
+    "nav": "¿A dónde ir?",
+    "title": "¿A dónde ir? <span>Funciones</span> para tu grupo y tu presupuesto",
+    "no_db": "Aún no hay datos: la base no existe todavía. Ver la página de cartelera.",
+    "plan": "Tu plan",
+    "plan_desc": "Dinos desde dónde sales, quiénes van y cuánto quieren gastar en total.",
+    "address": "Dirección o lugar",
+    "address_placeholder": "Ej. Av. Insurgentes Sur 3500, Coyoacán",
+    "search": "Buscar",
+    "locate": "Usar mi ubicación",
+    "locating": "Pidiendo tu ubicación al navegador…",
+    "locate_denied": "El navegador no compartió tu ubicación. Escribe una dirección o haz clic en el mapa.",
+    "locate_https": "La ubicación del navegador solo funciona con HTTPS o en esta computadora (localhost).",
+    "not_found": "No encontramos esa dirección. Prueba con calle y colonia, o haz clic en el mapa.",
+    "geocoder_down": "El buscador de direcciones no respondió. Haz clic en el mapa para marcar tu punto.",
+    "found": "Punto de partida: {label}",
+    "from_click": "Punto de partida: el que marcaste en el mapa.",
+    "from_device": "Punto de partida: tu ubicación actual.",
+    "adults": "Adultos",
+    "children": "Niños",
+    "seniors": "Adultos mayores",
+    "group_empty": "Agrega al menos una persona al grupo.",
+    "budget": "Presupuesto total ($)",
+    "budget_help": "Boletos más dulcería para todo el grupo; 0 es sin tope.",
+    "snacks": "Dulcería",
+    "when": "Cuándo",
+    "today": "Hoy",
+    "tomorrow": "Mañana",
+    "pick": "Elegir fecha",
+    "date": "Fecha",
+    "more": "Más filtros",
+    "hours": "Hora de inicio",
+    "radius": "Distancia máxima (km)",
+    "title_filter": "Película",
+    "any_title": "Cualquier película",
+    "formats": "Formato",
+    "any_format": "Cualquier formato",
+    "sort": "Ordenar por",
+    "map": "Tu punto en el mapa",
+    "map_desc": "Haz clic en el mapa para mover tu punto de partida; el círculo es la distancia máxima.",
+    "no_location": "Escribe una dirección, usa tu ubicación o haz clic en el mapa para empezar.",
+    "start": "Punto de partida",
+    "results": "Funciones que te recomendamos",
+    "summary_budget": "Para {group}, {shows} funciones en {cinemas} cines caben en tu presupuesto con {snacks}.",
+    "summary_open": "Para {group}, hay {shows} funciones en {cinemas} cines a tu alcance con {snacks}.",
+    "summary_best": " La más barata es {cheapest}: {cheapest_total} en total, a {cheapest_km}; la más cercana, {nearest} a {nearest_km}.",
+    "summary_saving": " Eliges bien y ahorras {saving} frente a la más cara que cabe.",
+    "none": "Ninguna función con costo completo cabe con esos filtros. Prueba con más distancia, otro horario, otra "
+            "dulcería o más presupuesto.",
+    "per_cinema_note": "Hasta {n} funciones por cine; ordena por hora para ver todas las del más cercano.",
+    "snacks_unpriced": "Sin precio de dulcería en sala",
+    "snacks_unpriced_desc": "Estas funciones caben en tu presupuesto solo en boletos: su cine no publica el precio de la "
+                            "dulcería en sala (Cinemex tiene apagada la venta de dulcería en línea), así que no sabemos "
+                            "el total y no las comparamos con las de arriba.",
+    "col_cinema": "Cine", "col_title": "Película", "col_time": "Función", "col_format": "Formato", "col_language": "Idioma",
+    "snack_reference": "ref. {price}",
+    "snack_no_menu": "sin precio en sala",
+    "col_tickets": "Boletos", "col_snacks": "Dulcería", "col_total": "Total", "col_distance": "Distancia",
+    "km": "{km:.1f} km",
+    "unpriced": "Funciones cercanas sin precio de boletos",
+    "unpriced_summary": "{n} funciones",
+    "unpriced_desc": "No hay lectura del boleto de su cine para ese formato y día (la Cineteca aún no tiene precio "
+                     "capturado); por eso no entran al presupuesto.",
+    "leer": "Los boletos son los de lista más recientes del cine para ese formato y ese tipo de día (fin de semana, "
+            "martes y miércoles de promoción, lunes y jueves), sin eventos ni matinés: adulto, niño y adulto mayor "
+            "según el grupo; si la función no tiene boleto de niño o de adulto mayor, pagan el general. La dulcería es "
+            "el precio del menú en sala de ese cine (tamaño base), que solo Cinépolis publica por complejo; sin paquete, la "
+            "columna muestra como referencia palomitas y refresco para una persona. No incluye "
+            "el cargo por servicio de la compra en línea. La distancia es en línea recta desde tu punto, no el tiempo "
+            "de traslado. Para hoy solo aparecen funciones que aún no empiezan. En un empate, Cinemex va primero.",
+    "footer": "Fuentes: cartelera pública de Cinemex, Cinépolis y la Cineteca Nacional; precios de lista muestreados por "
+              "cine, formato y tipo de día; menú de dulcería en línea de Cinépolis. Direcciones: Nominatim © "
+              "OpenStreetMap. Mapa base © OpenFreeMap y OpenStreetMap.",
+}
 
 # --- Operaciones (scraper/health.py, views/operaciones.py; solo admin) ---
 # La página es para ingeniería: los nombres de tablas y logs se muestran tal cual, a diferencia del resto del tablero.

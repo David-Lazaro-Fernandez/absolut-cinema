@@ -12,6 +12,12 @@ USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/128.0 Safari/537.36"
 )
+# Geocodificador del recomendador del dashboard (dirección → coordenadas). Nominatim de OpenStreetMap: gratis con una
+# consulta por segundo, un User-Agent que identifique a la aplicación y resultados en caché; para volumen público hace
+# falta un servicio propio o de pago (https://operations.osmfoundation.org/policies/nominatim/).
+GEOCODER_URL = os.environ.get("AC_GEOCODER_URL", "https://nominatim.openstreetmap.org/search")
+GEOCODER_USER_AGENT = os.environ.get("AC_GEOCODER_USER_AGENT", "absolut-cinema/1.0 (dashboard; recomendador de funciones)")
+GEOCODER_COUNTRY = os.environ.get("AC_GEOCODER_COUNTRY", "mx")
 REQUEST_TIMEOUT = 60      # segundos por petición
 RETRIES = 3               # reintentos ante 5xx / 429 / red
 # Reintentos de una unidad de captura completa (un estado de Cinemex, un lote de Cinépolis) que falló aun con los

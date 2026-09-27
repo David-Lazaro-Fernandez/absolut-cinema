@@ -16,12 +16,16 @@ vocabulario del stylesheet.
   `how-it-works-section`, `pilot-section`, `principles-section`, `cta-section`, `footer-section`),
   más `reveal.tsx` (aparición por scroll), `ascii-sphere.tsx` (canvas del hero) e `icons.tsx`.
 - `lib/site.ts` — correo de contacto y enlaces de navegación; lo único que se repite en varias secciones.
+- `app/a-donde-ir/`, `components/recommender*.tsx`, `lib/recommend.ts` — la demo pública del recomendador de
+  funciones (ver `design.md` §7). Lee `public/data/a-donde-ir.json`, un archivo de datos (no código) que genera
+  `make export-recommender` desde la raíz del repo y que no se versiona, y `public/data/lugares.json`, el índice de
+  lugares para las sugerencias instantáneas (`make export-places`, de OpenStreetMap; tampoco se versiona).
 - `scripts/screenshot.mjs` — capturas y medidas con el Chrome instalado, por protocolo DevTools.
 
 ```sh
 npm install       # una vez
 npm run dev       # http://localhost:3000
-npm run build     # exporta el sitio estático a marketing/out/
+npm run build     # exporta el sitio estático a marketing/out/ (desde la raíz: `make marketing-build`, que antes regenera los datos)
 node scripts/screenshot.mjs http://localhost:3000/ 1440 900 /tmp/hero.png        # un viewport
 node scripts/screenshot.mjs http://localhost:3000/ 390 844 /tmp/movil.png full    # página entera
 ```

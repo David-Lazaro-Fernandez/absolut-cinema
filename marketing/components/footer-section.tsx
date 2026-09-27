@@ -6,7 +6,7 @@ export function FooterSection() {
       <div className="wrap">
         <div className="footer__grid">
           <div className="footer__brand">
-            <a className="marca" href="#top">
+            <a className="marca" href="/#top">
               Matin<span>é</span>
             </a>
             <p>
