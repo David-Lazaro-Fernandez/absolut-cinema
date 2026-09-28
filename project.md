@@ -703,8 +703,8 @@ para la lógica pura (`tests/`, pytest en el venv, `requirements-dev.txt`).
   descubierto en el primer despliegue el 2026-09-10): las llamadas a `api-g.cinepolis.com` salen por el cliente WARP de
   Cloudflare instalado en la instancia, en modo proxy y con Privoxy como puente HTTP; Cinemex y el resto salen directo.
   Es un servicio más del host, lo instala `install.sh` y no cambia la instancia ni la red de AWS (no hace falta NAT ni
-  IP elástica para esto). Ver "Consideraciones" y `deploy/README.md`. La instancia baja a `t4g.small` (2 GB) solo cuando la
-  captura nacional tenga memoria acotada. Dimensionamiento en `docs/ec2-sizing.md`
+  IP elástica para esto). Ver "Consideraciones" y `deploy/README.md`. Hoy corre en `t4g.small` (2 GB), sin margen: un catch-up de timers
+  llevó al OOM killer a matar a `warp-svc` y a la captura (medición y plan en "Memoria en `t4g.small`", 2026-09-28). Dimensionamiento en `docs/ec2-sizing.md`
   y provisión paso a paso en `docs/aws-setup.md`.
   Lo urgente es salir de la Mac: launchd deja huecos en la serie cada vez
   que la laptop duerme (la noche del 7 al 8 de septiembre se perdieron ~8 h de snapshots por eso).
@@ -1200,6 +1200,10 @@ respaldo. Pruebas: validación de cifras y adaptador con respuestas grabadas, si
 
 ### Pendientes
 
+- **Memoria del servidor (`t4g.small`, medido 2026-09-28; `docs/ec2-sizing.md`).** En orden: `warp-svc` + Privoxy →
+  `wgcf` + `wireproxy` (746 MB → ~25 MB; probado en local, falta el servidor); captura por unidad en vez de retener el
+  crudo nacional (pico de ~650 MB → ~150 MB estimado); trabajos pesados en serie y `MemoryMax=`; API con 2–4 hilos y
+  caché de 128 respuestas.
 - **Costo de la base (decidido el 2026-09-25: solo SQLite, ver "Decisión: solo SQLite").** RDS cobró ~8 USD en ~180 h por ~500 MB de datos; para la etapa de prueba
   se evalúa quitarlo: Postgres en el mismo EC2 (sin cambios de código; ~150–250 MB de RAM con `shared_buffers` chico) o
   todo en SQLite (portar `sync/`, `archive/` y `auth/`, ~1,650 líneas). Se decide con el pico de memoria real de cada
