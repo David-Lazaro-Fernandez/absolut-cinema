@@ -27,9 +27,9 @@ fi
 changed="$(sudo -u absolut git diff --name-only "$before" "$target")"
 sudo -u absolut git reset --hard --quiet "$target"
 
-if grep -q '^requirements-' <<< "$changed"; then
+if grep -q '^requirements' <<< "$changed"; then
   log "cambiaron requirements: reinstalando el venv"
-  sudo -u absolut .venv/bin/pip install -q -r requirements-dashboard.txt
+  sudo -u absolut .venv/bin/pip install -q -r requirements.txt
 fi
 if grep -Eq '^deploy/.*\.(service|timer)$' <<< "$changed"; then
   log "cambiaron unidades de systemd: enlazando, quitando las que ya no existen y encendiendo timers"

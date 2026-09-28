@@ -39,7 +39,7 @@ sqlite3 data/snapshots.db "SELECT * FROM snapshot ORDER BY id DESC LIMIT 4;"
 Dashboard local (sin servicios externos: las cuentas se crean en `data/app.db` al primer uso):
 
 ```sh
-python3.12 -m venv .venv && .venv/bin/pip install -r requirements-dashboard.txt -r requirements-dev.txt
+python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt -r requirements-dev.txt
 make hooks                                            # pre-push: make check (lint, imports, pruebas)
 make user-create EMAIL=tu@correo NAME="Tu Nombre" ROLE=admin   # imprime el enlace para elegir la contraseña
 .venv/bin/streamlit run app.py

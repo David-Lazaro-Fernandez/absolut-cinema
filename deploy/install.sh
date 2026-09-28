@@ -40,7 +40,7 @@ chown -R absolut:absolut "$APP"
 [ -f /etc/absolut-cinema.env ] || { cp deploy/absolut-cinema.env.example /etc/absolut-cinema.env; chmod 600 /etc/absolut-cinema.env; }
 
 sudo -u absolut python3 -m venv .venv
-sudo -u absolut .venv/bin/pip install -q -r requirements-dashboard.txt
+sudo -u absolut .venv/bin/pip install -q -r requirements.txt
 
 # Primer snapshot antes de arrancar el dashboard: la base data/snapshots.db la crea el scraper y el
 # dashboard solo la lee. Si ya copiaste data/ desde otra máquina, este paso se salta solo. Tarda 15–30 min.

@@ -1,16 +1,19 @@
 'use client';
 
-// "¿A dónde ir?": funciones cerca del visitante que caben en el presupuesto de su grupo. La página descarga una vez
-// el catálogo de `scripts/export_recommender.py` y lo filtra con `lib/recommend.ts`, sin servidor.
+// "¿A dónde ir?": funciones cerca del visitante que caben en el presupuesto de su grupo. La API (`lib/api.ts`) responde
+// cada búsqueda. La página no recibe el catálogo completo.
 
 import dynamic from 'next/dynamic';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { preconnect } from 'react-dom';
+import { API_URL, searchParams, useApi } from '@/lib/api';
 import { type PlacesFile, buildIndex, makePlace, plain, searchPlaces } from '@/lib/places';
 import { Calendar, Close, Locate, People, Pin, Popcorn, Send, Sliders, Wallet } from '@/components/rec-icons';
 import {
-  type Catalog,
+  type Options,
+  type Query,
   type Row,
+  type Search,
   type Snacks,
   type Sort,
   FORMAT_LABEL,
@@ -19,18 +22,17 @@ import {
   SORT_LABEL,
   nearestPlaza,
   nowIn,
-  recommend,
-  titlesNear,
+  startMinutes,
 } from '@/lib/recommend';
 
 const RecommenderMap = dynamic(() => import('@/components/recommender-map'), { ssr: false });
 
-const CATALOG_URL = '/data/a-donde-ir.json';
-const PLACES_URL = '/data/lugares.json'; // de scripts/export_places.py; si falta, solo sugiere el geocodificador
+const PLACES_URL = '/lugares.json'; // De scripts/export_places.py. Sin él, solo sugiere el geocodificador.
 // Photon (komoot, datos de OpenStreetMap) permite sugerir mientras se escribe y no pide clave. Nominatim lo prohíbe.
 // La instancia pública es de uso justo: con tráfico real, usar una instancia propia.
 const GEOCODER = 'https://photon.komoot.io/api/';
-const DEFAULT_CENTER = { lat: 19.4326, lng: -99.1332 }; // CDMX, hasta que carga el catálogo
+const DEFAULT_CENTER = { lat: 19.4326, lng: -99.1332 }; // CDMX, hasta que cargan las opciones
+const API_MAX_PEOPLE = 20;
 const LOCAL_MIN_CHARS = 2;
 const ONLINE_MIN_CHARS = 3;
 const SUGGEST_WAIT_MS = 250;
@@ -116,6 +118,7 @@ const MAP_OVERLAP = 150; // px del mapa que tapa el dock con punto de partida
 type Point = { lat: number; lng: number; label: string };
 
 const siteKey = (p: { lat: number; lng: number }) => `${p.lat},${p.lng}`;
+const rowKey = (r: Row) => `${r.chain}-${r.show_id}`;
 
 const money = (v: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(v);
@@ -146,7 +149,7 @@ function groupText(adults: number, children: number, seniors: number) {
   return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} y ${parts[parts.length - 1]}` : parts[0];
 }
 
-function Counter({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
+function Counter({ label, value, max, onChange }: { label: string; value: number; max: number; onChange: (v: number) => void }) {
   return (
     <div className="rec__counter">
       <span className="rec__label">{label}</span>
@@ -155,7 +158,7 @@ function Counter({ label, value, onChange }: { label: string; value: number; onC
           −
         </button>
         <output>{value}</output>
-        <button type="button" aria-label={`Más ${label.toLowerCase()}`} onClick={() => onChange(Math.min(10, value + 1))}>
+        <button type="button" aria-label={`Más ${label.toLowerCase()}`} onClick={() => onChange(Math.min(max, value + 1))}>
           +
         </button>
       </div>
@@ -163,16 +166,28 @@ function Counter({ label, value, onChange }: { label: string; value: number; onC
   );
 }
 
-function BuyLink({ row }: { row: Row }) {
-  if (!row.buyUrl) return null;
+function BuyLink({ row, chain }: { row: Row; chain: string }) {
+  if (!row.buy_url) return null;
   return (
-    <a className="rec__buy" href={row.buyUrl} target="_blank" rel="noopener noreferrer" aria-label={`Comprar en ${row.chain} (abre su sitio)`}>
+    <a className="rec__buy" href={row.buy_url} target="_blank" rel="noopener noreferrer" aria-label={`Comprar en ${chain} (abre su sitio)`}>
       Comprar ↗
     </a>
   );
 }
 
-function ShowsTable({ rows, snacks, today, partial }: { rows: Row[]; snacks: Snacks; today: string; partial?: boolean }) {
+function ShowsTable({
+  rows,
+  snacks,
+  today,
+  chains,
+  partial,
+}: {
+  rows: Row[];
+  snacks: Snacks;
+  today: string;
+  chains: Record<string, string>;
+  partial?: boolean;
+}) {
   return (
     <div className="rec__tablewrap">
       <table className="rec__table">
@@ -190,32 +205,32 @@ function ShowsTable({ rows, snacks, today, partial }: { rows: Row[]; snacks: Sna
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={`${r.cinema}-${r.title}-${r.minutes}-${r.format}`}>
+            <tr key={rowKey(r)}>
               <td className="rec__c-cinema">
-                <strong>{r.cinemaName}</strong>
-                <span className="rec__chain">{r.chain}</span>
+                <strong>{r.cinema_name}</strong>
+                <span className="rec__chain">{chains[r.chain]}</span>
               </td>
               <td className="rec__c-title">{r.title}</td>
               <td className="num rec__c-time">
-                {r.date === today ? time12(r.minutes) : `${dayLabel(r.date, today)}, ${time12(r.minutes)}`}
-                <BuyLink row={r} />
+                {r.date === today ? time12(startMinutes(r)) : `${dayLabel(r.date, today)}, ${time12(startMinutes(r))}`}
+                <BuyLink row={r} chain={chains[r.chain]} />
               </td>
               <td className="rec__c-format">
-                {FORMAT_LABEL[r.format] ?? r.format}
+                {FORMAT_LABEL[r.format_bucket] ?? r.format_bucket}
                 <span className="rec__chain">{LANGUAGE_LABEL[r.language] ?? r.language}</span>
               </td>
-              <td className="num rec__c-tickets" data-label="Boletos">{r.tickets !== null ? money(r.tickets) : '—'}</td>
+              <td className="num rec__c-tickets" data-label="Boletos">{r.tickets_total !== null ? money(r.tickets_total) : '—'}</td>
               {!partial && (
                 <td className="num rec__c-snacks" data-label="Dulcería">
                   {snacks !== 'none'
-                    ? money(r.snacks!)
-                    : r.snackReference !== null
-                      ? <span className="rec__ref" title="Palomitas y refresco para una persona, como referencia">ref. {money(r.snackReference)}</span>
+                    ? money(r.snacks_total!)
+                    : r.snack_reference !== null
+                      ? <span className="rec__ref" title="Palomitas y refresco para una persona, como referencia">ref. {money(r.snack_reference)}</span>
                       : <span className="rec__ref">sin precio en sala</span>}
                 </td>
               )}
               {!partial && <td className="num rec__total rec__c-total">{money(r.total!)}</td>}
-              <td className="num rec__c-dist">{km(r.distanceKm)}</td>
+              <td className="num rec__c-dist">{km(r.distance_km)}</td>
             </tr>
           ))}
         </tbody>
@@ -225,7 +240,7 @@ function ShowsTable({ rows, snacks, today, partial }: { rows: Row[]; snacks: Sna
 }
 
 type RowId = 'group' | 'snacks' | 'when' | 'budget' | 'more';
-type Tab = 'complete' | 'snacksUnpriced' | 'unpriced';
+type Tab = 'complete' | 'snacks_unpriced' | 'unpriced';
 const PAGE = 10; // funciones por página en la pantalla de resultados
 
 function MenuRow({
@@ -264,8 +279,6 @@ function MenuRow({
 }
 
 export function Recommender() {
-  const [catalog, setCatalog] = useState<Catalog | null>(null);
-  const [failed, setFailed] = useState(false);
   const [start, setStart] = useState<Point | null>(null);
   const [address, setAddress] = useState('');
   const [notice, setNotice] = useState('');
@@ -278,20 +291,20 @@ export function Recommender() {
   const [date, setDate] = useState('');
   const [hours, setHours] = useState('Todo el día');
   const [radiusKm, setRadiusKm] = useState(5);
-  const [title, setTitle] = useState<number | null>(null);
-  const [format, setFormat] = useState<number | null>(null);
+  const [title, setTitle] = useState<string | null>(null);
+  const [format, setFormat] = useState<string | null>(null);
   const [sort, setSort] = useState<Sort>('distance');
   const [open, setOpen] = useState<RowId | null>(null);
   const [menu, setMenu] = useState(false);
   const [view, setView] = useState<'search' | 'results'>('search');
-  const [selected, setSelected] = useState<number | null>(null);
+  const [siteId, setSiteId] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [placesFile, setPlacesFile] = useState<PlacesFile | null>(null);
   const [active, setActive] = useState(-1);
   const [typing, setTyping] = useState(false);
   const [tab, setTab] = useState<Tab>('complete');
   const [shown, setShown] = useState(PAGE);
-  const [plaza, setPlaza] = useState(0); // índice en catalog.plazas
+  const [plazaIndex, setPlazaIndex] = useState(0);
   const menuBox = useRef<HTMLDivElement>(null);
   // Cada minuto: con la página abierta, una función que ya empezó sale de los resultados.
   const [now, setNow] = useState(() => nowIn());
@@ -300,15 +313,17 @@ export function Recommender() {
     return () => clearInterval(timer);
   }, []);
   const toggle = (id: RowId) => setOpen((o) => (o === id ? null : id));
-  const area = catalog?.plazas[plaza];
-  const scope = area?.[0] ?? '';
-  const bbox = area ? area[4].join(',') : '';
-  const center = useMemo(() => (area ? { lat: area[2], lng: area[3] } : DEFAULT_CENTER), [area]);
+  const { data: options, error: optionsError } = useApi<Options>('/v1/a-donde-ir/opciones', useMemo(() => new URLSearchParams(), []), now.date);
+  const area = options?.plazas[plazaIndex];
+  const scope = area?.plaza ?? '';
+  const bbox = area ? area.bbox.join(',') : '';
+  const center = useMemo(() => (area ? { lat: area.lat, lng: area.lng } : DEFAULT_CENTER), [area]);
+  const chains = useMemo(() => Object.fromEntries((options?.cinemas ?? []).map((c) => [c.chain, c.chain_label])), [options]);
 
   // Con punto de partida, la plaza es la más cercana a él.
   useEffect(() => {
-    if (catalog && start) setPlaza(nearestPlaza(catalog.plazas, start.lat, start.lng));
-  }, [catalog, start]);
+    if (options && start) setPlazaIndex(nearestPlaza(options.plazas, start.lat, start.lng));
+  }, [options, start]);
 
   useEffect(() => {
     if (!menu) return;
@@ -339,19 +354,17 @@ export function Recommender() {
   }, []);
 
   useEffect(() => {
-    fetch(CATALOG_URL)
-      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
-      .then((c: Catalog) => {
-        setCatalog(c);
-        setDate(c.dates.some(([d]) => d === now.date) ? now.date : c.dates[0]?.[0] ?? '');
-      })
-      .catch(() => setFailed(true));
-  }, [now.date]);
+    if (!options) return;
+    setDate((d) => {
+      const dates = options.dates.map((x) => x.date);
+      return dates.includes(d) ? d : dates.includes(now.date) ? now.date : dates[0] ?? '';
+    });
+  }, [options, now.date]);
 
-  // La conexión con el geocodificador abre antes de la primera búsqueda. En una red lenta, el saludo TLS es buena
-  // parte de la espera.
+  // Abre las conexiones antes de la primera búsqueda. En una red lenta, el saludo TLS es buena parte de la espera.
   useEffect(() => {
     preconnect(new URL(GEOCODER).origin);
+    preconnect(new URL(API_URL).origin);
     loadCache();
     fetch(PLACES_URL)
       .then((r) => (r.ok ? r.json() : null))
@@ -363,9 +376,9 @@ export function Recommender() {
     () =>
       buildIndex(
         placesFile,
-        (catalog?.cinemas ?? []).map(([chain, name, lat, lng]) => ({ name, chain: catalog!.chains[chain], lat, lng })),
+        (options?.cinemas ?? []).map((c) => ({ name: c.cinema_name, chain: c.chain_label, lat: c.lat, lng: c.lng })),
       ),
-    [placesFile, catalog],
+    [placesFile, options],
   );
 
   // Las sugerencias locales salen al instante. El geocodificador responde solo si las locales no alcanzan o si el
@@ -402,47 +415,60 @@ export function Recommender() {
     };
   }, [address, typing, start, placeIndex, center, scope, bbox]);
 
-  const days = useMemo(() => (catalog ? catalog.dates.map(([d]) => d).filter((d) => d >= now.date) : []), [catalog, now.date]);
+  const days = useMemo(() => (options ? options.dates.map((d) => d.date).filter((d) => d >= now.date) : []), [options, now.date]);
   const people = adults + children + seniors;
-  const titles = useMemo(
-    () => (catalog && start && date ? titlesNear(catalog, start.lat, start.lng, radiusKm, date) : []),
-    [catalog, start, radiusKm, date],
+  const budgetValue = Number(budget.replace(/[^\d]/g, ''));
+  const query = useMemo<Query | null>(
+    () =>
+      start && people && date
+        ? {
+            lat: start.lat,
+            lng: start.lng,
+            date,
+            adults,
+            children,
+            seniors,
+            snacks,
+            budget: budgetValue > 0 ? budgetValue : null,
+            radiusKm,
+            hours: HOURS[hours],
+            title,
+            format,
+            sort,
+          }
+        : null,
+    [start, people, date, adults, children, seniors, snacks, budgetValue, radiusKm, hours, title, format, sort],
   );
-  const result = useMemo(() => {
-    if (!catalog || !start || !people || !date) return null;
-    const limit = Number(budget.replace(/[^\d]/g, ''));
-    return recommend(catalog, {
-      lat: start.lat,
-      lng: start.lng,
-      adults,
-      children,
-      seniors,
-      snacks,
-      budget: limit > 0 ? limit : null,
-      date,
-      hours: HOURS[hours],
-      radiusKm,
-      title,
-      format,
-      sort,
-      now,
-    });
-  }, [catalog, start, people, adults, children, seniors, snacks, budget, date, hours, radiusKm, title, format, sort, now]);
+  const searched = useApi<Search>('/v1/a-donde-ir/funciones', useMemo(() => (query ? searchParams(query) : null), [query]), now.minutes);
+  const result = searched.data;
+  const titles = result?.titles ?? [];
   // Un punto por edificio: el complejo y su sala Platino o VIP comparten coordenadas, y un punto tapaba al otro.
-  const sites = useMemo(() => {
-    const byPlace = new Map<string, { id: number; lat: number; lng: number; names: string[]; chains: string[] }>();
-    for (const r of result?.fitting ?? []) {
-      const site = byPlace.get(siteKey(r)) ?? { id: r.cinema, lat: r.lat, lng: r.lng, names: [], chains: [] };
-      if (!site.names.includes(r.cinemaName)) site.names.push(r.cinemaName);
-      if (!site.chains.includes(r.chain)) site.chains.push(r.chain);
-      byPlace.set(siteKey(r), site);
-    }
-    return [...byPlace.values()].map((s) => ({ ...s, name: s.names.join(' · '), chain: s.chains.join(' · ') }));
-  }, [result]);
-  const site = sites.find((s) => s.id === selected) ?? null;
+  const sites = useMemo(
+    () =>
+      (result?.sites ?? []).map((s) => ({
+        id: siteKey(s),
+        lat: s.lat,
+        lng: s.lng,
+        names: s.cinemas.map((c) => c.cinema_name),
+        name: s.cinemas.map((c) => c.cinema_name).join(' · '),
+        chain: [...new Set(s.cinemas.map((c) => c.chain_label))].join(' · '),
+        distanceKm: s.distance_km,
+      })),
+    [result],
+  );
+  const site = sites.find((s) => s.id === siteId) ?? null;
+  // La búsqueda trae pocas funciones por cine. La ficha pide todas las del edificio.
+  const siteSearch = useApi<Search>(
+    '/v1/a-donde-ir/funciones',
+    useMemo(() => (query && site ? searchParams({ ...query, site }) : null), [query, site]),
+    now.minutes,
+  );
   const siteRows = useMemo(
-    () => (result && site ? result.fitting.filter((r) => siteKey(r) === siteKey(site)) : []),
-    [result, site],
+    () =>
+      [...(siteSearch.data?.complete ?? []), ...(siteSearch.data?.snacks_unpriced ?? [])]
+        .filter((r) => siteKey(r) === siteId) // Mientras carga, `data` es del edificio anterior.
+        .sort((a, b) => a.datetime_local.localeCompare(b.datetime_local)),
+    [siteSearch.data, siteId],
   );
 
   function choose(place: Suggestion) {
@@ -450,7 +476,7 @@ export function Recommender() {
     setAddress(place.name);
     setSuggestions([]);
     setTyping(false);
-    setSelected(null);
+    setSiteId(null);
     setNotice('');
   }
 
@@ -502,23 +528,29 @@ export function Recommender() {
     );
   }
 
-  const generated = catalog
+  const generated = options?.captured_at
     ? new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit', timeZone: 'America/Mexico_City' }).format(
-        new Date(catalog.generated_at),
-      )
+        new Date(options.captured_at),
+      ).replace(/\.$/, '') // La hora ya termina en punto ("p.m."). La frase agrega otro.
     : '';
-  const budgetValue = Number(budget.replace(/[^\d]/g, ''));
   const lists: Record<Tab, Row[]> = {
     complete: result?.complete ?? [],
-    snacksUnpriced: snacks !== 'none' ? result?.snacksUnpriced ?? [] : [],
+    snacks_unpriced: snacks !== 'none' ? result?.snacks_unpriced ?? [] : [],
     unpriced: result?.unpriced ?? [],
+  };
+  const counts: Record<Tab, number> = {
+    complete: result?.summary.shows ?? 0,
+    snacks_unpriced: result?.summary.snacks_unpriced ?? 0,
+    unpriced: result?.summary.unpriced ?? 0,
   };
   const tabs: [Tab, string][] = [
     ['complete', 'Caben'],
-    ['snacksUnpriced', 'Sin precio de dulcería'],
+    ['snacks_unpriced', 'Sin precio de dulcería'],
     ['unpriced', 'Sin precio de boletos'],
   ];
-  const ready = catalog && start && people;
+  const ready = options && start && people;
+  const cheapest = result?.summary.cheapest;
+  const nearest = result?.summary.nearest;
 
   if (view === 'results' && ready && result) {
     const rows = lists[tab];
@@ -536,10 +568,10 @@ export function Recommender() {
         <h1 className="rec-screen__title">Funciones para {groupText(adults, children, seniors)}</h1>
         {result.complete.length ? (
           <p className="rec__lead">
-            {result.cinemas} {result.cinemas === 1 ? 'cine tiene' : 'cines tienen'} funciones que caben
+            {result.summary.cinemas} {result.summary.cinemas === 1 ? 'cine tiene' : 'cines tienen'} funciones que caben
             {budgetValue > 0 ? ' en tu presupuesto' : ''} a {radiusKm} km o menos de tu punto de partida.
-            {result.cheapest && ` La más barata: ${result.cheapest.cinemaName} (${result.cheapest.chain}), ${money(result.cheapest.total!)} en total a ${km(result.cheapest.distanceKm)}.`}
-            {result.nearest && ` La más cercana: ${result.nearest.cinemaName}, a ${km(result.nearest.distanceKm)}.`}
+            {cheapest && ` La más barata: ${cheapest.cinema_name} (${chains[cheapest.chain]}), ${money(cheapest.total!)} en total a ${km(cheapest.distance_km)}.`}
+            {nearest && ` La más cercana: ${nearest.cinema_name}, a ${km(nearest.distance_km)}.`}
           </p>
         ) : (
           <p className="rec__lead">
@@ -553,12 +585,12 @@ export function Recommender() {
             .filter(([t]) => t === 'complete' || lists[t].length > 0)
             .map(([t, label]) => (
               <button key={t} type="button" role="tab" aria-selected={tab === t} className={`rec-tabs__tab ${tab === t ? 'is-on' : ''}`} onClick={() => setTab(t)}>
-                {label} <span>{result.counts[t].toLocaleString('es-MX')}</span>
+                {label} <span>{counts[t].toLocaleString('es-MX')}</span>
               </button>
             ))}
         </div>
 
-        {tab === 'snacksUnpriced' && (
+        {tab === 'snacks_unpriced' && (
           <p className="rec__hint">
             Estos cines no publican el precio de su dulcería en sala: solo sabemos cuánto cuestan los boletos y no los comparamos con los que caben.
           </p>
@@ -566,7 +598,7 @@ export function Recommender() {
         {tab === 'unpriced' && <p className="rec__hint">No hay precio de lista de su cine para ese formato y día; por eso no entran al presupuesto.</p>}
 
         {rows.length > 0 && (
-          <ShowsTable rows={rows.slice(0, shown)} snacks={snacks} today={now.date} partial={tab !== 'complete'} />
+          <ShowsTable rows={rows.slice(0, shown)} snacks={snacks} today={now.date} chains={chains} partial={tab !== 'complete'} />
         )}
         {rows.length > shown && (
           <button type="button" className="pill pill--ghost rec-screen__more" onClick={() => setShown((n) => n + PAGE)}>
@@ -589,9 +621,9 @@ export function Recommender() {
     <div className={`rec-menu ${located ? '' : 'rec-menu--down'}`} role="menu" aria-label="Opciones de la búsqueda">
       <MenuRow id="group" open={open} onToggle={toggle} icon={<People />} label="Quiénes van" value={groupText(adults, children, seniors)}>
         <div className="rec__row">
-          <Counter label="Adultos" value={adults} onChange={setAdults} />
-          <Counter label="Niños" value={children} onChange={setChildren} />
-          <Counter label="Adultos mayores" value={seniors} onChange={setSeniors} />
+          <Counter label="Adultos" value={adults} max={API_MAX_PEOPLE - children - seniors} onChange={setAdults} />
+          <Counter label="Niños" value={children} max={API_MAX_PEOPLE - adults - seniors} onChange={setChildren} />
+          <Counter label="Adultos mayores" value={seniors} max={API_MAX_PEOPLE - adults - children} onChange={setSeniors} />
         </div>
       </MenuRow>
       <MenuRow id="snacks" open={open} onToggle={toggle} icon={<Popcorn />} label="Dulcería" value={SNACK_LABEL[snacks]}>
@@ -659,21 +691,21 @@ export function Recommender() {
           </label>
           <label className="rec__field">
             <span className="rec__label">Película</span>
-            <select value={title ?? ''} onChange={(e) => setTitle(e.target.value === '' ? null : Number(e.target.value))}>
+            <select value={title ?? ''} onChange={(e) => setTitle(e.target.value || null)}>
               <option value="">Cualquier película</option>
-              {titles.map(([i, name]) => (
-                <option key={i} value={i}>
-                  {name}
+              {titles.map((t) => (
+                <option key={t.title_norm} value={t.title_norm}>
+                  {t.title}
                 </option>
               ))}
             </select>
           </label>
           <label className="rec__field">
             <span className="rec__label">Formato</span>
-            <select value={format ?? ''} onChange={(e) => setFormat(e.target.value === '' ? null : Number(e.target.value))}>
+            <select value={format ?? ''} onChange={(e) => setFormat(e.target.value || null)}>
               <option value="">Cualquier formato</option>
-              {(catalog?.formats ?? []).map((f, i) => (
-                <option key={f} value={i}>
+              {(options?.formats ?? []).map((f) => (
+                <option key={f} value={f}>
                   {FORMAT_LABEL[f] ?? f}
                 </option>
               ))}
@@ -702,13 +734,13 @@ export function Recommender() {
           start={start}
           radiusKm={radiusKm}
           cinemas={sites}
-          selected={selected}
+          selected={siteId}
           bottomInset={located ? MAP_OVERLAP : 0}
           onPick={(p) => {
-            setSelected(null);
+            setSiteId(null);
             setStart({ ...p, label: 'el punto que marcaste en el mapa' });
           }}
-          onCinema={setSelected}
+          onCinema={setSiteId}
         />
       </div>
       {/* Sin punto de partida, el velo tapa el mapa y bloquea los clics. */}
@@ -722,29 +754,29 @@ export function Recommender() {
             <div>
               <strong>{site.name}</strong>
               <span className="rec__chain">
-                {site.chain} · {km(siteRows[0].distanceKm)} · {siteRows.length} {siteRows.length === 1 ? 'función' : 'funciones'}
+                {site.chain} · {km(site.distanceKm)} · {siteRows.length} {siteRows.length === 1 ? 'función' : 'funciones'}
               </span>
             </div>
-            <button type="button" className="rec-card__close" aria-label="Cerrar" onClick={() => setSelected(null)}>
+            <button type="button" className="rec-card__close" aria-label="Cerrar" onClick={() => setSiteId(null)}>
               <Close />
             </button>
           </div>
           <ul className="rec-card__list">
             {siteRows.map((r) => (
-              <li key={`${r.cinema}-${r.title}-${r.minutes}-${r.format}`}>
+              <li key={rowKey(r)}>
                 <span className="rec-card__time">
-                  {time12(r.minutes)}
-                  <BuyLink row={r} />
+                  {time12(startMinutes(r))}
+                  <BuyLink row={r} chain={chains[r.chain]} />
                 </span>
                 <span className="rec-card__title">
                   {r.title}
                   <span className="rec__chain">
-                    {site.names.length > 1 && `${r.cinemaName} · `}
-                    {FORMAT_LABEL[r.format] ?? r.format} · {LANGUAGE_LABEL[r.language] ?? r.language}
+                    {site.names.length > 1 && `${r.cinema_name} · `}
+                    {FORMAT_LABEL[r.format_bucket] ?? r.format_bucket} · {LANGUAGE_LABEL[r.language] ?? r.language}
                   </span>
                 </span>
                 <span className="rec-card__price">
-                  {r.total !== null ? money(r.total) : money(r.tickets!)}
+                  {r.total !== null ? money(r.total) : money(r.tickets_total!)}
                   {r.total === null && <span className="rec__chain">solo boletos</span>}
                 </span>
               </li>
@@ -758,19 +790,28 @@ export function Recommender() {
         {located && (
           <div className="rec-dock__context">
             <span>
-              {failed
-                ? 'Los datos de cartelera no están disponibles en este momento.'
-                : !catalog
+              {optionsError || searched.error || siteSearch.error
+                ? optionsError || searched.error || siteSearch.error
+                : !options
                   ? 'Cargando cartelera…'
                   : notice
                     ? notice
                     : !people
                       ? 'Agrega al menos una persona en las opciones.'
-                      : `${groupText(adults, children, seniors)} · ${SNACK_LABEL[snacks].toLowerCase()} · toca un cine para ver sus funciones`}
+                      : !result
+                        ? 'Buscando funciones…'
+                        : `${groupText(adults, children, seniors)} · ${SNACK_LABEL[snacks].toLowerCase()} · toca un cine para ver sus funciones`}
             </span>
-            {catalog && people > 0 && result && (
-              <button type="button" className="pill pill--primary pill--sm" onClick={() => { setTab('complete'); setView('results'); }}>
-                {result.cinemas ? `Ver funciones en ${result.cinemas} ${result.cinemas === 1 ? 'cine' : 'cines'}` : 'Ver resultados'}
+            {options && people > 0 && result && (
+              <button
+                type="button"
+                className="pill pill--primary pill--sm"
+                aria-busy={searched.loading}
+                onClick={() => { setTab('complete'); setView('results'); }}
+              >
+                {result.summary.cinemas
+                  ? `Ver funciones en ${result.summary.cinemas} ${result.summary.cinemas === 1 ? 'cine' : 'cines'}`
+                  : 'Ver resultados'}
               </button>
             )}
           </div>
@@ -836,16 +877,16 @@ export function Recommender() {
           </button>
         </form>
         </div>
-        {!located && catalog && catalog.plazas.length > 1 && (
+        {!located && options && options.plazas.length > 1 && (
           <div className="rec__chips rec-stage__cities" role="radiogroup" aria-label="Ciudad">
-            {catalog.plazas.map(([key, label], i) => (
-              <button key={key} type="button" role="radio" aria-checked={plaza === i} className={`rec__chip ${plaza === i ? 'is-on' : ''}`} onClick={() => setPlaza(i)}>
-                {label}
+            {options.plazas.map((p, i) => (
+              <button key={p.plaza} type="button" role="radio" aria-checked={plazaIndex === i} className={`rec__chip ${plazaIndex === i ? 'is-on' : ''}`} onClick={() => setPlazaIndex(i)}>
+                {p.label}
               </button>
             ))}
           </div>
         )}
-        {!located && <p className="rec-stage__hint">{notice || 'Escribe tu dirección o usa tu ubicación para empezar.'}</p>}
+        {!located && <p className="rec-stage__hint">{notice || optionsError || 'Escribe tu dirección o usa tu ubicación para empezar.'}</p>}
       </div>
     </section>
   );

@@ -13,7 +13,7 @@ const DOUBLE_CLICK_MS = 400;
 const DOUBLE_CLICK_PX = 12;
 
 type Point = { lat: number; lng: number };
-type Cinema = Point & { id: number; name: string; chain: string };
+type Cinema = Point & { id: string; name: string; chain: string };
 
 function circle({ lat, lng }: Point, km: number): GeoJSON.Feature {
   const coords: [number, number][] = [];
@@ -65,10 +65,10 @@ export default function RecommenderMap({
   start: Point | null;
   radiusKm: number;
   cinemas: Cinema[];
-  selected?: number | null;
+  selected?: string | null;
   bottomInset?: number;
   onPick: (p: Point) => void;
-  onCinema?: (id: number) => void;
+  onCinema?: (id: string) => void;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
@@ -135,7 +135,7 @@ export default function RecommenderMap({
     let last = { time: -Infinity, x: 0, y: 0 };
     m.on('click', (e) => {
       const hit = m.getLayer('cinemas') ? m.queryRenderedFeatures(e.point, { layers: ['cinemas'] })[0] : undefined;
-      if (hit && choose.current) return choose.current(Number(hit.properties.id));
+      if (hit && choose.current) return choose.current(String(hit.properties.id));
       const time = e.originalEvent.timeStamp;
       const double = time - last.time < DOUBLE_CLICK_MS && Math.hypot(e.point.x - last.x, e.point.y - last.y) < DOUBLE_CLICK_PX;
       last = double ? { time: -Infinity, x: 0, y: 0 } : { time, x: e.point.x, y: e.point.y };

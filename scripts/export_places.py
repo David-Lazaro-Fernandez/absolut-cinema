@@ -1,12 +1,12 @@
 """Exporta el índice de lugares de CDMX, Guadalajara y Monterrey para las sugerencias instantáneas de "¿A dónde ir?" de
-la landing (`marketing/public/data/lugares.json`): colonias, alcaldías, ciudades, estaciones de transporte, plazas
+la landing (`marketing/public/lugares.json`): colonias, alcaldías, ciudades, estaciones de transporte, plazas
 comerciales y universidades, con coordenadas, desde OpenStreetMap (Overpass API).
 
 Uso:
-  python3 scripts/export_places.py                    # a marketing/public/data/lugares.json
+  python3 scripts/export_places.py                    # a marketing/public/lugares.json
   python3 scripts/export_places.py --out /tmp/lugares.json
 
-Es una consulta de unos 6 mil lugares (2026-09-27), por eso corre al construir el sitio y no en cada visita. Si
+Es una consulta de unos 6 mil lugares (2026-09-27), por eso corre a mano (`make export-places`) y el archivo se versiona. Si
 Overpass no responde, el script conserva el archivo anterior y sale con 0. Sin archivo, la página sugiere solo con el
 geocodificador en línea. Los datos son de OpenStreetMap (ODbL); el sitio da el crédito. Formato (versión 1):
   generated_at, source, kinds [etiqueta], places [[nombre, tipo, lat, lng]]
@@ -22,7 +22,7 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-OUT = Path(__file__).resolve().parent.parent / "marketing" / "public" / "data" / "lugares.json"
+OUT = Path(__file__).resolve().parent.parent / "marketing" / "public" / "lugares.json"
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 USER_AGENT = "absolut-cinema/1.0 (export de lugares para la landing)"
 # Caja de cada plaza en el orden de Overpass (sur, oeste, norte, este). Es un poco más grande que la zona de sus cines.

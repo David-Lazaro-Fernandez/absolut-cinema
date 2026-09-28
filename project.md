@@ -964,19 +964,19 @@ dulcería en sala, va aparte sin cifra inventada.
   en el servidor espera al dominio. El clic en el mapa (`streamlit-folium`) ajusta el punto.
 - **Orden:** más cerca, más barato o más pronto; hasta 3 funciones por cine. Distancia en línea recta (haversine).
 - **Versión pública (2026-09-27):** `/a-donde-ir/` en la landing (`marketing/`, ver `marketing/design.md` §7).
-  `recommend_catalog` + `scripts/export_recommender.py` (`make export-recommender`) exportan cines, precios por cine,
-  formato y tipo de día (adulto, niño, adulto mayor), menú de dulcería y funciones de 7 días de CDMX, Guadalajara y
-  Monterrey (`--plazas`, desde el 2026-09-27) a un solo JSON compacto (260 cines, 494 KB, 87 KB comprimido el
-  2026-09-27); el navegador suma y filtra (`marketing/lib/recommend.ts`) y elige la plaza más cercana al punto de
-  partida. Cada función enlaza a la compra en el sitio de su cadena (`config.BUY_URL`, verificado 2026-09-27):
+  Desde el 2026-09-28 consulta la API pública (`api/main.py`): `GET /v1/a-donde-ir/opciones` (plazas de CDMX,
+  Guadalajara y Monterrey, días, formatos, cines y hora de la captura) y `GET /v1/a-donde-ir/funciones`
+  (`analytics.recommend_search` con empate neutral, `favor_us=False`). Antes descargaba un JSON con el catálogo
+  entero (precios de todos los cines); se quitó porque regalaba el dato del cliente y nadie lo regeneraba en
+  producción. El navegador elige la plaza más cercana al punto de partida. Cada función enlaza a la compra en el sitio de su cadena (`config.BUY_URL`, verificado 2026-09-27):
   Cinépolis `cinepolis.com/mx/horarios?cinema={cinema_id}&movie={movie_id}` abre el paso "Horario" con cine y
   película elegidos; Cinemex `cinemex.com/cine/{cinema_id}/{slug}/fecha-{AAAAMMDD}/pelicula-{movie_id}` abre el cine
   con la película y el día filtrados (sin fecha no muestra funciones; el slug no cuenta). No se puede
   enlazar una función: Cinépolis elige la hora dentro de su app y `cinemex.com/checkout/{show_id}` abierto directo da
   "Ups!". Los enlaces salen de ids que ya guarda `current_showtime`; no se guarda nada nuevo.
   Neutral entre cadenas por decisión de David: sin destacar a Cinemex. Sin paquete de dulcería, la columna muestra la
-  referencia de palomitas y refresco de Cinépolis (también en el dashboard). Pendiente: hosting del sitio y un
-  trabajo que regenere el JSON y reconstruya tras cada `snapshot`. Direcciones: la versión pública sugiere mientras se
+  referencia de palomitas y refresco de Cinépolis (también en el dashboard). Pendiente: hosting del sitio y de la API
+  (`api.matinee.com`). Direcciones: la versión pública sugiere mientras se
   escribe: primero un índice local de ~6 mil lugares de las tres plazas de OpenStreetMap (`scripts/export_places.py`,
   `make export-places`, 88 KB comprimido, sugerencias en ~15 ms) y Photon (komoot, datos de OSM, sin clave; Nominatim prohíbe
   autocompletar) solo para lo que no está ahí, como calles con número, con caché en el navegador; con tráfico real hay

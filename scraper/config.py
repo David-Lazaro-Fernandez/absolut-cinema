@@ -120,6 +120,10 @@ PRESALE_LANDING_SLUG = "preventas"
 # no cuenta. Cinépolis no filtra por fecha.
 BUY_URL = {"cinemex": "https://cinemex.com/cine/{cinema_id}/{cinema_slug}/fecha-{date}/pelicula-{movie_id}",
            "cinepolis": "https://cinepolis.com/mx/horarios?cinema={cinema_id}&movie={movie_id}"}
+
+# API pública (api/): los sitios que la pueden llamar desde el navegador (CORS) y las peticiones por minuto de cada IP.
+API_ORIGINS = _csv("AC_API_ORIGINS") or ("http://localhost:3000",)
+API_REQUESTS_PER_MINUTE = int(os.environ.get("AC_API_REQUESTS_PER_MINUTE", "60"))
 PRESALE_PANEL_PER_TITLE = int(os.environ.get("AC_PRESALE_PANEL", "30"))
 
 # Dulcería de Cinépolis (sample --concessions): un menú completo por cine, renovado cada tantos días.

@@ -25,6 +25,7 @@ defecto, la del piloto) o a nivel nacional. Tres capas, sin mezclarse:
 | Presentación | `app.py` + `ui/` + `views/` | `.venv` (streamlit, pandas, altair) | nada |
 | Acceso | `auth/` | `.venv` (`hashlib.scrypt`; boto3 solo para SES) | `data/app.db` (cuentas, sesiones, enlaces, auditoría), **nada más** |
 | Programación | `jobs/` | **solo stdlib**, `/usr/bin/python3` | `data/logs/jobs.jsonl`, `data/locks/`; genera `deploy/systemd/` |
+| API pública | `api/` | `.venv` (fastapi, uvicorn) | nada (lee `snapshots.db` con `analytics.connect()`, `mode=ro`) |
 | Sitio público | `marketing/` | Node/Next.js, **proyecto independiente** (su propio `package.json`) | nada (sitio estático, `output: 'export'`) |
 
 ### Reglas de arquitectura (no negociables sin discutirlo)
@@ -85,9 +86,8 @@ defecto, la del piloto) o a nivel nacional. Tres capas, sin mezclarse:
   carpeta del script, así `ui/`, `views/`, `analytics/`, `auth/` y `scraper/` también se recargan al
   editarlos. No lo muevas.
 - **`marketing/` es un proyecto aparte** con su propio `package.json`: ninguna capa de Python lo importa y él no importa
-  nada del repo. La única conexión es un archivo de datos: `scripts/export_recommender.py` escribe
-  `marketing/public/data/a-donde-ir.json` (no versionado) para la demo `/a-donde-ir/`, con la lógica de precios de
-  `analytics/recommender.py`; el sitio solo lo descarga y filtra. Su identidad visual sí se hereda a mano de `DESIGN.md` y `analytics/labels.py` (ver
+  nada del repo. La única conexión es HTTP: la demo `/a-donde-ir/` consulta la API pública (`api/main.py`, sobre
+  `analytics/recommender.py`) en `NEXT_PUBLIC_API_URL`, y nunca recibe el catálogo completo. Su identidad visual sí se hereda a mano de `DESIGN.md` y `analytics/labels.py` (ver
   `marketing/design.md`), pero eso es documentación, no código compartido.
 
 ## 2. Principios de producto
@@ -274,7 +274,7 @@ La verificación principal es correr el flujo de verdad contra la base. Hay adem
 `tests/` (pytest, `requirements-dev.txt`, solo en el venv): lógica pura que no toca red (diff de snapshots,
 parsers, cuentas sobre un `app.db` temporal, conjuntos del explorador) y un recorrido por pantalla con `AppTest`
 (`tests/test_views.py`: acceso, cartelera, dulcería, independientes, datos y usuarios, por rol). Las pantallas de acceso corren en
-cualquier máquina (crean su propio `app.db`); las de datos se omiten donde no hay `data/snapshots.db`.
+cualquier máquina (crean su propio `app.db`); las de datos usan la captura grabada donde no hay `data/snapshots.db` (en CI), salvo cartelera y dulcería, que la necesitan real y se omiten.
 La captura se prueba de punta a punta contra respuestas reales grabadas de ambas APIs (`tests/test_capture_replay.py`,
 `tests/fixtures/capture/`, `scripts/capture_fixtures.py`): Cinemex estado 18 y Cinépolis `hermosillo` pasan por
 `snapshot()`, `normalize` y `store`, y el resultado debe ser idéntico al esperado grabado y cumplir las reglas de

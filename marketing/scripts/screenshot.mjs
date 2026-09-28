@@ -33,7 +33,7 @@ try {
   const pending = new Map();
   ws.onmessage = (e) => { const m = JSON.parse(e.data); if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); } };
   const send = (method, params = {}) => new Promise((res) => { const i = ++id; pending.set(i, res); ws.send(JSON.stringify({ id: i, method, params })); });
-  const evaluate = async (expression) => (await send('Runtime.evaluate', { expression, returnByValue: true })).result?.result?.value;
+  const evaluate = async (expression) => (await send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true })).result?.result?.value;
 
   const metrics = (h) => send('Emulation.setDeviceMetricsOverride', { width: +width, height: h, deviceScaleFactor: 1, mobile: +width < 600 });
   await metrics(+height);

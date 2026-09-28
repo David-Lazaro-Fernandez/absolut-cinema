@@ -175,10 +175,12 @@ día; ve las funciones que le quedan cerca y caben.
   eligen la ciudad: mueven el mapa de fondo y acotan el buscador y su caché a esa zona. Con punto de partida, la ciudad
   es la más cercana a él y los chips desaparecen.
 
-- **Datos.** `/data/a-donde-ir.json`, que genera `make export-recommender` (`../scripts/export_recommender.py`, formato
-  documentado ahí) con la misma lógica de precios del dashboard (`../analytics/recommender.py`). No se versiona
-  (cae en el `data/` del `.gitignore` raíz): `make marketing-build` lo regenera antes de construir. Si falta, la página
-  dice que los datos no están disponibles. El JSON trae su fecha de corte y la página la muestra.
+- **Datos** (2026-09-28). La API pública (`../api/main.py`) responde cada búsqueda con la lógica de precios del
+  dashboard (`../analytics/recommender.py`). La página nunca recibe el catálogo completo. `NEXT_PUBLIC_API_URL` fija
+  la dirección al construir; en local es `http://localhost:8000`. `lib/api.ts` pide `opciones` al cargar: ciudades,
+  días, formatos, cines para las sugerencias y la hora de la captura. Pide `funciones` 250 ms después del último
+  cambio del plan y cancela la consulta anterior. La ficha de un edificio pide `funciones?sitio=lat,lng`. Si la API
+  falla o limita (429), la barra lo dice en palabras.
 - **Neutral entre cadenas** (decisión 2026-09-27): a diferencia del dashboard, aquí no se destaca a Cinemex. Los
   cines van todos en tinta, sin color por cadena, y un empate se resuelve por distancia y hora. El único rojo es la
   acción: el botón Buscar, los rótulos de los pasos y el punto de partida.
@@ -193,7 +195,7 @@ día; ve las funciones que le quedan cerca y caben.
   o VIP comparten coordenadas (31 lugares en las tres plazas, 2026-09-27). La ficha muestra las funciones de todos sus
   cines y, si hay más de uno, el nombre del cine en cada función.
 - **Direcciones, con sugerencias mientras se escribe** (2026-09-27). Tres capas, para que una red lenta no se note:
-  1. *Índice local* (`/data/lugares.json`, `make export-places` → `../scripts/export_places.py`): unos 6 mil
+  1. *Índice local* (`/lugares.json`, versionado; `make export-places` → `../scripts/export_places.py`): unos 6 mil
      lugares de las tres ciudades de OpenStreetMap (colonias, alcaldías, ciudades, estaciones de Metro, Metrobús, Tren
      Ligero, Cablebús, Mi Macro, Metrorrey y Ecovía, plazas comerciales, universidades) más los cines del catálogo;
      88 KB comprimido. A igual coincidencia gana lo más cercano a la ciudad elegida. Se busca en el navegador

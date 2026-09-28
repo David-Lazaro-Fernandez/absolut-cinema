@@ -18,7 +18,7 @@ bash /opt/absolut-cinema/deploy/install.sh
 ```
 
 `install.sh` instala todas las dependencias (paquetes del sistema: `python3`, `python3-venv`, `sqlite3`,
-`awscli`, `caddy`; y el venv del dashboard con `requirements-dashboard.txt`; el scraper solo usa la librería
+`awscli`, `caddy`; y el venv del dashboard y la API con `requirements.txt`; el scraper solo usa la librería
 estándar de `/usr/bin/python3`), fija la zona horaria en `America/Mexico_City`, crea el usuario, corre un
 **primer snapshot si no existe `data/snapshots.db`** (el dashboard solo lee esa base, así que sin ella
 mostraría un aviso de "aún no hay datos"), y con `deploy/units.sh` enlaza las unidades de systemd y enciende los timers.
