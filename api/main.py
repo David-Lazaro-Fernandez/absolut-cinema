@@ -2,7 +2,8 @@
 
 Responde la búsqueda con `analytics.recommend_search`, sin entregar el catálogo completo. Es anónima: CORS solo para
 los sitios de `config.API_ORIGINS` y `config.API_REQUESTS_PER_MINUTE` peticiones por minuto por IP. Corre en un solo
-proceso detrás de Caddy, que pone la IP del visitante en X-Forwarded-For.
+proceso detrás de Caddy. Uvicorn lee la IP del visitante de X-Forwarded-For solo en conexiones de 127.0.0.1
+(`FORWARDED_ALLOW_IPS`).
 
 Local: `make api`; la documentación interactiva queda en http://localhost:8000/docs.
 """
@@ -14,6 +15,7 @@ from typing import Annotated, Literal
 
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from typing_extensions import TypedDict  # Pydantic lo exige así antes de Python 3.12
 
@@ -125,7 +127,7 @@ _hits = {}
 
 @app.middleware("http")
 async def _rate_limit(request: Request, call_next):
-    ip = (request.headers.get("x-forwarded-for") or (request.client.host if request.client else "")).split(",")[0].strip()
+    ip = request.client.host if request.client else ""
     now = time.monotonic()
     if len(_hits) > _MAX_TRACKED_IPS:
         _hits.clear()
@@ -141,6 +143,7 @@ async def _rate_limit(request: Request, call_next):
 
 # CORS se agrega después del límite para envolverlo: así un 429 también lleva sus cabeceras.
 app.add_middleware(CORSMiddleware, allow_origins=list(config.API_ORIGINS), allow_methods=["GET"], allow_headers=["*"])
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
 def _read(key, compute):

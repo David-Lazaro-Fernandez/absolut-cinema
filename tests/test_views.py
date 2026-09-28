@@ -40,7 +40,7 @@ ADMIN, VIEWER = "pytest-admin@example.test", "pytest-viewer@example.test"
 PASSWORD = "contraseña-de-pruebas-123"
 
 
-# Cartelera y dulcería comparan ambas cadenas en la misma plaza y leen dulcería: la captura grabada no alcanza.
+# Cartelera y dulcería necesitan ambas cadenas en la misma plaza y precios de dulcería. La captura grabada no los tiene.
 needs_sqlite = pytest.mark.skipif(not config.DB_PATH.exists(), reason="sin data/snapshots.db")
 any_snapshots = pytest.mark.usefixtures("snapshots")
 

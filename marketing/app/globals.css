@@ -269,7 +269,7 @@ button {
   border-radius: 16px;
   transition: all 0.5s var(--ease-out);
   position: relative;
-  z-index: 41; /* Encima del menú abierto: la marca y el botón de cerrar siguen a la vista. */
+  z-index: 41; /* Sobre el menú abierto: la marca y el botón de cerrar quedan visibles. */
 }
 
 .nav--scrolled {
@@ -1606,7 +1606,6 @@ button {
     right: 8px;
   }
 
-  /* En celular la barra no lleva fondo ni borde, ni con scroll ni con el menú abierto. */
   .nav--scrolled .nav__bar {
     background: none;
     border-color: transparent;
@@ -1857,7 +1856,7 @@ button {
   border-bottom: 0;
 }
 
-/* Mientras llegan las funciones del edificio: barras grises con la forma de una fila (hora, título, precio). */
+/* Mientras cargan las funciones del edificio. */
 .rec-card__skeleton span {
   height: 14px;
   border-radius: 4px;
@@ -2158,7 +2157,7 @@ button {
   align-self: center;
 }
 
-/* Lo que responde la búsqueda: la función más barata y la más cercana, antes que la lista. */
+/* La función más barata y la más cercana, arriba de la lista. */
 .rec-picks {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -2443,10 +2442,10 @@ button {
 @media (max-width: 700px) {
   .rec-stage__map,
   .rec-stage__glass {
-    top: 0; /* En celular el mapa sube detrás de la barra: sin franja blanca arriba. */
+    top: 0; /* Detrás de la barra: sin franja blanca arriba. */
   }
 
-  /* Los controles del mapa (crédito y zoom) bajan de la barra para no tapar la marca ni el menú. */
+  /* Debajo de la barra: no tapan la marca ni el menú. */
   .rec-stage .maplibregl-ctrl-top-left,
   .rec-stage .maplibregl-ctrl-top-right {
     top: 80px;
@@ -2477,9 +2476,8 @@ button {
     padding-left: 14px;
   }
 
-  /* Sin punto de partida, el menú abre entre la barra y las ciudades y las empuja. Anima filas de grid (0fr a 1fr)
-     y no max-height: así llega al alto real del menú y no se corta. La barra se queda fija: su posición ya no depende
-     del alto del dock. */
+  /* Sin punto de partida, el menú abre entre la barra y las ciudades. Las filas de grid (0fr a 1fr) animan hasta el
+     alto real; max-height corta la transición. */
   .rec-stage:not(.is-located) .rec-dock {
     display: flex;
     flex-direction: column;
@@ -2563,7 +2561,6 @@ button {
     text-align: left;
   }
 
-  /* Cuatro grupos con aire entre ellos: dónde y cuánto, qué película, cuándo y cómo, y el desglose. */
   .rec__c-cinema { grid-area: cinema; }
   .rec__c-cinema .rec__chain { margin-top: 2px; }
   .rec__c-total { grid-area: total; font-size: 1.3rem; font-weight: 800; text-align: right !important; }
