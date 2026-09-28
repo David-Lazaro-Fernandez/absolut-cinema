@@ -67,9 +67,15 @@ def test_only_the_configured_sites_get_cors(client):
 
 def test_each_ip_has_a_limit_per_minute(client, monkeypatch):
     monkeypatch.setattr(config, "API_REQUESTS_PER_MINUTE", 2)
-    ip = {"X-Forwarded-For": "203.0.113.7"}
-    assert [client.get("/salud", headers=ip).status_code for _ in range(3)] == [200, 200, 429]
-    assert client.get("/salud", headers={"X-Forwarded-For": "203.0.113.8"}).status_code == 200
+    spoofed = [client.get("/salud", headers={"X-Forwarded-For": f"203.0.113.{i}"}).status_code for i in range(3)]
+    assert spoofed == [200, 200, 429]                   # X-Forwarded-For del cliente no cuenta
+    other = TestClient(main.app, client=("198.51.100.8", 50000))
+    assert other.get("/salud").status_code == 200
+
+
+def test_responses_are_compressed(client):
+    res = client.get("/v1/a-donde-ir/opciones", headers={"Accept-Encoding": "gzip"})
+    assert res.status_code == 200 and res.headers["content-encoding"] == "gzip"
 
 
 def test_the_options_come_before_the_search(client):
