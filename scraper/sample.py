@@ -22,6 +22,7 @@ asistencia final y la calibración del semáforo high/mid/low contra % vendido.
 """
 import argparse
 import json
+import random
 import sys
 import time
 from collections import Counter
@@ -354,14 +355,18 @@ def occupancy_pass(conn, chain="cinepolis", lead=60, tolerance=15, dry_run=False
 
 
 def post_start_pass(conn, chain="cinepolis", after=config.POST_START_AFTER_MIN, tolerance=config.POST_START_TOLERANCE_MIN, dry_run=False, limit=None,
-                    scope=config.SEATS_PLAZAS):
+                    scope=config.SEATS_PLAZAS, budget_min=None):
     """Plano de cada función que empezó hace [after−tol, after+tol] minutos y aún no tiene muestra post-inicio.
 
     Es la asistencia final (la venta sigue creciendo después del arranque: prueba del 2026-09-08, de 2 a 6
     veces lo vendido a T−60) y por eso el target del modelo de consumo. Cinépolis retira la función de la
     cartelera al empezar, así que ya no está en `current_showtime`: los candidatos salen de la unión de
     `current_showtime` (Cinemex la conserva ~2.5 h) y de las funciones ya muestreadas a T−60. El plano de
-    Cinépolis sigue disponible al menos 150 min después del inicio. `minutes_to_start` queda negativo."""
+    Cinépolis sigue disponible al menos 150 min después del inicio. `minutes_to_start` queda negativo.
+
+    Las funciones se piden intercaladas por cine (una de cada cine por vuelta, al azar dentro del cine). Con
+    `budget_min` la pasada se detiene al agotar esos minutos: si no alcanza para todas, lo leído es una muestra
+    repartida entre todos los cines, y agotar el tiempo no cuenta como fallo."""
     stats = {"calls": 0}
     now = now_local()
     lo, hi = now - timedelta(minutes=after + tolerance), now - timedelta(minutes=after - tolerance)
@@ -382,19 +387,43 @@ def post_start_pass(conn, chain="cinepolis", after=config.POST_START_AFTER_MIN, 
         if r["show_id"] in done or r["show_id"] in seen:
             continue
         seen.add(r["show_id"]); picked.append(r)
+    picked = interleave_by_cinema(picked)
     if limit:
         picked = picked[:limit]
     log(f"post-start {chain} [{_scope_label(scope)}]: {len(picked)} funciones iniciadas entre {lo:%H:%M} y {hi:%H:%M}{' (dry-run)' if dry_run else ''}")
     if not picked or dry_run:
         return True
-    return _take_layouts(conn, chain, picked, stats, "post-start")
+    deadline = time.monotonic() + 60 * budget_min if budget_min else None
+    return _take_layouts(conn, chain, picked, stats, "post-start", deadline=deadline)
 
 
-def _take_layouts(conn, chain, rows, stats, label):
-    """Pide el plano de cada función y guarda una fila en occupancy_sample (y el aforo de la sala si falta)."""
+def interleave_by_cinema(rows, rng=random):
+    """Las funciones en vueltas: una de cada cine por vuelta, en orden aleatorio dentro de cada cine y de cada vuelta.
+    Cortar la lista en cualquier punto deja una muestra repartida entre todos los cines."""
+    by_cinema = {}
+    for r in rows:
+        by_cinema.setdefault(r["cinema_id"], []).append(r)
+    queues = list(by_cinema.values())
+    for q in queues:
+        rng.shuffle(q)
+    out = []
+    while queues:
+        rng.shuffle(queues)
+        out.extend(q.pop() for q in queues)
+        queues = [q for q in queues if q]
+    return out
+
+
+def _take_layouts(conn, chain, rows, stats, label, deadline=None):
+    """Pide el plano de cada función y guarda una fila en occupancy_sample (y el aforo de la sala si falta). Con
+    `deadline` (reloj de `time.monotonic()`) deja de pedir al pasarlo y registra cuántas quedaron sin leer. Devuelve
+    False solo si fallan más de `config.SAMPLE_MAX_FAIL_SHARE` de los planos pedidos."""
     vids = vista_ids(conn) if chain == "cinepolis" else {}
     ok = fail = 0
-    for r in rows:
+    for i, r in enumerate(rows):
+        if deadline is not None and time.monotonic() >= deadline:
+            log(f"{label} {chain}: tiempo agotado, {i} de {len(rows)} funciones pedidas")
+            break
         try:
             lay = layout_for(chain, r, vids, stats)
         except ApiError as e:
@@ -420,7 +449,7 @@ def _take_layouts(conn, chain, rows, stats, label):
                       r["show_id"].rsplit(":", 1)[-1], utc_now()))
         conn.commit(); ok += 1
     log(f"{label} {chain} ok={ok} fail={fail} calls={stats['calls']}")
-    return fail == 0
+    return fail <= config.SAMPLE_MAX_FAIL_SHARE * (ok + fail)
 
 
 # Cadenas con lector de boletos. La Cineteca no tiene: su página de boletos pide una cookie de sesión de ASP.NET
@@ -461,6 +490,8 @@ def price_pass(conn, days=7, limit=None, dry_run=False):
     for (chain, cinema_id, bucket, day_type), r in items:
         try:
             if chain == "cinepolis":
+                if cinema_id not in vids:
+                    raise ApiError(f"sin vistaId para {cinema_id}: el cine aún no está en la tabla cinema")
                 tickets = cinepolis_tickets(r["show_id"].rsplit(":", 1)[1], vids[cinema_id], stats)
             else:
                 tickets = cinemex_tickets(r["show_id"], stats)
@@ -530,6 +561,7 @@ def main(argv=None):
     ap.add_argument("--plazas", default=None,
                     help="planos: plazas a recorrer separadas por coma, o 'all' para todos los cines capturados (por defecto AC_SEATS_PLAZAS)")
     ap.add_argument("--workers", type=int, default=None, help="capacity: hilos que piden planos a la vez (por defecto AC_SAMPLE_WORKERS)")
+    ap.add_argument("--budget-min", type=float, help="post-start: minutos máximos de la pasada; lo que no alcance queda sin leer")
     ap.add_argument("--limit", type=int)
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args(argv)
@@ -546,7 +578,7 @@ def main(argv=None):
                              limit=a.limit, per_level=a.per_level, scope=scope)
     if a.post_start:
         ok &= post_start_pass(conn, chain=a.chain, after=a.after, tolerance=a.tolerance or config.POST_START_TOLERANCE_MIN, dry_run=a.dry_run,
-                              limit=a.limit, scope=scope)
+                              limit=a.limit, scope=scope, budget_min=a.budget_min)
     if a.prices:
         ok &= price_pass(conn, limit=a.limit, dry_run=a.dry_run)
     if a.concessions:

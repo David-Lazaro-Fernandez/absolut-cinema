@@ -53,3 +53,21 @@ def test_egress_proxy_applies_only_to_listed_hosts(monkeypatch):
     assert http._proxy_for("https://api-g.cinepolis.com/v2/billboards/graphql") == "http://127.0.0.1:8118"
     assert http._proxy_for("https://api.cinemex.com/rest/v2.37.2/cinemas/") is None
     assert http._proxy_for("https://www.rappi.com.mx/tiendas/x") is None
+
+
+def test_redirect_without_host_fails_at_once_instead_of_retrying(monkeypatch):
+    calls = []
+
+    def redirect_to_nowhere(req, proxy):
+        calls.append(req.full_url)
+        raise http.urllib.error.URLError("no host given")
+
+    monkeypatch.setattr(http, "_open", redirect_to_nowhere)
+    monkeypatch.setattr(http.time, "sleep", lambda s: None)
+    try:
+        http.request_json("https://api.cinemex.com/rest/v2.38/sessions/65822431")
+    except http.ApiError as e:
+        assert "sin destino" in str(e)
+    else:
+        raise AssertionError("debía fallar")
+    assert len(calls) == 1
