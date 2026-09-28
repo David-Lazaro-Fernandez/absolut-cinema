@@ -1,8 +1,7 @@
 'use client';
 
-// "¿A dónde ir?": el visitante dice desde dónde sale, quiénes van, qué dulcería quieren y cuánto quieren gastar, y ve
-// las funciones cerca que caben. Los datos son el catálogo que exporta `scripts/export_recommender.py` a
-// /data/a-donde-ir.json (sin servidor: se descarga una vez y se filtra aquí con `lib/recommend.ts`).
+// "¿A dónde ir?": funciones cerca del visitante que caben en el presupuesto de su grupo. La página descarga una vez
+// el catálogo de `scripts/export_recommender.py` y lo filtra con `lib/recommend.ts`, sin servidor.
 
 import dynamic from 'next/dynamic';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
@@ -27,13 +26,13 @@ import {
 const RecommenderMap = dynamic(() => import('@/components/recommender-map'), { ssr: false });
 
 const CATALOG_URL = '/data/a-donde-ir.json';
-const PLACES_URL = '/data/lugares.json'; // índice local de lugares (scripts/export_places.py); opcional
-// Photon (komoot, datos de OpenStreetMap): geocodificador hecho para sugerir mientras se escribe, sin clave; la
-// instancia pública es de uso justo (con tráfico real, instancia propia). Nominatim prohíbe el autocompletado.
+const PLACES_URL = '/data/lugares.json'; // de scripts/export_places.py; si falta, solo sugiere el geocodificador
+// Photon (komoot, datos de OpenStreetMap) permite sugerir mientras se escribe y no pide clave. Nominatim lo prohíbe.
+// La instancia pública es de uso justo: con tráfico real, usar una instancia propia.
 const GEOCODER = 'https://photon.komoot.io/api/';
-const DEFAULT_CENTER = { lat: 19.4326, lng: -99.1332 }; // CDMX, mientras llega el catálogo con sus plazas
-const LOCAL_MIN = 2; // letras para sugerir del índice local (sin red)
-const SUGGEST_MIN = 3; // letras para preguntar al geocodificador en línea
+const DEFAULT_CENTER = { lat: 19.4326, lng: -99.1332 }; // CDMX, hasta que carga el catálogo
+const LOCAL_MIN_CHARS = 2;
+const ONLINE_MIN_CHARS = 3;
 const SUGGEST_WAIT_MS = 250;
 const SUGGEST_LIMIT = 3;
 const CACHE_KEY = 'matine-geocode-v2';
@@ -55,15 +54,15 @@ function toSuggestion(f: PhotonFeature): Suggestion {
   return { lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0], name: p.name ?? street, context };
 }
 
-// Respuestas del geocodificador ya vistas, por plaza y texto ("gdl|centro"): en memoria y en el navegador entre visitas (las últimas
-// CACHE_MAX). Mientras llega una respuesta nueva se reutiliza la del texto guardado más largo que empiece igual.
+// Respuestas del geocodificador por plaza y texto ("gdl|centro"). Las últimas CACHE_MAX quedan en localStorage.
+// Mientras llega una respuesta, la página filtra la del texto guardado más largo que empieza igual.
 const remoteCache = new Map<string, Suggestion[]>();
 
 function loadCache() {
   try {
     for (const [k, v] of JSON.parse(localStorage.getItem(CACHE_KEY) ?? '[]') as [string, Suggestion[]][]) remoteCache.set(k, v);
   } catch {
-    // Sin almacenamiento (modo privado, bloqueado): la caché vive solo en memoria.
+    // Sin localStorage (modo privado o bloqueado), la caché queda solo en memoria.
   }
 }
 
@@ -71,7 +70,6 @@ function saveCache() {
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify([...remoteCache.entries()].slice(-CACHE_MAX)));
   } catch {
-    // Igual que arriba: sin almacenamiento no se guarda entre visitas.
   }
 }
 
@@ -84,7 +82,7 @@ function cachedNear(scope: string, query: string, near: { lat: number; lng: numb
   return searchPlaces(pool, query, near, SUGGEST_LIMIT).map((p) => ({ lat: p.lat, lng: p.lng, name: p.name, context: p.context }));
 }
 
-/** Locales primero (o en línea primero si se escribió un número: es una calle con número), sin repetir nombres. */
+/** Une las sugerencias sin repetir nombres. Las locales van primero, salvo si el texto tiene un número (una calle). */
 function merge(query: string, local: Suggestion[], remote: Suggestion[]) {
   const ordered = /\d/.test(query) ? [...remote, ...local] : [...local, ...remote];
   const seen = new Set<string>();
@@ -99,9 +97,9 @@ function merge(query: string, local: Suggestion[], remote: Suggestion[]) {
 }
 
 async function geocode(query: string, near: { lat: number; lng: number }, bbox: string, limit: number, signal?: AbortSignal) {
-  // lang=default: nombres locales ("Ciudad de México"); Photon no admite lang=es y con él no devuelve nada.
+  // Photon no acepta lang=es: con él no devuelve nada. lang=default da los nombres locales.
   const params = new URLSearchParams({ q: query, limit: String(limit), lang: 'default', lat: String(near.lat), lon: String(near.lng) });
-  if (bbox) params.set('bbox', bbox); // oeste, sur, este, norte: la zona de la plaza elegida
+  if (bbox) params.set('bbox', bbox);
   const res = await fetch(`${GEOCODER}?${params}`, { signal });
   if (!res.ok) throw new Error(String(res.status));
   const data: { features: PhotonFeature[] } = await res.json();
@@ -113,9 +111,11 @@ const HOURS: Record<string, [number, number]> = {
   'Matiné, antes de las 12 PM': [0, 12],
 };
 const RADII = [2, 5, 10, 15];
-const MAP_OVERLAP = 150; // px del pie del mapa que tapan la barra y su línea de contexto una vez que hay punto de partida
+const MAP_OVERLAP = 150; // px del mapa que tapa el dock con punto de partida
 
 type Point = { lat: number; lng: number; label: string };
+
+const siteKey = (p: { lat: number; lng: number }) => `${p.lat},${p.lng}`;
 
 const money = (v: number) =>
   new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(v);
@@ -163,6 +163,15 @@ function Counter({ label, value, onChange }: { label: string; value: number; onC
   );
 }
 
+function BuyLink({ row }: { row: Row }) {
+  if (!row.buyUrl) return null;
+  return (
+    <a className="rec__buy" href={row.buyUrl} target="_blank" rel="noopener noreferrer" aria-label={`Comprar en ${row.chain} (abre su sitio)`}>
+      Comprar ↗
+    </a>
+  );
+}
+
 function ShowsTable({ rows, snacks, today, partial }: { rows: Row[]; snacks: Snacks; today: string; partial?: boolean }) {
   return (
     <div className="rec__tablewrap">
@@ -189,6 +198,7 @@ function ShowsTable({ rows, snacks, today, partial }: { rows: Row[]; snacks: Sna
               <td className="rec__c-title">{r.title}</td>
               <td className="num rec__c-time">
                 {r.date === today ? time12(r.minutes) : `${dayLabel(r.date, today)}, ${time12(r.minutes)}`}
+                <BuyLink row={r} />
               </td>
               <td className="rec__c-format">
                 {FORMAT_LABEL[r.format] ?? r.format}
@@ -281,21 +291,25 @@ export function Recommender() {
   const [typing, setTyping] = useState(false);
   const [tab, setTab] = useState<Tab>('complete');
   const [shown, setShown] = useState(PAGE);
-  const [plaza, setPlaza] = useState(0); // índice en catalog.plazas: orienta el buscador y el mapa de fondo
+  const [plaza, setPlaza] = useState(0); // índice en catalog.plazas
   const menuBox = useRef<HTMLDivElement>(null);
-  const now = useMemo(() => nowIn(), []);
+  // Cada minuto: con la página abierta, una función que ya empezó sale de los resultados.
+  const [now, setNow] = useState(() => nowIn());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(nowIn()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
   const toggle = (id: RowId) => setOpen((o) => (o === id ? null : id));
   const area = catalog?.plazas[plaza];
   const scope = area?.[0] ?? '';
   const bbox = area ? area[4].join(',') : '';
   const center = useMemo(() => (area ? { lat: area[2], lng: area[3] } : DEFAULT_CENTER), [area]);
 
-  // Con punto de partida, la plaza es la más cercana a él: así el buscador y la caché hablan de la misma ciudad.
+  // Con punto de partida, la plaza es la más cercana a él.
   useEffect(() => {
     if (catalog && start) setPlaza(nearestPlaza(catalog.plazas, start.lat, start.lng));
   }, [catalog, start]);
 
-  // El menú de opciones se cierra con un clic afuera o con Esc, como cualquier menú.
   useEffect(() => {
     if (!menu) return;
     const outside = (e: MouseEvent) => {
@@ -310,13 +324,12 @@ export function Recommender() {
     };
   }, [menu]);
 
-  // Cada pantalla empieza arriba y con la primera página de resultados.
   useEffect(() => {
     window.scrollTo({ top: 0 });
     setShown(PAGE);
   }, [view, tab]);
 
-  // Un punto de partida en la URL (?lat=19.35&lng=-99.16) abre la página ya con resultados, para compartirla.
+  // Un enlace con ?lat=19.35&lng=-99.16 abre la página con ese punto de partida.
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
     const lat = Number(q.get('lat'));
@@ -335,8 +348,8 @@ export function Recommender() {
       .catch(() => setFailed(true));
   }, [now.date]);
 
-  // Índice local, caché de respuestas y conexión con el geocodificador abierta de antemano: en una red lenta, el saludo
-  // de la conexión segura es buena parte de la espera de la primera búsqueda.
+  // La conexión con el geocodificador abre antes de la primera búsqueda. En una red lenta, el saludo TLS es buena
+  // parte de la espera.
   useEffect(() => {
     preconnect(new URL(GEOCODER).origin);
     loadCache();
@@ -355,11 +368,11 @@ export function Recommender() {
     [placesFile, catalog],
   );
 
-  // Sugerencias mientras se escribe: las locales al instante; el geocodificador en línea solo si lo local no alcanza o
-  // si hay un número (una calle con número), tras una pausa y descartando respuestas viejas.
+  // Las sugerencias locales salen al instante. El geocodificador responde solo si las locales no alcanzan o si el
+  // texto tiene un número, después de una pausa. Una respuesta vieja se descarta.
   useEffect(() => {
     const q = address.trim();
-    if (!typing || q.length < LOCAL_MIN) {
+    if (!typing || q.length < LOCAL_MIN_CHARS) {
       setSuggestions([]);
       return;
     }
@@ -372,7 +385,7 @@ export function Recommender() {
       setActive(merged.length ? 0 : -1);
     };
     show(remoteCache.get(key) ?? cachedNear(scope, q, near));
-    if (q.length < SUGGEST_MIN || remoteCache.has(key) || (local.length >= SUGGEST_LIMIT && !/\d/.test(q))) return;
+    if (q.length < ONLINE_MIN_CHARS || remoteCache.has(key) || (local.length >= SUGGEST_LIMIT && !/\d/.test(q))) return;
     const ctrl = new AbortController();
     const timer = setTimeout(() => {
       geocode(q, near, bbox, SUGGEST_LIMIT, ctrl.signal)
@@ -415,12 +428,22 @@ export function Recommender() {
       now,
     });
   }, [catalog, start, people, adults, children, seniors, snacks, budget, date, hours, radiusKm, title, format, sort, now]);
-  const mapCinemas = useMemo(() => {
-    const seen = new Map<number, { id: number; lat: number; lng: number; name: string; chain: string }>();
-    for (const r of result?.fitting ?? []) seen.set(r.cinema, { id: r.cinema, lat: r.lat, lng: r.lng, name: r.cinemaName, chain: r.chain });
-    return [...seen.values()];
+  // Un punto por edificio: el complejo y su sala Platino o VIP comparten coordenadas, y un punto tapaba al otro.
+  const sites = useMemo(() => {
+    const byPlace = new Map<string, { id: number; lat: number; lng: number; names: string[]; chains: string[] }>();
+    for (const r of result?.fitting ?? []) {
+      const site = byPlace.get(siteKey(r)) ?? { id: r.cinema, lat: r.lat, lng: r.lng, names: [], chains: [] };
+      if (!site.names.includes(r.cinemaName)) site.names.push(r.cinemaName);
+      if (!site.chains.includes(r.chain)) site.chains.push(r.chain);
+      byPlace.set(siteKey(r), site);
+    }
+    return [...byPlace.values()].map((s) => ({ ...s, name: s.names.join(' · '), chain: s.chains.join(' · ') }));
   }, [result]);
-  const cinemaRows = useMemo(() => (result && selected !== null ? result.fitting.filter((r) => r.cinema === selected) : []), [result, selected]);
+  const site = sites.find((s) => s.id === selected) ?? null;
+  const siteRows = useMemo(
+    () => (result && site ? result.fitting.filter((r) => siteKey(r) === siteKey(site)) : []),
+    [result, site],
+  );
 
   function choose(place: Suggestion) {
     setStart({ lat: place.lat, lng: place.lng, label: place.context ? `${place.name}, ${place.context}` : place.name });
@@ -441,9 +464,9 @@ export function Recommender() {
     try {
       const [first] = await geocode(address.trim(), start ?? center, bbox, 1);
       if (first) choose(first);
-      else setNotice('No encontramos esa dirección. Prueba con calle y colonia, o haz clic en el mapa.');
+      else setNotice('No encontramos esa dirección. Prueba con calle y colonia, o haz doble clic en el mapa.');
     } catch {
-      setNotice('El buscador de direcciones no respondió. Haz clic en el mapa para marcar tu punto.');
+      setNotice('El buscador de direcciones no respondió. Haz doble clic en el mapa para marcar tu punto.');
     } finally {
       setBusy(false);
     }
@@ -464,7 +487,7 @@ export function Recommender() {
   }
 
   function locate() {
-    if (!navigator.geolocation) return setNotice('Tu navegador no comparte ubicación. Escribe una dirección o haz clic en el mapa.');
+    if (!navigator.geolocation) return setNotice('Tu navegador no comparte ubicación. Escribe una dirección o haz doble clic en el mapa.');
     setBusy(true);
     setNotice('');
     navigator.geolocation.getCurrentPosition(
@@ -473,7 +496,7 @@ export function Recommender() {
         setBusy(false);
       },
       () => {
-        setNotice('No pudimos usar tu ubicación. Escribe una dirección o haz clic en el mapa.');
+        setNotice('No pudimos usar tu ubicación. Escribe una dirección o haz doble clic en el mapa.');
         setBusy(false);
       },
     );
@@ -678,7 +701,7 @@ export function Recommender() {
           center={center}
           start={start}
           radiusKm={radiusKm}
-          cinemas={mapCinemas}
+          cinemas={sites}
           selected={selected}
           bottomInset={located ? MAP_OVERLAP : 0}
           onPick={(p) => {
@@ -688,18 +711,18 @@ export function Recommender() {
           onCinema={setSelected}
         />
       </div>
-      {/* Sin punto de partida el mapa es solo fondo: un velo de papel con desenfoque lo apaga y no deja hacerle clic. */}
+      {/* Sin punto de partida, el velo tapa el mapa y bloquea los clics. */}
       <div className="rec-stage__glass" aria-hidden="true" />
 
       {!located && <h1 className="rec-stage__title">¿A dónde vamos al cine hoy?</h1>}
 
-      {located && selected !== null && cinemaRows.length > 0 && (
-        <aside className="rec-card" aria-label={`Funciones en ${cinemaRows[0].cinemaName}`}>
+      {located && site && siteRows.length > 0 && (
+        <aside className="rec-card" aria-label={`Funciones en ${site.name}`}>
           <div className="rec-card__head">
             <div>
-              <strong>{cinemaRows[0].cinemaName}</strong>
+              <strong>{site.name}</strong>
               <span className="rec__chain">
-                {cinemaRows[0].chain} · {km(cinemaRows[0].distanceKm)} · {cinemaRows.length} {cinemaRows.length === 1 ? 'función' : 'funciones'}
+                {site.chain} · {km(siteRows[0].distanceKm)} · {siteRows.length} {siteRows.length === 1 ? 'función' : 'funciones'}
               </span>
             </div>
             <button type="button" className="rec-card__close" aria-label="Cerrar" onClick={() => setSelected(null)}>
@@ -707,12 +730,16 @@ export function Recommender() {
             </button>
           </div>
           <ul className="rec-card__list">
-            {cinemaRows.map((r) => (
-              <li key={`${r.title}-${r.minutes}-${r.format}`}>
-                <span className="rec-card__time">{time12(r.minutes)}</span>
+            {siteRows.map((r) => (
+              <li key={`${r.cinema}-${r.title}-${r.minutes}-${r.format}`}>
+                <span className="rec-card__time">
+                  {time12(r.minutes)}
+                  <BuyLink row={r} />
+                </span>
                 <span className="rec-card__title">
                   {r.title}
                   <span className="rec__chain">
+                    {site.names.length > 1 && `${r.cinemaName} · `}
                     {FORMAT_LABEL[r.format] ?? r.format} · {LANGUAGE_LABEL[r.language] ?? r.language}
                   </span>
                 </span>

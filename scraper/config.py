@@ -114,6 +114,13 @@ POST_START_TOLERANCE_MIN = 30
 # de funciones que se releen a diario hasta que empiezan: da la curva de venta (decisión 2026-09-25: 30 por título).
 CINEMEX_SITE_URL = os.environ.get("CINEMEX_SITE_URL", "https://cinemex.com/landing/preventas/peliculas/")
 PRESALE_LANDING_SLUG = "preventas"
+
+# Página de compra de una película en un cine, para el recomendador público (verificado 2026-09-27). No hay enlace a
+# una función: Cinépolis elige la hora dentro de su sitio y `cinemex.com/checkout/{show_id}` abierto directo da error.
+# Cinemex abre el cine con la película y la fecha filtradas (`{date}` es AAAAMMDD; sin fecha no muestra funciones, y el
+# slug no cuenta). Cinépolis abre el paso "Horario" con el cine y la película elegidos; no filtra por fecha.
+BUY_URL = {"cinemex": "https://cinemex.com/cine/{cinema_id}/{cinema_slug}/fecha-{date}/pelicula-{movie_id}",
+           "cinepolis": "https://cinepolis.com/mx/horarios?cinema={cinema_id}&movie={movie_id}"}
 PRESALE_PANEL_PER_TITLE = int(os.environ.get("AC_PRESALE_PANEL", "30"))
 
 # Dulcería de Cinépolis (sample --concessions): un menú completo por cine, renovado cada tantos días.

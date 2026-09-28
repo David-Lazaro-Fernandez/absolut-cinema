@@ -6,11 +6,11 @@ Uso:
   python3 scripts/export_places.py                    # a marketing/public/data/lugares.json
   python3 scripts/export_places.py --out /tmp/lugares.json
 
-Una consulta y unos 4 mil lugares por plaza (2026-09-27): por eso se hace al construir el sitio y no en cada visita. Si
-Overpass no responde, se conserva el archivo anterior y el script sale bien: la página sugiere entonces solo con el
-geocodificador en línea. Los datos son de OpenStreetMap (ODbL) y el sitio lo acredita. Formato (versión 1):
+Es una consulta de unos 6 mil lugares (2026-09-27), por eso corre al construir el sitio y no en cada visita. Si
+Overpass no responde, el script conserva el archivo anterior y sale con 0. Sin archivo, la página sugiere solo con el
+geocodificador en línea. Los datos son de OpenStreetMap (ODbL); el sitio da el crédito. Formato (versión 1):
   generated_at, source, kinds [etiqueta], places [[nombre, tipo, lat, lng]]
-`kinds` va en orden de prioridad: a igual coincidencia, una alcaldía o colonia va antes que una universidad.
+`kinds` está en orden de prioridad. Con la misma coincidencia, una alcaldía va antes que una universidad.
 Solo librería estándar.
 """
 import argparse
@@ -25,12 +25,12 @@ from pathlib import Path
 OUT = Path(__file__).resolve().parent.parent / "marketing" / "public" / "data" / "lugares.json"
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 USER_AGENT = "absolut-cinema/1.0 (export de lugares para la landing)"
-# Sur, oeste, norte, este: la zona metropolitana de cada plaza del catálogo, un poco más amplia que sus cines.
+# Caja de cada plaza en el orden de Overpass (sur, oeste, norte, este). Es un poco más grande que la zona de sus cines.
 AREAS = {"cdmx": (19.05, -99.40, 19.90, -98.80),
          "gdl": (20.45, -103.55, 20.80, -103.18),
          "mty": (25.35, -100.55, 25.97, -100.03)}
 TIMEOUT_S = 120
-SAME_PLACE_M = 400                              # dos elementos con el mismo nombre y tipo a menos de esto son uno
+SAME_PLACE_M = 400                              # a esta distancia o menos, mismo nombre y tipo es un solo lugar
 KINDS = ["Alcaldía", "Ciudad", "Colonia", "Metro", "Metrobús", "Tren Ligero", "Cablebús", "Mexibús", "Mexicable",
          "Mi Macro", "Metrorrey", "Ecovía", "Estación", "Pueblo", "Localidad", "Plaza comercial", "Universidad"]
 _QUERY = """[out:json][timeout:{timeout}];

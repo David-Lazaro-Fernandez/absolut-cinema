@@ -215,7 +215,8 @@ def recommend_catalog(conn, d0=None, d1=None, from_now=True, plaza="cdmx"):
     - `prices`: por `chain`, `cinema_id`, `format_bucket` y `day_type`, la lectura más reciente sin eventos ni matinés:
       `adult`, `child`, `senior` (pesos) y `sampled_at`. Orden: esas cuatro llaves.
     - `shows`: las funciones de la ventana en la plaza: `chain`, `cinema_id`, `title_norm`, `title`, `date`,
-      `datetime_local`, `language`, `format_bucket` y `day_type`. Orden: fecha, hora, cadena, cine y título.
+      `datetime_local`, `language`, `format_bucket`, `day_type` y `movie_id` (el de la cadena). Orden: fecha, hora,
+      cadena, cine y título.
     - `packages`: `SNACK_PACKAGES`, para calcular el paquete de un grupo."""
     chains = MAP_CHAINS
     pw, pp = plaza_where(plaza, chains=chains)
@@ -247,7 +248,7 @@ def recommend_catalog(conn, d0=None, d1=None, from_now=True, plaza="cdmx"):
     where, params, _ = _window(d0, d1, from_now, plaza=plaza, chains=chains)
     shows = rows(conn, f"""
         SELECT chain, cinema_id, title_key(title_norm) title_norm, movie_title title, date, datetime_local, language,
-               {_FORMAT_CASE} format_bucket, {_DAY_TYPE_CASE} day_type
+               {_FORMAT_CASE} format_bucket, {_DAY_TYPE_CASE} day_type, movie_id
         FROM current_showtime WHERE {where}
         ORDER BY date, datetime_local, chain, cinema_id, title_norm""", params)
     return {"cinemas": cinemas, "prices": prices, "shows": shows, "packages": SNACK_PACKAGES}

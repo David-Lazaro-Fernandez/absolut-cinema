@@ -1,7 +1,6 @@
-// Recomendador de funciones que corre en el navegador sobre el catálogo que exporta
-// `scripts/export_recommender.py` (formato versión 2, documentado ahí). Los precios ya vienen calculados por
-// `analytics/recommender.py`: aquí solo se buscan por cine, formato y tipo de día, se suman para el grupo y se
-// filtra y ordena. Es neutral entre cadenas: ninguna gana un empate por ser quien es (design.md §3).
+// Recomendador en el navegador sobre el catálogo de `scripts/export_recommender.py` (el formato está ahí).
+// `analytics/recommender.py` ya calculó los precios. Este módulo solo los suma para el grupo, filtra y ordena.
+// Es neutral entre cadenas: un empate no favorece a ninguna (design.md §3).
 
 /** Una plaza del catálogo: clave, etiqueta, centro de sus cines y caja [oeste, sur, este, norte]. */
 export type Area = [string, string, number, number, [number, number, number, number]];
@@ -12,13 +11,15 @@ export type Catalog = {
   plazas: Area[];
   dates: [string, string][];
   chains: string[];
+  buy: (string | null)[];
   formats: string[];
   languages: string[];
   titles: string[];
+  movies: string[];
   packages: Record<string, [string, number][]>;
-  cinemas: [number, string, number, number, Record<string, number>][];
+  cinemas: [number, string, number, number, Record<string, number>, string][];
   prices: Record<string, [number, number, number, string]>;
-  shows: [number, number, number, number, number, number[]][];
+  shows: [number, number, number, number, number, number[], number][];
 };
 
 export type Snacks = 'none' | 'popcorn' | 'combo';
@@ -58,6 +59,7 @@ export type Row = {
   total: number | null;
   snackReference: number | null;
   sampled: string | null;
+  buyUrl: string | null;
 };
 
 export type Result = {
@@ -105,6 +107,23 @@ export function distanceKm(lat1: number, lng1: number, lat2: number, lng2: numbe
   return 2 * EARTH_KM * Math.asin(Math.sqrt(a));
 }
 
+/** "Parque Lindavista (CDMX)" → "parque-lindavista-cdmx", como los slugs de cine de Cinemex. */
+function slug(text: string) {
+  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+}
+
+/** La página de compra de la película en su cadena, o null si la cadena no tiene plantilla. `date` es ISO. */
+export function buyUrl(template: string | null, show: { cinemaId: string; cinemaName: string; movieId: string; date: string }) {
+  if (!template) return null;
+  const values: Record<string, string> = {
+    cinema_id: show.cinemaId,
+    cinema_slug: slug(show.cinemaName),
+    movie_id: show.movieId,
+    date: show.date.replaceAll('-', ''),
+  };
+  return template.replace(/\{(\w+)\}/g, (_, key: string) => encodeURIComponent(values[key] ?? ''));
+}
+
 /** Índice de la plaza cuyo centro queda más cerca del punto. */
 export function nearestPlaza(plazas: Area[], lat: number, lng: number) {
   let best = 0;
@@ -124,7 +143,7 @@ export function packageCost(menu: Record<string, number>, items: [string, number
   return total;
 }
 
-/** Fecha y minutos del día en la zona horaria de las plazas (CDMX, Guadalajara y Monterrey van a la hora del centro). */
+/** Fecha y minutos del día en la hora del centro. Las tres plazas usan esa hora. */
 export function nowIn(timeZone = 'America/Mexico_City') {
   const parts = Object.fromEntries(
     new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
@@ -169,11 +188,12 @@ export function recommend(catalog: Catalog, q: Query): Result {
     if (km <= q.radiusKm) near.set(i, km);
   });
   const rows: Row[] = [];
-  for (const [cinema, date, title, format, language, times] of catalog.shows) {
+  for (const [cinema, date, title, format, language, times, movie] of catalog.shows) {
     if (date !== dateIx || !near.has(cinema)) continue;
     if (q.title !== null && title !== q.title) continue;
     if (q.format !== null && format !== q.format) continue;
-    const [chain, name, lat, lng, menu] = catalog.cinemas[cinema];
+    const [chain, name, lat, lng, menu, cinemaId] = catalog.cinemas[cinema];
+    const link = buyUrl(catalog.buy[chain], { cinemaId, cinemaName: name, movieId: catalog.movies[movie], date: q.date });
     const price = catalog.prices[`${cinema}|${format}|${dayType[q.date]}`];
     const tickets = price ? q.adults * price[0] + q.children * price[1] + q.seniors * price[2] : null;
     const snacks = q.snacks === 'none' ? 0 : packageCost(menu, items, people);
@@ -197,6 +217,7 @@ export function recommend(catalog: Catalog, q: Query): Result {
         total: tickets !== null && snacks !== null ? tickets + snacks : null,
         snackReference: packageCost(menu, reference, 1),
         sampled: price ? price[3] : null,
+        buyUrl: link,
       });
     }
   }

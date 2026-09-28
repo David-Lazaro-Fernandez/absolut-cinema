@@ -137,9 +137,21 @@ def test_the_public_catalog_carries_the_same_prices(conn):
     cinema = next(c for c in catalog["cinemas"] if c["cinema_id"] == first["cinema_id"])
     assert cinema["snacks"] == {"Palomitas": 90.0, "Refresco": 60.0, "Combo Clásico": 250.0}
     data = export.compact(export.merge({"nacional": catalog}), [export.area("nacional", catalog["cinemas"])])
-    assert sum(len(s[-1]) for s in data["shows"]) == len(catalog["shows"])
+    assert sum(len(s[5]) for s in data["shows"]) == len(catalog["shows"])
     west, south, east, north = data["plazas"][0][4]
     assert west < cinema["lng"] < east and south < cinema["lat"] < north
     ix = [c[1] for c in data["cinemas"]].index(cinema["cinema_name"])
     key = f"{ix}|{data['formats'].index(first['format_bucket'])}|{first['day_type']}"
     assert data["prices"][key][:3] == [90.0, 70.0, 65.0]
+
+
+def test_each_public_show_can_build_its_buy_link(conn):
+    from scripts import export_recommender as export
+
+    catalog = analytics.recommend_catalog(conn, D0, D1, from_now=False, plaza=None)
+    data = export.compact(export.merge({"nacional": catalog}), [export.area("nacional", catalog["cinemas"])])
+    template = data["buy"][data["chains"].index("Cinépolis")]
+    show = next(s for s in data["shows"] if data["chains"][data["cinemas"][s[0]][0]] == "Cinépolis")
+    link = template.format(cinema_id=data["cinemas"][show[0]][5], movie_id=data["movies"][show[6]])
+    assert link.startswith("https://cinepolis.com/mx/horarios?cinema=") and "&movie=" in link
+    assert "/fecha-{date}/pelicula-{movie_id}" in data["buy"][data["chains"].index("Cinemex")]

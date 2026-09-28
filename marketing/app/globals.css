@@ -281,8 +281,8 @@ button {
   height: 56px;
   padding: 0 20px 0 24px;
   background: var(--paper-85);
+  /* Sin -webkit-: el build lo agrega. Con las dos, el build deja solo la de Safari. */
   backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
   border-color: var(--line);
 }
 
@@ -1702,9 +1702,8 @@ button {
    cadenas: los cines van en tinta y el único rojo es la acción (botón principal, punto de partida, pasos). */
 
 
-/* ¿A dónde ir?, pantalla de búsqueda: el mapa llena la pantalla bajo el nav (80 px). Sin punto de partida, un velo
-   de papel con desenfoque lo deja al ~10 % y el título y la barra van al centro; con punto de partida el velo se
-   desvanece, el mapa se vuelve interactivo y la barra baja al pie (el "dock"), como un chat. Sin sombras (../DESIGN.md). */
+/* ¿A dónde ir?, pantalla de búsqueda. El mapa llena la pantalla bajo el nav (80 px). Sin punto de partida, un velo
+   tapa el mapa y la barra va al centro. Con punto de partida, el velo desaparece y la barra baja al pie (el dock). */
 .rec-stage {
   position: relative;
   height: 100svh;
@@ -1728,9 +1727,9 @@ button {
   position: absolute;
   inset: 80px 0 0 0;
   z-index: 1;
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(10px) saturate(0.6);
-  -webkit-backdrop-filter: blur(10px) saturate(0.6);
+  background: rgba(255, 255, 255, 0.7);
+  /* Sin -webkit-: el build lo agrega. Con las dos, el build deja solo la de Safari. */
+  backdrop-filter: blur(8px) saturate(0.6);
   transition: opacity 0.6s var(--ease-out);
 }
 
@@ -1765,8 +1764,7 @@ button {
   color: var(--gray);
 }
 
-/* El dock: la barra de búsqueda con su menú y, ya con punto de partida, la línea de contexto con "Ver funciones".
-   Centrado en la pantalla al inicio; al pie después, con transición. */
+/* El dock: la barra de búsqueda, su menú y, con punto de partida, la línea de contexto con "Ver funciones". */
 .rec-dock {
   position: absolute;
   z-index: 3;
@@ -1861,7 +1859,7 @@ button {
   font-weight: 400;
 }
 
-/* La barra de búsqueda, en píldora: más filtros · dirección · mi ubicación · buscar (rojo: la acción). */
+/* La barra de búsqueda: opciones · dirección · mi ubicación · buscar. */
 .rec-ask {
   display: flex;
   align-items: center;
@@ -1945,8 +1943,7 @@ button {
   cursor: default;
 }
 
-/* Menú de opciones (quiénes van, dulcería, cuándo, presupuesto, más filtros): se abre hacia arriba desde la barra,
-   sobre el mapa. Cada fila es una línea (ícono, qué y, en gris, su valor); abierta muestra sus controles y una ×. */
+/* Menú de opciones. Abre hacia arriba desde la barra. Cada fila cerrada es una línea: ícono, nombre y valor en gris. */
 
 .rec-menu {
   position: absolute;
@@ -1961,8 +1958,7 @@ button {
   border-radius: 8px;
 }
 
-/* Sugerencias de lugares mientras se escribe: pegadas a la barra, hacia abajo con la barra al centro y hacia arriba
-   con la barra al pie. Nombre en tinta y contexto (calle, colonia, ciudad) en gris, en una línea. */
+/* Sugerencias de lugares. Abren hacia abajo con la barra al centro y hacia arriba con la barra al pie. */
 .rec-ask-box {
   position: relative;
 }
@@ -2093,7 +2089,7 @@ button {
 }
 
 
-/* Pantalla de resultados: una sola cosa, la lista, con pestañas en vez de secciones apiladas. */
+/* Pantalla de resultados: la lista, con pestañas. */
 .rec-screen {
   max-width: var(--wrap);
   margin: 0 auto;
@@ -2248,6 +2244,20 @@ button {
   color: var(--paper);
 }
 
+/* Enlace a la compra en el sitio de la cadena: rojo porque es la acción. */
+.rec__buy {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--red);
+  white-space: nowrap;
+}
+
+.rec__buy:hover {
+  text-decoration: underline;
+}
+
 .rec__hint,
 .rec__source {
   font-size: 0.85rem;
@@ -2382,7 +2392,7 @@ button {
   }
 }
 
-/* En celular cada función es una tarjeta: cine y total arriba, para que el total nunca quede fuera de la pantalla. */
+/* En celular cada función es una tarjeta con el cine y el total arriba, así el total siempre está visible. */
 @media (max-width: 700px) {
   .rec__tablewrap {
     overflow: visible;

@@ -167,7 +167,7 @@ con este documento. Si el sitio crece a varias rutas, esa es la señal para reco
 
 `app/a-donde-ir/page.tsx` + `components/recommender.tsx` (formulario, resultados) + `components/recommender-map.tsx`
 (mapa) + `lib/recommend.ts` (cálculo en el navegador). El visitante da su punto de partida (dirección, ubicación del
-navegador o clic en el mapa), su grupo (adultos, niños, adultos mayores), un paquete de dulcería, su presupuesto y el
+navegador o doble clic en el mapa), su grupo (adultos, niños, adultos mayores), un paquete de dulcería, su presupuesto y el
 día; ve las funciones que le quedan cerca y caben.
 
 - **Tres ciudades** (2026-09-27): CDMX, Guadalajara y Monterrey van en el mismo catálogo (`plazas`, con el centro y la
@@ -187,7 +187,11 @@ día; ve las funciones que le quedan cerca y caben.
   sala" con solo los boletos. Sin paquete, la columna Dulcería muestra la referencia de palomitas y refresco donde
   existe.
 - **Mapa.** MapLibre (`maplibre-gl`, la única dependencia nueva) con el estilo Positron de OpenFreeMap: sin clave,
-  uso comercial permitido. Sin WebGL, el mapa se reemplaza por un aviso y el resto sigue funcionando.
+  uso comercial permitido. Sin WebGL, el mapa se reemplaza por un aviso y el resto sigue funcionando. Un clic en un cine abre su ficha; un clic suelto en otro
+  lugar no hace nada, porque puede ser accidental. El doble clic (o doble toque) mueve el punto de partida; el zoom con
+  doble clic está apagado. Un punto por edificio: el complejo y su sala Platino
+  o VIP comparten coordenadas (31 lugares en las tres plazas, 2026-09-27). La ficha muestra las funciones de todos sus
+  cines y, si hay más de uno, el nombre del cine en cada función.
 - **Direcciones, con sugerencias mientras se escribe** (2026-09-27). Tres capas, para que una red lenta no se note:
   1. *Índice local* (`/data/lugares.json`, `make export-places` → `../scripts/export_places.py`): unos 6 mil
      lugares de las tres ciudades de OpenStreetMap (colonias, alcaldías, ciudades, estaciones de Metro, Metrobús, Tren
@@ -206,11 +210,16 @@ día; ve las funciones que le quedan cerca y caben.
   `geocode()` en `components/recommender.tsx`. Crédito a OpenStreetMap en el pie. La ubicación del navegador pide
   HTTPS (o localhost).
 - **Compartir.** `?lat=…&lng=…` en la URL abre la página con ese punto de partida.
+- **Comprar** (2026-09-27). Cada función lleva "Comprar ↗" (`.rec__buy`, rojo porque es la acción) bajo la hora, en la
+  tabla y en la ficha del cine. Abre en otra pestaña el sitio de la cadena con las plantillas de
+  `../scraper/config.py` (`BUY_URL`): Cinemex en la página del cine con la película y el día filtrados; Cinépolis en
+  el paso "Horario" con el cine y la película elegidos. No hay enlace a la función exacta. La Cineteca no lleva
+  enlace.
 - **Celular.** Debajo de 700 px cada función es una tarjeta con el cine y el total arriba (`.rec__c-*`).
 
 - **Estructura: una pantalla por cosa** (2026-09-27, a pedido de David; fondo papel y reglas de `../DESIGN.md`: sin
   sombras, radio 8 px en tarjetas, píldora solo en controles). Nada se lee haciendo scroll por toda la página:
-  1. *Búsqueda*: el mapa llena la pantalla bajo el nav. Sin punto de partida, un velo de papel al 90 % con desenfoque
+  1. *Búsqueda*: el mapa llena la pantalla bajo el nav. Sin punto de partida, un velo de papel al 70 % con desenfoque
      lo deja como fondo apenas visible y no recibe clics; al centro, el título y una sola barra en píldora (opciones ·
      dirección · mi ubicación · buscar en rojo). Con punto de partida el velo se desvanece, el mapa se vuelve
      interactivo y la barra baja al pie con una transición (el "dock", como un chat): encima de ella, una línea con el

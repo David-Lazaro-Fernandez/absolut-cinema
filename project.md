@@ -968,7 +968,12 @@ dulcería en sala, va aparte sin cifra inventada.
   formato y tipo de día (adulto, niño, adulto mayor), menú de dulcería y funciones de 7 días de CDMX, Guadalajara y
   Monterrey (`--plazas`, desde el 2026-09-27) a un solo JSON compacto (260 cines, 494 KB, 87 KB comprimido el
   2026-09-27); el navegador suma y filtra (`marketing/lib/recommend.ts`) y elige la plaza más cercana al punto de
-  partida.
+  partida. Cada función enlaza a la compra en el sitio de su cadena (`config.BUY_URL`, verificado 2026-09-27):
+  Cinépolis `cinepolis.com/mx/horarios?cinema={cinema_id}&movie={movie_id}` abre el paso "Horario" con cine y
+  película elegidos; Cinemex `cinemex.com/cine/{cinema_id}/{slug}/fecha-{AAAAMMDD}/pelicula-{movie_id}` abre el cine
+  con la película y el día filtrados (sin fecha no muestra funciones; el slug no cuenta). No se puede
+  enlazar una función: Cinépolis elige la hora dentro de su app y `cinemex.com/checkout/{show_id}` abierto directo da
+  "Ups!". Los enlaces salen de ids que ya guarda `current_showtime`; no se guarda nada nuevo.
   Neutral entre cadenas por decisión de David: sin destacar a Cinemex. Sin paquete de dulcería, la columna muestra la
   referencia de palomitas y refresco de Cinépolis (también en el dashboard). Pendiente: hosting del sitio y un
   trabajo que regenere el JSON y reconstruya tras cada `snapshot`. Direcciones: la versión pública sugiere mientras se

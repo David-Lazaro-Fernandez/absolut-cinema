@@ -1,7 +1,7 @@
-// Mapa del recomendador (se carga solo en el navegador, con next/dynamic desde recommender.tsx): MapLibre con el estilo Positron de OpenFreeMap (vectorial, sin clave, uso comercial
-// permitido; el mismo mapa base del dashboard). Un clic en cualquier punto elige el punto de partida. Los cines van
-// todos en tinta, sin color por cadena (design.md §3: Matiné es neutral); el único rojo es el punto de partida, que es
-// la acción del usuario. Los colores se leen de las variables de globals.css, no se escriben aquí.
+// Mapa del recomendador. Carga solo en el navegador (next/dynamic). Un clic en un cine lo elige. Un doble clic en otro
+// lugar mueve el punto de partida: un clic suelto puede ser accidental. MapLibre con el estilo Positron de OpenFreeMap: no
+// pide clave y permite uso comercial. Todos los cines van en tinta, sin color por cadena (design.md §3). El único rojo
+// es el punto de partida. Los colores salen de las variables de globals.css.
 
 import { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
@@ -9,6 +9,8 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 
 export const BASEMAP_STYLE = 'https://tiles.openfreemap.org/styles/positron';
 const CIRCLE_STEPS = 64;
+const DOUBLE_CLICK_MS = 400;
+const DOUBLE_CLICK_PX = 12;
 
 type Point = { lat: number; lng: number };
 type Cinema = Point & { id: number; name: string; chain: string };
@@ -22,8 +24,8 @@ function circle({ lat, lng }: Point, km: number): GeoJSON.Feature {
   return { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: coords } };
 }
 
-/** La curva `cubic-bezier(x1, y1, x2, y2)` como función de MapLibre (t → progreso), para mover el mapa con la misma
- *  curva que las transiciones de globals.css (`--ease-out`). Resuelve x(s) = t por Newton y devuelve y(s). */
+/** `cubic-bezier(x1, y1, x2, y2)` como función de easing de MapLibre (t → progreso). Resuelve x(s) = t por Newton y
+ *  devuelve y(s). */
 function cubicBezier(x1: number, y1: number, x2: number, y2: number) {
   const at = (a: number, b: number, s: number) => 3 * a * s * (1 - s) ** 2 + 3 * b * s ** 2 * (1 - s) + s ** 3;
   const slope = (a: number, b: number, s: number) => 3 * a * (1 - s) ** 2 + 6 * (b - a) * s * (1 - s) + 3 * (1 - b) * s ** 2;
@@ -38,7 +40,7 @@ function cubicBezier(x1: number, y1: number, x2: number, y2: number) {
   };
 }
 
-/** La curva de `--ease-out` (definida en globals.css); si no se puede leer, la misma escrita aquí. */
+/** La curva `--ease-out` de globals.css, para que el mapa se mueva como el resto de la página. */
 function easeOut() {
   const css = getComputedStyle(document.documentElement).getPropertyValue('--ease-out');
   const n = css.match(/-?[\d.]+/g)?.map(Number);
@@ -87,12 +89,12 @@ export default function RecommenderMap({
     try {
       m = new maplibregl.Map({ container: box.current, style: BASEMAP_STYLE, center: [center.lng, center.lat], zoom: 10.5, attributionControl: false });
     } catch {
-      // Sin WebGL (navegador viejo, aceleración apagada) no hay mapa; el resto de la página sigue funcionando.
+      // Sin WebGL no hay mapa. El resto de la página funciona igual.
       setBroken(true);
       return;
     }
     m.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
-    // El crédito va arriba: abajo lo tapa la barra de búsqueda, y OpenFreeMap y OpenStreetMap lo exigen visible.
+    // OpenFreeMap y OpenStreetMap exigen un crédito visible. Abajo lo tapa el dock.
     m.addControl(new maplibregl.AttributionControl({ compact: true }), 'top-left');
     m.on('load', () => {
       m.addSource('radius', { type: 'geojson', data: collection([]) });
@@ -128,11 +130,16 @@ export default function RecommenderMap({
       });
       m.fire('ready');
     });
-    // Un clic sobre un cine lo elige; en cualquier otro lugar mueve el punto de partida.
+    // El doble clic sale de dos eventos click y no de dblclick: en celular, el doble toque no siempre da dblclick.
+    m.doubleClickZoom.disable();
+    let last = { time: -Infinity, x: 0, y: 0 };
     m.on('click', (e) => {
       const hit = m.getLayer('cinemas') ? m.queryRenderedFeatures(e.point, { layers: ['cinemas'] })[0] : undefined;
-      if (hit && choose.current) choose.current(Number(hit.properties.id));
-      else pick.current({ lat: e.lngLat.lat, lng: e.lngLat.lng });
+      if (hit && choose.current) return choose.current(Number(hit.properties.id));
+      const time = e.originalEvent.timeStamp;
+      const double = time - last.time < DOUBLE_CLICK_MS && Math.hypot(e.point.x - last.x, e.point.y - last.y) < DOUBLE_CLICK_PX;
+      last = double ? { time: -Infinity, x: 0, y: 0 } : { time, x: e.point.x, y: e.point.y };
+      if (double) pick.current({ lat: e.lngLat.lat, lng: e.lngLat.lng });
     });
     map.current = m;
     return () => {
@@ -163,7 +170,7 @@ export default function RecommenderMap({
     else m.once('ready', draw);
   }, [start, radiusKm, cinemas, selected]);
 
-  // Lo que tapa la barra de búsqueda abajo no cuenta como mapa visible: el centro se calcula en el resto.
+  // El centro del mapa no cuenta el área que tapa el dock.
   useEffect(() => {
     map.current?.setPadding({ top: 0, bottom: bottomInset, left: 0, right: 0 });
   }, [bottomInset]);
@@ -192,5 +199,5 @@ export default function RecommenderMap({
         Tu navegador no puede mostrar el mapa. Escribe una dirección o usa tu ubicación: los resultados funcionan igual.
       </p>
     );
-  return <div ref={box} className="rec__map" role="application" aria-label="Mapa: haz clic para elegir tu punto de partida" />;
+  return <div ref={box} className="rec__map" role="application" aria-label="Mapa: haz doble clic para mover tu punto de partida" />;
 }
