@@ -36,9 +36,7 @@ export function FooterSection() {
           </div>
         </div>
         <div className="footer__bottom">
-          <small>© {new Date().getFullYear()} Matiné.</small>
-          <small>Piloto: Cinemex frente a Cinépolis · captura nacional</small>
-        </div>
+          <small>© {new Date().getFullYear()} Matiné.</small>        </div>
       </div>
     </footer>
   );
