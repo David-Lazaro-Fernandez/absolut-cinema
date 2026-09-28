@@ -98,6 +98,9 @@ REMOVED_GRACE_MINUTES = 30
 # transitorios (116, 101305) si se le pide plano tras plano sin pausa.
 SAMPLE_PAUSE = 0.6        # segundos entre planos (por hilo)
 SAMPLE_BACKOFF = 5        # segundos tras un error
+# Parte de planos fallidos que una pasada tolera sin salir con error. Cinemex falla planos sueltos en rachas
+# (redirección sin destino, visto 2026-09-28); un fallo aislado no merece la alerta del timer.
+SAMPLE_MAX_FAIL_SHARE = float(os.environ.get("AC_SAMPLE_MAX_FAIL_SHARE", "0.25"))
 # Hilos del pase de aforo (`sample --capacity`), todos desde la misma IP y cada uno con su SAMPLE_PAUSE. 1 en los
 # timers; la pasada nacional única se lanzó a mano con 3 (2026-09-12) para bajar de ~2 h a ~40 min por cadena. La
 # escritura en SQLite sigue en el hilo principal.

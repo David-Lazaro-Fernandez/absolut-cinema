@@ -49,9 +49,11 @@ REGISTRY = {
     },
     keys.SEATS: {
         "description": "Planos de asientos de las tres cadenas 15–75 min tras el inicio (asistencia final), plazas de AC_SEATS_PLAZAS",
-        "steps": (("python", "scraper.sample", "--post-start"),
-                  ("python", "scraper.sample", "--post-start", "--chain", "cinemex"),
-                  ("python", "scraper.sample", "--post-start", "--chain", "cineteca")),
+        # La Cineteca primero (pocas funciones). Cinemex tarda 6–20 s por plano (medido 2026-09-28) y no cabe entero en la
+        # tarde: cada cadena tiene su tiempo y lo que no alcanza queda como muestra repartida entre cines.
+        "steps": (("python", "scraper.sample", "--post-start", "--chain", "cineteca", "--budget-min", "2"),
+                  ("python", "scraper.sample", "--post-start", "--budget-min", "12"),
+                  ("python", "scraper.sample", "--post-start", "--chain", "cinemex", "--budget-min", "12")),
         "schedule": ("*:50",),
         "timeout_min": 30,
         "hosts": ("server", "mac"),

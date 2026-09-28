@@ -127,6 +127,10 @@ def _request(url, *, method, headers, data, retries, pause, redirects=0):
             else:
                 raise ApiError(f"HTTP {e.code} en {url}: {snippet}", e.code)
         except (urllib.error.URLError, TimeoutError, OSError) as e:
+            if getattr(e, "reason", None) == "no host given":
+                # Cinemex contesta a ratos `sessions/{id}` con un 302 a `http://`, sin destino (visto el 2026-09-28,
+                # en rachas). Reintentar a los pocos segundos devuelve lo mismo y solo gasta el tope del trabajo.
+                raise ApiError(f"Redirección sin destino en {url}")
             via = f" (vía proxy {proxy})" if proxy else ""
             last_error = ApiError(f"{type(e).__name__} en {url}{via}: {e}")
         time.sleep(min(1.5 * (2 ** attempt), 30))
