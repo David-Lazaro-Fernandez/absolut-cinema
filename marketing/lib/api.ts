@@ -1,5 +1,6 @@
 // Cliente de la API de "¿A dónde ir?" (`api/main.py`). NEXT_PUBLIC_API_URL fija la dirección al construir el sitio.
-// Cada consulta espera WAIT_MS después del último cambio y cancela la anterior. La caché dura CACHE_MS porque la API
+// Cada consulta espera `wait` ms después del último cambio (WAIT_MS por omisión) y cancela la anterior. Lo que ya está
+// en caché responde sin esperar. La caché dura CACHE_MS porque la API
 // quita cada minuto las funciones que ya empezaron.
 
 import { useEffect, useState } from 'react';
@@ -19,9 +20,14 @@ function problem(status: number, detail: unknown) {
   return 'La cartelera no está disponible en este momento.';
 }
 
-async function load(url: string, signal: AbortSignal) {
+function cached(url: string) {
   const hit = cache.get(url);
-  if (hit && Date.now() - hit.at < CACHE_MS) return hit.data;
+  return hit && Date.now() - hit.at < CACHE_MS ? hit.data : undefined;
+}
+
+async function load(url: string, signal: AbortSignal) {
+  const hit = cached(url);
+  if (hit !== undefined) return hit;
   const res = await fetch(url, { signal }).catch((e) => {
     throw signal.aborted ? e : new Error(problem(0, null));
   });
@@ -71,14 +77,19 @@ export function searchParams(q: Query) {
 }
 
 /** Consulta `path` con `params`. Con `params` null, no consulta y limpia el estado. Un cambio de `refresh` consulta
- *  otra vez. Mientras carga, `data` conserva la respuesta anterior. */
-export function useApi<T>(path: string, params: URLSearchParams | null, refresh: unknown = null) {
+ *  otra vez. Mientras carga, `data` conserva la respuesta anterior. `wait` 0 para un clic: no hay nada que agrupar. */
+export function useApi<T>(path: string, params: URLSearchParams | null, refresh: unknown = null, wait = WAIT_MS) {
   const query = params ? String(params) : '';
   const url = params ? `${API_URL}${path}${query ? `?${query}` : ''}` : null;
   const [state, setState] = useState<{ data: T | null; error: string; loading: boolean }>({ data: null, error: '', loading: false });
   useEffect(() => {
     if (!url) {
       setState({ data: null, error: '', loading: false });
+      return;
+    }
+    const hit = cached(url);
+    if (hit !== undefined) {
+      setState({ data: hit as T, error: '', loading: false });
       return;
     }
     setState((s) => ({ ...s, loading: true }));
@@ -89,11 +100,11 @@ export function useApi<T>(path: string, params: URLSearchParams | null, refresh:
         .catch((e: Error) => {
           if (!ctrl.signal.aborted) setState((s) => ({ ...s, error: e.message, loading: false }));
         });
-    }, WAIT_MS);
+    }, wait);
     return () => {
       clearTimeout(timer);
       ctrl.abort();
     };
-  }, [url, refresh]);
+  }, [url, refresh, wait]);
   return state;
 }

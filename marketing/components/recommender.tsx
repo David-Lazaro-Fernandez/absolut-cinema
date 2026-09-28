@@ -175,6 +175,22 @@ function BuyLink({ row, chain }: { row: Row; chain: string }) {
   );
 }
 
+function Pick({ label, value, row, chain, today }: { label: string; value: string; row: Row; chain: string; today: string }) {
+  return (
+    <div className="rec-pick">
+      <span className="rec-pick__label">{label}</span>
+      <strong className="rec-pick__value">{value}</strong>
+      <span className="rec-pick__cinema">
+        {row.cinema_name} · {chain}
+      </span>
+      <span className="rec-pick__show">
+        {row.title} · {row.date === today ? time12(startMinutes(row)) : `${dayLabel(row.date, today)}, ${time12(startMinutes(row))}`}
+      </span>
+      <BuyLink row={row} chain={chain} />
+    </div>
+  );
+}
+
 function ShowsTable({
   rows,
   snacks,
@@ -462,6 +478,7 @@ export function Recommender() {
     '/v1/a-donde-ir/funciones',
     useMemo(() => (query && site ? searchParams({ ...query, site }) : null), [query, site]),
     now.minutes,
+    0,
   );
   const siteRows = useMemo(
     () =>
@@ -470,6 +487,7 @@ export function Recommender() {
         .sort((a, b) => a.datetime_local.localeCompare(b.datetime_local)),
     [siteSearch.data, siteId],
   );
+  const siteLoading = siteSearch.loading && siteRows.length === 0;
 
   function choose(place: Suggestion) {
     setStart({ lat: place.lat, lng: place.lng, label: place.context ? `${place.name}, ${place.context}` : place.name });
@@ -527,12 +545,6 @@ export function Recommender() {
       },
     );
   }
-
-  const generated = options?.captured_at
-    ? new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'long', hour: 'numeric', minute: '2-digit', timeZone: 'America/Mexico_City' }).format(
-        new Date(options.captured_at),
-      ).replace(/\.$/, '') // La hora ya termina en punto ("p.m."). La frase agrega otro.
-    : '';
   const lists: Record<Tab, Row[]> = {
     complete: result?.complete ?? [],
     snacks_unpriced: snacks !== 'none' ? result?.snacks_unpriced ?? [] : [],
@@ -544,7 +556,7 @@ export function Recommender() {
     unpriced: result?.summary.unpriced ?? 0,
   };
   const tabs: [Tab, string][] = [
-    ['complete', 'Caben'],
+    ['complete', 'Con costo completo'],
     ['snacks_unpriced', 'Sin precio de dulcería'],
     ['unpriced', 'Sin precio de boletos'],
   ];
@@ -567,12 +579,32 @@ export function Recommender() {
         </div>
         <h1 className="rec-screen__title">Funciones para {groupText(adults, children, seniors)}</h1>
         {result.complete.length ? (
-          <p className="rec__lead">
-            {result.summary.cinemas} {result.summary.cinemas === 1 ? 'cine tiene' : 'cines tienen'} funciones que caben
-            {budgetValue > 0 ? ' en tu presupuesto' : ''} a {radiusKm} km o menos de tu punto de partida.
-            {cheapest && ` La más barata: ${cheapest.cinema_name} (${chains[cheapest.chain]}), ${money(cheapest.total!)} en total a ${km(cheapest.distance_km)}.`}
-            {nearest && ` La más cercana: ${nearest.cinema_name}, a ${km(nearest.distance_km)}.`}
-          </p>
+          <>
+            <div className="rec-picks">
+              {cheapest && (
+                <Pick
+                  label={`La más barata · a ${km(cheapest.distance_km)}`}
+                  value={`${money(cheapest.total!)} en total`}
+                  row={cheapest}
+                  chain={chains[cheapest.chain]}
+                  today={now.date}
+                />
+              )}
+              {nearest && (
+                <Pick
+                  label="La más cercana"
+                  value={`a ${km(nearest.distance_km)}`}
+                  row={nearest}
+                  chain={chains[nearest.chain]}
+                  today={now.date}
+                />
+              )}
+            </div>
+            <p className="rec__lead">
+              {result.summary.cinemas} {result.summary.cinemas === 1 ? 'cine tiene' : 'cines tienen'} funciones que caben
+              {budgetValue > 0 ? ' en tu presupuesto' : ''} a {radiusKm} km o menos de tu punto de partida.
+            </p>
+          </>
         ) : (
           <p className="rec__lead">
             Ninguna función con costo completo cabe con esos filtros. Cambia la búsqueda: más distancia, otro horario, otra dulcería o más
@@ -580,15 +612,17 @@ export function Recommender() {
           </p>
         )}
 
+        {(lists.snacks_unpriced.length > 0 || lists.unpriced.length > 0) && (
         <div className="rec-tabs" role="tablist">
           {tabs
             .filter(([t]) => t === 'complete' || lists[t].length > 0)
             .map(([t, label]) => (
               <button key={t} type="button" role="tab" aria-selected={tab === t} className={`rec-tabs__tab ${tab === t ? 'is-on' : ''}`} onClick={() => setTab(t)}>
-                {label} <span>{counts[t].toLocaleString('es-MX')}</span>
+                {label} {t !== 'complete' && <span>{counts[t].toLocaleString('es-MX')}</span>}
               </button>
             ))}
         </div>
+        )}
 
         {tab === 'snacks_unpriced' && (
           <p className="rec__hint">
@@ -607,10 +641,7 @@ export function Recommender() {
         )}
 
         <p className="rec__source">
-          Cartelera y precios de lista de Cinemex, Cinépolis y la Cineteca Nacional capturados por Matiné; datos del {generated}. Boletos por
-          tipo de persona según el formato y el día de cada función; dulcería del menú en sala (tamaño base), solo donde el cine lo publica;
-          sin cargo por servicio. Distancia en línea recta; ninguna cadena gana un empate por ser quien es. Direcciones: Photon (komoot) ©
-          OpenStreetMap. Mapa © OpenFreeMap y OpenStreetMap.
+          Powered by: Matiné, Photon (komoot) © OpenStreetMap. Mapa © OpenFreeMap y OpenStreetMap.
         </p>
       </section>
     );
@@ -618,7 +649,8 @@ export function Recommender() {
 
   const located = Boolean(start);
   const menuRows = (
-    <div className={`rec-menu ${located ? '' : 'rec-menu--down'}`} role="menu" aria-label="Opciones de la búsqueda">
+    <div className={`rec-menu ${located ? '' : 'rec-menu--down'} ${menu ? 'is-open' : ''}`} role="menu" aria-label="Opciones de la búsqueda" inert={!menu}>
+      <div className="rec-menu__inner">
       <MenuRow id="group" open={open} onToggle={toggle} icon={<People />} label="Quiénes van" value={groupText(adults, children, seniors)}>
         <div className="rec__row">
           <Counter label="Adultos" value={adults} max={API_MAX_PEOPLE - children - seniors} onChange={setAdults} />
@@ -723,6 +755,7 @@ export function Recommender() {
           </label>
         </div>
       </MenuRow>
+      </div>
     </div>
   );
 
@@ -748,13 +781,14 @@ export function Recommender() {
 
       {!located && <h1 className="rec-stage__title">¿A dónde vamos al cine hoy?</h1>}
 
-      {located && site && siteRows.length > 0 && (
-        <aside className="rec-card" aria-label={`Funciones en ${site.name}`}>
+      {located && site && (siteRows.length > 0 || siteLoading) && (
+        <aside className="rec-card" aria-label={`Funciones en ${site.name}`} aria-busy={siteLoading}>
           <div className="rec-card__head">
             <div>
               <strong>{site.name}</strong>
               <span className="rec__chain">
-                {site.chain} · {km(site.distanceKm)} · {siteRows.length} {siteRows.length === 1 ? 'función' : 'funciones'}
+                {site.chain} · {km(site.distanceKm)}
+                {!siteLoading && ` · ${siteRows.length} ${siteRows.length === 1 ? 'función' : 'funciones'}`}
               </span>
             </div>
             <button type="button" className="rec-card__close" aria-label="Cerrar" onClick={() => setSiteId(null)}>
@@ -762,6 +796,14 @@ export function Recommender() {
             </button>
           </div>
           <ul className="rec-card__list">
+            {siteLoading &&
+              [0, 1, 2, 3].map((i) => (
+                <li key={i} className="rec-card__skeleton" aria-hidden="true">
+                  <span />
+                  <span />
+                  <span />
+                </li>
+              ))}
             {siteRows.map((r) => (
               <li key={rowKey(r)}>
                 <span className="rec-card__time">
@@ -786,7 +828,7 @@ export function Recommender() {
       )}
 
       <div className="rec-dock" ref={menuBox}>
-        {menu && menuRows}
+        {menuRows}
         {located && (
           <div className="rec-dock__context">
             <span>

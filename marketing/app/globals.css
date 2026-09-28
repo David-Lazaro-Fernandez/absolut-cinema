@@ -268,6 +268,8 @@ button {
   border: 1px solid transparent;
   border-radius: 16px;
   transition: all 0.5s var(--ease-out);
+  position: relative;
+  z-index: 41; /* Encima del menú abierto: la marca y el botón de cerrar siguen a la vista. */
 }
 
 .nav--scrolled {
@@ -1604,6 +1606,13 @@ button {
     right: 8px;
   }
 
+  /* En celular la barra no lleva fondo ni borde, ni con scroll ni con el menú abierto. */
+  .nav--scrolled .nav__bar {
+    background: none;
+    border-color: transparent;
+    backdrop-filter: none;
+  }
+
   .feat__row {
     grid-template-columns: 1fr;
     gap: 16px;
@@ -1693,8 +1702,13 @@ button {
   }
 
   .rec-stage__glass,
-  .rec-dock {
+  .rec-dock,
+  .rec-menu--down {
     transition: none;
+  }
+
+  .rec-card__skeleton span {
+    animation: none;
   }
 }
 
@@ -1841,6 +1855,24 @@ button {
 
 .rec-card__list li:last-child {
   border-bottom: 0;
+}
+
+/* Mientras llegan las funciones del edificio: barras grises con la forma de una fila (hora, título, precio). */
+.rec-card__skeleton span {
+  height: 14px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--ink-05) 0%, var(--ink-10) 50%, var(--ink-05) 100%) 0 0 / 200% 100%;
+  animation: rec-shimmer 1.2s ease-in-out infinite;
+}
+
+.rec-card__skeleton span:last-child {
+  width: 48px;
+}
+
+@keyframes rec-shimmer {
+  to {
+    background-position: -200% 0;
+  }
 }
 
 .rec-card__time {
@@ -2026,6 +2058,10 @@ button {
   bottom: auto;
 }
 
+.rec-menu:not(.is-open) {
+  display: none;
+}
+
 .rec-menu__row {
   border-radius: 6px;
 }
@@ -2120,6 +2156,54 @@ button {
 
 .rec-screen__more {
   align-self: center;
+}
+
+/* Lo que responde la búsqueda: la función más barata y la más cercana, antes que la lista. */
+.rec-picks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+}
+
+.rec-pick {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 12px 16px;
+  border: 1.5px solid var(--line);
+  border-left: 4px solid var(--red);
+  border-radius: 10px;
+}
+
+.rec-pick__label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--red);
+}
+
+.rec-pick__value {
+  font-size: clamp(1.4rem, 2.8vw, 1.9rem);
+  font-weight: 850;
+  font-stretch: 75%;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+
+.rec-pick__cinema {
+  font-weight: 700;
+}
+
+.rec-pick__cinema,
+.rec-pick__show {
+  font-size: 0.9rem;
+  color: var(--gray);
+}
+
+.rec-pick .rec__buy {
+  margin-top: 4px;
 }
 
 .rec-tabs {
@@ -2359,7 +2443,13 @@ button {
 @media (max-width: 700px) {
   .rec-stage__map,
   .rec-stage__glass {
-    top: 56px;
+    top: 0; /* En celular el mapa sube detrás de la barra: sin franja blanca arriba. */
+  }
+
+  /* Los controles del mapa (crédito y zoom) bajan de la barra para no tapar la marca ni el menú. */
+  .rec-stage .maplibregl-ctrl-top-left,
+  .rec-stage .maplibregl-ctrl-top-right {
+    top: 80px;
   }
 
   .rec-card {
@@ -2376,7 +2466,7 @@ button {
   }
 
   .rec-screen {
-    padding: 100px 16px 64px;
+    padding: 100px 21px 64px;
   }
 
   .rec-ask__locate span {
@@ -2385,6 +2475,53 @@ button {
 
   .rec-menu__body {
     padding-left: 14px;
+  }
+
+  /* Sin punto de partida, el menú abre entre la barra y las ciudades y las empuja. Anima filas de grid (0fr a 1fr)
+     y no max-height: así llega al alto real del menú y no se corta. La barra se queda fija: su posición ya no depende
+     del alto del dock. */
+  .rec-stage:not(.is-located) .rec-dock {
+    display: flex;
+    flex-direction: column;
+    transform: translate(-50%, -56px);
+  }
+
+  .rec-menu--down {
+    position: static;
+    order: 1;
+    display: grid;
+    grid-template-rows: 1fr;
+    max-height: none;
+    overflow: hidden;
+    margin-top: 8px;
+    transition:
+      grid-template-rows 0.4s ease-in-out,
+      margin-top 0.4s ease-in-out,
+      padding 0.4s ease-in-out,
+      border-color 0.4s ease-in-out,
+      opacity 0.4s ease-in-out,
+      transform 0.4s ease-in-out;
+  }
+
+  .rec-menu--down .rec-menu__inner {
+    min-height: 0;
+    max-height: calc(50svh - 150px);
+    overflow-y: auto;
+  }
+
+  .rec-menu--down:not(.is-open) {
+    display: grid;
+    grid-template-rows: 0fr;
+    margin-top: 0;
+    padding-block: 0;
+    border-color: transparent;
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  .rec-stage:not(.is-located) .rec-stage__cities,
+  .rec-stage:not(.is-located) .rec-stage__hint {
+    order: 2;
   }
 
   .rec-menu__value {
@@ -2411,8 +2548,8 @@ button {
       'time dist'
       'format format'
       'tickets snacks';
-    gap: 4px 12px;
-    padding: 14px 0;
+    gap: 6px 16px;
+    padding: 22px 0;
     border-bottom: 1px solid var(--line);
   }
 
@@ -2426,15 +2563,20 @@ button {
     text-align: left;
   }
 
+  /* Cuatro grupos con aire entre ellos: dónde y cuánto, qué película, cuándo y cómo, y el desglose. */
   .rec__c-cinema { grid-area: cinema; }
-  .rec__c-total { grid-area: total; font-size: 1.15rem; text-align: right !important; }
-  .rec__c-title { grid-area: title; font-weight: 600; }
-  .rec__c-time { grid-area: time; }
+  .rec__c-cinema .rec__chain { margin-top: 2px; }
+  .rec__c-total { grid-area: total; font-size: 1.3rem; font-weight: 800; text-align: right !important; }
+  .rec__c-title { grid-area: title; margin-top: 10px; font-size: 1.05rem; font-weight: 600; line-height: 1.3; }
+  .rec__c-time { grid-area: time; font-weight: 600; }
+  .rec__c-time .rec__buy { display: inline-block; margin: 0 0 0 12px; font-size: 0.85rem; }
   .rec__c-dist { grid-area: dist; text-align: right !important; color: var(--gray); }
-  .rec__c-format { grid-area: format; color: var(--gray); }
+  .rec__c-format { grid-area: format; font-size: 0.9rem; color: var(--gray); }
   .rec__c-format .rec__chain { display: inline; margin-left: 6px; }
-  .rec__c-tickets { grid-area: tickets; font-size: 0.85rem; color: var(--gray); }
-  .rec__c-snacks { grid-area: snacks; font-size: 0.85rem; color: var(--gray); text-align: right !important; }
+  .rec__c-tickets,
+  .rec__c-snacks { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); font-size: 0.85rem; color: var(--gray); }
+  .rec__c-tickets { grid-area: tickets; }
+  .rec__c-snacks { grid-area: snacks; text-align: right !important; }
   .rec__c-snacks .rec__ref { display: inline; }
 
   .rec__c-tickets::before,

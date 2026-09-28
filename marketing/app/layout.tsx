@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: 'Matiné — Inteligencia competitiva de cartelera',
   description:
     'Matiné captura la cartelera de tu competencia varias veces al día y redacta solo los cambios que cruzan un umbral de negocio. Piloto activo en CDMX.',
+  icons: { icon: '/abs.ico' },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
