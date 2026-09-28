@@ -1,3 +1,4 @@
 pytest>=8
 ruff>=0.6          # lint (make check, pre-push, CI)
+httpx>=0.27        # TestClient de FastAPI (tests/test_api.py)
 diagrams>=0.24

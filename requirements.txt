@@ -1,0 +1,4 @@
+# Dependencias del venv (.venv/): dashboard y API pública. El scraper, analytics/ y jobs/ usan solo la librería
+# estándar. Las herramientas de desarrollo están en requirements-dev.txt.
+-r requirements-dashboard.txt
+-r requirements-api.txt

@@ -6,9 +6,9 @@ PY ?= /usr/bin/python3
 VENV ?= .venv/bin
 
 .PHONY: help job units units-check tick snapshot seats occupancy post-start health prices concessions delivery capacity capacity-cinemex presale \
-        calibrate-cinemex dashboard backup launchd-load launchd-unload \
+        calibrate-cinemex dashboard api backup launchd-load launchd-unload \
         user-create user-list user-reset user-deactivate user-activate auth-prune deploy check lint test test-live fixtures hooks \
-        marketing-dev marketing-build export-recommender export-places
+        marketing-dev marketing-build export-places
 
 help:               ## lista los targets
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-20s %s\n", $$1, $$2}'
@@ -63,16 +63,16 @@ calibrate-cinemex:  ## calibración del semáforo de Cinemex, 100 funciones por 
 dashboard:          ## Streamlit local
 	$(VENV)/streamlit run app.py
 
+api:                ## API pública en local (http://localhost:8000/docs); requiere requirements.txt en el venv
+	$(VENV)/uvicorn api.main:app --port 8000 --reload
+
 marketing-dev:      ## landing page pública en local (Next.js, marketing/); requiere `npm install` una vez ahí
 	cd marketing && npm run dev
 
-marketing-build: export-recommender export-places  ## exporta la landing page pública como sitio estático a marketing/out
+marketing-build: ## exporta la landing page pública como sitio estático a marketing/out
 	cd marketing && npm run build
 
-export-recommender: ## datos de /a-donde-ir/ de la landing (CDMX, Guadalajara y Monterrey, 7 días) a marketing/public/data/a-donde-ir.json
-	$(PY) scripts/export_recommender.py
-
-export-places:      ## índice de lugares de CDMX, Guadalajara y Monterrey (OpenStreetMap) para las sugerencias instantáneas de /a-donde-ir/
+export-places:      ## índice de lugares de CDMX, Guadalajara y Monterrey (OpenStreetMap) para /a-donde-ir/; se versiona
 	$(PY) scripts/export_places.py
 
 user-create:        ## cuenta nueva con enlace de invitación: EMAIL= NAME= [ROLE=admin|viewer] [NOMAIL=1]
@@ -101,10 +101,12 @@ deploy:             ## servidor: trae origin/stable (o REF=…), reinstala si ca
 
 check: lint test    ## lo que corre el pre-push y CI: lint, imports sin dependencias y pruebas
 
-lint:               ## ruff (pyproject.toml) y comprobación de que scraper/ y analytics/ importan con el Python del sistema
+lint:               ## ruff, que scraper/ y analytics/ importan con el Python del sistema y que el lockfile usa npmjs
 	$(VENV)/ruff check .
 	$(PY) -m compileall -q scraper analytics jobs
 	$(PY) -c "import analytics, scraper.run, scraper.sample, scraper.health, scraper.delivery, jobs.run, jobs.units"
+	@! grep -n '"resolved": "' marketing/package-lock.json | grep -v '"resolved": "https://registry.npmjs.org/' \
+		|| { echo "package-lock.json apunta a un registro privado: sed -i '' 's#https://[^/]*/npm/#https://registry.npmjs.org/#' marketing/package-lock.json"; exit 1; }
 
 test:               ## pruebas (las de pantalla se omiten si no hay data/snapshots.db); la captura corre contra respuestas grabadas
 	$(VENV)/python -m pytest -q tests/

@@ -125,33 +125,58 @@ def test_without_a_package_cinepolis_still_shows_its_snack_reference(conn):
     assert rows and {(r["snacks_total"], r["snack_reference"]) for r in rows} == {(0.0, 150.0)}
 
 
-def test_the_public_catalog_carries_the_same_prices(conn):
-    from scripts import export_recommender as export
-
-    first = _first_unpriced(conn, GALERIAS_HMO)
-    _price(conn, first, TICKETS["cinepolis"])
-    _menu(conn, first["cinema_id"], {"Palomitas": 9000, "Refresco": 6000, "Combo Clásico": 25000})
-    catalog = analytics.recommend_catalog(conn, D0, D1, from_now=False, plaza=None)
-    price = next(p for p in catalog["prices"] if p["cinema_id"] == first["cinema_id"])
-    assert (price["adult"], price["child"], price["senior"]) == (90.0, 70.0, 65.0)
-    cinema = next(c for c in catalog["cinemas"] if c["cinema_id"] == first["cinema_id"])
-    assert cinema["snacks"] == {"Palomitas": 90.0, "Refresco": 60.0, "Combo Clásico": 250.0}
-    data = export.compact(export.merge({"nacional": catalog}), [export.area("nacional", catalog["cinemas"])])
-    assert sum(len(s[5]) for s in data["shows"]) == len(catalog["shows"])
-    west, south, east, north = data["plazas"][0][4]
-    assert west < cinema["lng"] < east and south < cinema["lat"] < north
-    ix = [c[1] for c in data["cinemas"]].index(cinema["cinema_name"])
-    key = f"{ix}|{data['formats'].index(first['format_bucket'])}|{first['day_type']}"
-    assert data["prices"][key][:3] == [90.0, 70.0, 65.0]
+def test_one_search_gives_what_the_separate_calls_give(conn):
+    _price(conn, _first_unpriced(conn, FORUM_TEPIC), TICKETS["cinemex"])
+    common = dict(d0=D0, d1=D1, from_now=False, adults=1, children=1, snacks="combo")
+    found = analytics.recommend_search(conn, *FORUM_TEPIC, per_cinema=2, limit=10_000, **common)
+    for status in rec.STATUSES:
+        assert found[status] == analytics.recommend(conn, *FORUM_TEPIC, status=status, per_cinema=2, limit=10_000, **common)
+    assert found["summary"] == analytics.recommend_summary(conn, *FORUM_TEPIC, **common)
+    assert found["titles"] == analytics.recommend_titles(conn, *FORUM_TEPIC, d0=D0, d1=D1, from_now=False)
+    title = found["titles"][-1]["title_norm"]
+    only = analytics.recommend_search(conn, *FORUM_TEPIC, title_norm=title, **common)
+    assert only["titles"] == found["titles"]                                          # el filtro no vacía la lista
+    assert {r["title_norm"] for r in only["unpriced"]} <= {title}
 
 
-def test_each_public_show_can_build_its_buy_link(conn):
-    from scripts import export_recommender as export
+def test_a_neutral_tie_keeps_the_order_it_gets():
+    base = {"distance_km": 1.0, "total": 100.0, "tickets_total": 100.0, "datetime_local": "2026-09-27T18:00:00", "show_id": "a"}
+    tied = [{**base, "chain": "cinepolis"}, {**base, "chain": "cinemex"}]
+    for sort in rec.SORTS:
+        assert sorted(tied, key=rec._sort_key(sort, favor_us=False))[0]["chain"] == "cinepolis"
 
-    catalog = analytics.recommend_catalog(conn, D0, D1, from_now=False, plaza=None)
-    data = export.compact(export.merge({"nacional": catalog}), [export.area("nacional", catalog["cinemas"])])
-    template = data["buy"][data["chains"].index("Cinépolis")]
-    show = next(s for s in data["shows"] if data["chains"][data["cinemas"][s[0]][0]] == "Cinépolis")
-    link = template.format(cinema_id=data["cinemas"][show[0]][5], movie_id=data["movies"][show[6]])
-    assert link.startswith("https://cinepolis.com/mx/horarios?cinema=") and "&movie=" in link
-    assert "/fecha-{date}/pelicula-{movie_id}" in data["buy"][data["chains"].index("Cinemex")]
+
+def test_each_show_links_to_its_buy_page(conn):
+    cinemex = _first_unpriced(conn, FORUM_TEPIC)
+    assert cinemex["buy_url"] == (f"https://cinemex.com/cine/{cinemex['cinema_id']}/{rec._slug(cinemex['cinema_name'])}"
+                                  f"/fecha-{cinemex['date'].replace('-', '')}/pelicula-{cinemex['movie_id']}")
+    cinepolis = _first_unpriced(conn, GALERIAS_HMO)
+    assert cinepolis["buy_url"] == (f"https://cinepolis.com/mx/horarios?cinema={cinepolis['cinema_id']}"
+                                    f"&movie={cinepolis['movie_id']}")
+    assert rec._slug("Parque Lindavista (CDMX)") == "parque-lindavista-cdmx"
+
+
+def test_a_building_is_one_site_with_every_show(conn):
+    near = dict(d0=D0, d1=D1, from_now=False, radius_km=0.5)
+    by_cinema = {}
+    for r in analytics.recommend(conn, *FORUM_TEPIC, status="unpriced", limit=10_000, **near):
+        by_cinema.setdefault(r["cinema_id"], r)
+    for r in by_cinema.values():
+        _price(conn, r, TICKETS["cinemex"])
+    found = analytics.recommend_search(conn, *FORUM_TEPIC, per_cinema=1, **near)
+    assert len(found["sites"]) == 1
+    site = found["sites"][0]
+    assert {c["cinema_name"] for c in site["cinemas"]} == {"Forum Tepic", "Forum Tepic Platino"}
+    inside = analytics.recommend_search(conn, *FORUM_TEPIC, per_cinema=1, site=(site["lat"], site["lng"]), **near)
+    assert len(inside["complete"]) == site["shows"] > len(found["complete"])           # sin tope por cine
+
+
+def test_the_options_describe_each_plaza(conn):
+    options = analytics.recommend_options(conn, plazas=(None,), d0=D0, d1=D1, from_now=False)
+    west, south, east, north = options["plazas"][0]["bbox"]
+    assert west < FORUM_TEPIC[1] < east and south < FORUM_TEPIC[0] < north
+    assert [d["date"] for d in options["dates"]] == sorted(d["date"] for d in options["dates"])
+    assert options["formats"] and options["snacks"] == list(rec.SNACK_PACKAGES)
+    assert {"Forum Tepic", "Forum Tepic Platino"} <= {c["cinema_name"] for c in options["cinemas"]}
+    assert analytics.recommend_options(conn, plazas=("gdl",), d0=D0, d1=D1)["plazas"] == []
+

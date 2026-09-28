@@ -17,9 +17,9 @@ vocabulario del stylesheet.
   más `reveal.tsx` (aparición por scroll), `ascii-sphere.tsx` (canvas del hero) e `icons.tsx`.
 - `lib/site.ts` — correo de contacto y enlaces de navegación; lo único que se repite en varias secciones.
 - `app/a-donde-ir/`, `components/recommender*.tsx`, `lib/recommend.ts` — la demo pública del recomendador de
-  funciones (ver `design.md` §7). Lee `public/data/a-donde-ir.json`, un archivo de datos (no código) que genera
-  `make export-recommender` desde la raíz del repo y que no se versiona, y `public/data/lugares.json`, el índice de
-  lugares para las sugerencias instantáneas (`make export-places`, de OpenStreetMap; tampoco se versiona).
+  funciones (ver `design.md` §7). Consulta la API pública (`lib/api.ts`; `NEXT_PUBLIC_API_URL` al construir, en local
+  `make api` desde la raíz y `http://localhost:8000` por defecto) y lee `public/lugares.json`, el índice de lugares para
+  las sugerencias instantáneas (`make export-places`, de OpenStreetMap; se versiona).
 - `scripts/screenshot.mjs` — capturas y medidas con el Chrome instalado, por protocolo DevTools.
 
 ```sh

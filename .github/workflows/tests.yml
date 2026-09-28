@@ -27,10 +27,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: venv del dashboard
+      - name: venv del dashboard y de la API
         run: |
           python -m venv .venv
-          .venv/bin/pip install -q -r requirements-dashboard.txt pytest ruff
+          .venv/bin/pip install -q -r requirements.txt -r requirements-dev.txt
 
       - name: lint (ruff, pyproject.toml)
         run: .venv/bin/ruff check .
