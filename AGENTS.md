@@ -274,7 +274,7 @@ La verificación principal es correr el flujo de verdad contra la base. Hay adem
 `tests/` (pytest, `requirements-dev.txt`, solo en el venv): lógica pura que no toca red (diff de snapshots,
 parsers, cuentas sobre un `app.db` temporal, conjuntos del explorador) y un recorrido por pantalla con `AppTest`
 (`tests/test_views.py`: acceso, cartelera, dulcería, independientes, datos y usuarios, por rol). Las pantallas de acceso corren en
-cualquier máquina (crean su propio `app.db`); las de datos se omiten donde no hay `data/snapshots.db`.
+cualquier máquina (crean su propio `app.db`); las de datos usan la captura grabada donde no hay `data/snapshots.db` (en CI), salvo cartelera y dulcería, que la necesitan real y se omiten.
 La captura se prueba de punta a punta contra respuestas reales grabadas de ambas APIs (`tests/test_capture_replay.py`,
 `tests/fixtures/capture/`, `scripts/capture_fixtures.py`): Cinemex estado 18 y Cinépolis `hermosillo` pasan por
 `snapshot()`, `normalize` y `store`, y el resultado debe ser idéntico al esperado grabado y cumplir las reglas de

@@ -3,7 +3,7 @@ cartelera, dulcería, independientes, datos, usuarios y operaciones, con los rol
 
 Las cuentas viven en un `app.db` temporal que crea este módulo, así que acceso y usuarios corren en cualquier máquina,
 también en CI. Las páginas de datos necesitan `data/snapshots.db` real (cartelera, dulcería, datos, operaciones) y se
-omiten donde no existe; independientes y datos corren además sobre una base armada con la captura grabada de las tres
+omiten donde no existe (las demás usan entonces la captura grabada); independientes y datos corren además sobre una base armada con la captura grabada de las tres
 cadenas (`tests/conftest.py`), así que también corren en CI. La cookie se simula parcheando `ui.session._raw_cookie`; lo único que AppTest no ejerce es el
 ciclo real de la cookie en el navegador.
 
@@ -40,7 +40,16 @@ ADMIN, VIEWER = "pytest-admin@example.test", "pytest-viewer@example.test"
 PASSWORD = "contraseña-de-pruebas-123"
 
 
+# Cartelera y dulcería comparan ambas cadenas en la misma plaza y leen dulcería: la captura grabada no alcanza.
 needs_sqlite = pytest.mark.skipif(not config.DB_PATH.exists(), reason="sin data/snapshots.db")
+any_snapshots = pytest.mark.usefixtures("snapshots")
+
+
+@pytest.fixture
+def snapshots(request):
+    """La base real si existe; si no (CI), la captura grabada de `recorded_db`."""
+    if not config.DB_PATH.exists():
+        request.getfixturevalue("recorded_db")
 
 
 @pytest.fixture(scope="module")
@@ -162,7 +171,7 @@ def test_dulceria_for_viewer(monkeypatch, conn, viewer):
     assert len(at.dataframe) > 0
 
 
-@needs_sqlite
+@any_snapshots
 @pytest.mark.parametrize("dataset", list(DATASET_LABEL))
 def test_datos_each_dataset(monkeypatch, conn, viewer, dataset):
     at = _run(monkeypatch, cookie=_cookie(conn, viewer), page="datos")
@@ -171,7 +180,7 @@ def test_datos_each_dataset(monkeypatch, conn, viewer, dataset):
     assert len(at.dataframe) == 1 or at.info   # tabla con datos, o el aviso de "sin renglones"
 
 
-@needs_sqlite
+@any_snapshots
 def test_datos_filters_apply(monkeypatch, conn, viewer):
     at = _run(monkeypatch, cookie=_cookie(conn, viewer), page="datos")
     at.sidebar.selectbox(key="dataset").set_value("week_showtimes").run()
@@ -182,7 +191,7 @@ def test_datos_filters_apply(monkeypatch, conn, viewer):
     assert set(at.dataframe[0].value["Cadena"]) <= {"Cinemex"}   # el botón de descarga no lo expone AppTest
 
 
-@needs_sqlite
+@any_snapshots
 def test_mapa_for_viewer(monkeypatch, conn, viewer):
     at = _run(monkeypatch, cookie=_cookie(conn, viewer), page="mapa")
     _clean(at)
@@ -199,7 +208,7 @@ def test_mapa_for_viewer(monkeypatch, conn, viewer):
     _clean(at)                                                    # el cine elegido ya no está en la zona: se suelta
 
 
-@needs_sqlite
+@any_snapshots
 def test_recomendador_for_viewer(monkeypatch, conn, viewer):
     at = _run(monkeypatch, cookie=_cookie(conn, viewer), page="recomendador")
     at.session_state["rec_location"] = (19.35, -99.162)                  # Coyoacán
@@ -208,7 +217,7 @@ def test_recomendador_for_viewer(monkeypatch, conn, viewer):
     assert at.markdown                                                    # resumen y tabla de funciones
 
 
-@needs_sqlite
+@any_snapshots
 def test_independientes_for_viewer(monkeypatch, conn, viewer):
     at = _run(monkeypatch, cookie=_cookie(conn, viewer), page="independientes")
     _clean(at)
@@ -317,7 +326,7 @@ def test_viewer_cannot_open_usuarios(monkeypatch, conn, viewer):
     assert len(at.dataframe) > 1                          # cayó en la cartelera
 
 
-@needs_sqlite
+@any_snapshots
 def test_operaciones_for_admin(monkeypatch, conn, admin):
     at = _run(monkeypatch, cookie=_cookie(conn, admin), page="operaciones")
     _clean(at)
@@ -338,7 +347,7 @@ def test_viewer_cannot_open_operaciones(monkeypatch, conn, viewer):
     assert len(at.dataframe) > 1                          # cayó en la cartelera
 
 
-@needs_sqlite
+@any_snapshots
 def test_logout_revokes_session(monkeypatch, conn, admin):
     cookie = _cookie(conn, admin)
     at = _run(monkeypatch, cookie=cookie)
