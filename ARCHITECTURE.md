@@ -40,7 +40,7 @@ flowchart LR
     subgraph producto["Producto"]
         AN["analytics/ (funciones puras, sin dependencias)<br/>queries · findings · summary · history · seats · presale · concessions · delivery · datasets · labels"]
         AUTH["auth/ (venv, boto3 solo para SES)<br/>cuentas · sesiones · enlaces · correo SES/console · auth.cli"]
-        APP["app.py · Streamlit (.venv) · st.navigation según sesión y rol<br/>views/login · olvide · restablecer<br/>views/cartelera (3 capas) · mapa · dulceria · independientes · datos · usuarios · operaciones (admin)<br/>ui/common.py helpers · ui/session.py cookie"]
+        APP["app.py · Streamlit (.venv) · st.navigation según sesión y rol<br/>views/login · olvide · restablecer<br/>views/cartelera (3 capas) · mapa · recomendador · dulceria · independientes · datos · usuarios · operaciones (admin)<br/>ui/common.py helpers · ui/session.py cookie"]
         CADDY["Caddy · HTTPS (basic auth opcional hasta tener dominio)"]
     end
 
@@ -144,7 +144,7 @@ cuando pasan las pruebas y el trabajo `deploy` la trae. A mano, con `!` en la se
 | `jobs.run` (`make job KEY=…`) | ejecuta un trabajo del registro: candado por llave, tope, reintentos; genera las unidades con `jobs.units` | lo lanza cada timer | `logs/jobs.jsonl` (duración, resultado, pico de memoria), `data/locks/` | systemd / launchd / a mano |
 | `scraper.health` (`make health`) | salud de la captura: capturas programadas, fallos, muestreos; las mismas funciones alimentan en vivo la página Operaciones | diario | `logs/health.log` | trabajo `health` |
 | `backup.sh` | copias en línea de `snapshots.db` y `app.db` y sync del crudo | diario 05:07 | bucket (`db/`, `app/`, `raw/`) | trabajo `backup` |
-| `app.py` (+ `ui/`, `views/`) | dashboard Streamlit con login por usuario: Cartelera, Mapa, Dulcería, Independientes (Cineteca Nacional), Datos (explorador de tablas de SQLite) y, para admin, Usuarios y Operaciones (estado de captura, bases, servidor y logs; lee `scraper.health`) | siempre | `app.db` vía `auth/` (cuentas, sesiones, enlaces, auditoría); `snapshots.db`, solo lectura | `dashboard.service`, detrás de Caddy |
+| `app.py` (+ `ui/`, `views/`) | dashboard Streamlit con login por usuario: Cartelera, Mapa, ¿A dónde ir? (recomendador), Dulcería, Independientes (Cineteca Nacional), Datos (explorador de tablas de SQLite) y, para admin, Usuarios y Operaciones (estado de captura, bases, servidor y logs; lee `scraper.health`) | siempre | `app.db` vía `auth/` (cuentas, sesiones, enlaces, auditoría); `snapshots.db`, solo lectura | `dashboard.service`, detrás de Caddy |
 | `auth.cli` (`make user-create`, `user-list`, `user-reset`, `user-deactivate`, `user-activate`) | administración de cuentas desde la terminal; así nace el primer admin | a mano | `app.db`; correo por SES o `data/logs/mail.log` | manual |
 | `auth.cli prune` (`make auth-prune`) | borra sesiones y enlaces vencidos hace más de 90 días | domingos 04:07 | `app.db`: `session`, `token` | trabajo `auth-prune` |
 | GitHub Actions `tests.yml` | pruebas en cada push a `main`; si pasan, mueve la rama `stable` a ese commit | cada push | rama `stable` del repo | GitHub |

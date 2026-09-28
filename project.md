@@ -931,9 +931,56 @@ los cines visibles, y no crece con el zoom. El filtro
 | Palomitas en sala | `concession_price`, producto "Palomitas" | solo Cinépolis: Cinemex tiene precio único |
 | Ocupación | `occupancy_sample` tras el inicio, 7 días | solo con ≥ 10 funciones medidas en el cine |
 
-Mapa base: CARTO claro sobre OpenStreetMap vía pydeck (viene con Streamlit, sin clave). **Siguiente paso (decidido
+Mapa base: estilo *Positron* de OpenFreeMap (vectorial, sin clave, uso comercial permitido, datos de OpenStreetMap;
+`BASEMAP_STYLE`, sobreescribible con `AC_BASEMAP_STYLE`). CARTO se descartó el 2026-09-27: sus mosaicos raster salen con
+"API KEY REQUIRED" sin clave. En pydeck es la URL del estilo; en Leaflet (recomendador) lo dibuja MapLibre vía el
+plugin `maplibre-gl-leaflet` (`ui/common.py › vector_basemap`). **Siguiente paso (decidido
 2026-09-26): versión pública** en la landing (`marketing/`) con MapLibre GL y los mismos datos exportados a un JSON con
 fecha de corte; se pueden mostrar todos los datos (son públicos en los sitios de las cadenas).
+
+### Recomendador "¿A dónde ir?" (2026-09-27)
+
+Página `views/recomendador.py` con la lógica en `analytics/recommender.py` (`recommend`, `recommend_summary`,
+`recommend_titles`). Arriba, "Tu plan": desde dónde sale (dirección, ubicación del navegador o clic en el mapa), quiénes
+van (adultos, niños, adultos mayores), qué dulcería quieren, presupuesto total y día; en "Más filtros", franja,
+distancia máxima, película, formato y orden. Decisiones de David (2026-09-27): recomienda las tres cadenas con Cinemex
+primero en un empate; el costo es boletos por tipo de persona más un paquete de dulcería; Cinemex, sin precio de
+dulcería en sala, va aparte sin cifra inventada.
+
+- **Boletos:** la lectura de precio más reciente del cine para el mismo formato y tipo de día (sin eventos ni matinés)
+  trae todos los boletos de la función: adulto = el general; niño y adulto mayor por nombre ("MENOR", "MAYOR 60" en
+  Cinemex; "Niños", "3 Era Edad" en Cinépolis), el regular (el más caro que no pasa del general, no una promoción
+  como "Que Oferton"); si no hay, pagan el general. Cubre 6,852 de 6,859 funciones de Cinemex y 5,217 de 5,219 de
+  Cinépolis de hoy y mañana en CDMX (medido el 2026-09-27).
+- **Dulcería:** paquetes (`SNACK_PACKAGES`): sin dulcería, palomitas y refresco por persona (tamaño base) o un Combo
+  Clásico cada dos, con el menú en sala de cada cine de Cinépolis (`concession_product_by_cinema`). Cinemex tiene
+  apagada la venta de dulcería en línea y la Cineteca no tiene menú: sus funciones van a "sin precio de dulcería en
+  sala" (`status="snacks_unpriced"`), con el costo de los boletos, y no compiten por el presupuesto con las completas.
+- **Estados** (`STATUSES`): `complete` (su total cabe en el presupuesto), `snacks_unpriced` (los boletos caben, la
+  dulcería no tiene precio) y `unpriced` (sin precio de boletos: toda la Cineteca, hasta capturar su precio).
+- **Ubicación:** la dirección se geocodifica con Nominatim (OpenStreetMap) en `scraper/geocode.py` (stdlib,
+  `config.GEOCODER_*`), en caché una semana (`load_geocode`); la página muestra la dirección que entendió, porque a
+  veces se equivoca de calle. La ubicación del navegador (`streamlit-js-eval`) solo funciona con HTTPS o en localhost:
+  en el servidor espera al dominio. El clic en el mapa (`streamlit-folium`) ajusta el punto.
+- **Orden:** más cerca, más barato o más pronto; hasta 3 funciones por cine. Distancia en línea recta (haversine).
+- **Versión pública (2026-09-27):** `/a-donde-ir/` en la landing (`marketing/`, ver `marketing/design.md` §7).
+  `recommend_catalog` + `scripts/export_recommender.py` (`make export-recommender`) exportan cines, precios por cine,
+  formato y tipo de día (adulto, niño, adulto mayor), menú de dulcería y funciones de 7 días de CDMX, Guadalajara y
+  Monterrey (`--plazas`, desde el 2026-09-27) a un solo JSON compacto (260 cines, 494 KB, 87 KB comprimido el
+  2026-09-27); el navegador suma y filtra (`marketing/lib/recommend.ts`) y elige la plaza más cercana al punto de
+  partida. Cada función enlaza a la compra en el sitio de su cadena (`config.BUY_URL`, verificado 2026-09-27):
+  Cinépolis `cinepolis.com/mx/horarios?cinema={cinema_id}&movie={movie_id}` abre el paso "Horario" con cine y
+  película elegidos; Cinemex `cinemex.com/cine/{cinema_id}/{slug}/fecha-{AAAAMMDD}/pelicula-{movie_id}` abre el cine
+  con la película y el día filtrados (sin fecha no muestra funciones; el slug no cuenta). No se puede
+  enlazar una función: Cinépolis elige la hora dentro de su app y `cinemex.com/checkout/{show_id}` abierto directo da
+  "Ups!". Los enlaces salen de ids que ya guarda `current_showtime`; no se guarda nada nuevo.
+  Neutral entre cadenas por decisión de David: sin destacar a Cinemex. Sin paquete de dulcería, la columna muestra la
+  referencia de palomitas y refresco de Cinépolis (también en el dashboard). Pendiente: hosting del sitio y un
+  trabajo que regenere el JSON y reconstruya tras cada `snapshot`. Direcciones: la versión pública sugiere mientras se
+  escribe: primero un índice local de ~6 mil lugares de las tres plazas de OpenStreetMap (`scripts/export_places.py`,
+  `make export-places`, 88 KB comprimido, sugerencias en ~15 ms) y Photon (komoot, datos de OSM, sin clave; Nominatim prohíbe
+  autocompletar) solo para lo que no está ahí, como calles con número, con caché en el navegador; con tráfico real hay
+  que pasar Photon a una instancia propia o a un proveedor con clave.
 
 ### Implementación
 

@@ -24,7 +24,7 @@ export function Navigation() {
   return (
     <header className={`nav ${scrolled || open ? 'nav--scrolled' : ''}`}>
       <nav className="nav__bar" aria-label="Principal">
-        <a className="marca" href="#top">
+        <a className="marca" href="/#top">
           Matin<span>é</span>
         </a>
 

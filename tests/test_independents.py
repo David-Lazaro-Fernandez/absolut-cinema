@@ -14,7 +14,9 @@ D0 = D1 = "2026-09-27"                                  # el día grabado de la 
 
 
 @pytest.fixture
-def conn(capture_db):
+def conn(capture_db, monkeypatch):
+    # El día grabado no depende del reloj: sin esto, `from_now` recorta lo que ya empezó si hoy es D0.
+    monkeypatch.setattr(sys.modules["analytics.queries"], "today", lambda tz=None: "2026-09-26")
     c = capture_db("cinemex", "cineteca")
     # Los cines grabados de Cinemex están en Sonora: se mudan a CDMX y uno exhibe "Cars" el mismo día que la Cineteca.
     c.execute("UPDATE current_showtime SET city_id = '15', date = ?, datetime_local = ? || substr(datetime_local, 11), "

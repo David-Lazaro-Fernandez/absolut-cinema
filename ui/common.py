@@ -8,6 +8,8 @@ Solo pinta lo que devuelve analytics/; sin SQL y sin nombres internos aquí (los
 las frases de analytics.findings).
 """
 import html
+import json
+import os
 import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -16,6 +18,7 @@ from zoneinfo import ZoneInfo
 import altair as alt
 import pandas as pd
 import streamlit as st
+from branca.element import MacroElement, Template
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -41,6 +44,7 @@ from analytics.labels import (  # noqa: E402
     GRAY_DARK,
     GRAY_LIGHT,
     GRID,
+    GROUP_LABEL,
     HOUR_MARKS,
     HOUR_PRESETS,
     INDEP,
@@ -51,6 +55,7 @@ from analytics.labels import (  # noqa: E402
     LANGUAGE_BUCKETS,
     LANGUAGE_LABEL,
     LINE,
+    MAP_ATTRIBUTION,
     MAP_METRIC,
     MAP_TEXT,
     NATIONAL_LABEL,
@@ -60,6 +65,8 @@ from analytics.labels import (  # noqa: E402
     PAPER,
     PLATFORM_LABEL,
     PLAZA_LABEL,
+    RECOMMEND_SORT,
+    RECOMMEND_TEXT,
     RED,
     RED_RAMP,
     RED_SOFT,
@@ -67,6 +74,7 @@ from analytics.labels import (  # noqa: E402
     ROLE_LABEL,
     SLOT_SHORT,
     SLOTS,
+    SNACK_LABEL,
     STATUS_LABEL,
     VS_NOW_LABEL,
     WARN,
@@ -82,9 +90,15 @@ from analytics.labels import (  # noqa: E402
 )
 from jobs import keys as job_keys  # noqa: E402
 from jobs import registry as job_registry  # noqa: E402
-from scraper import config, health  # noqa: E402  (health: estado de la captura para la página de operaciones)
+from scraper import config, geocode, health  # noqa: E402  (health: estado de la captura para la página de operaciones)
 from scraper.health import MAX_AGE_MIN  # noqa: E402  (umbral de captura vieja, el mismo que scraper.health)
 
+# Mapa base de las páginas con mapa: estilo vectorial de OpenFreeMap (sin clave, uso comercial permitido, datos de
+# OpenStreetMap). Los mosaicos raster de CARTO piden clave desde 2026-09 y muestran "API KEY REQUIRED".
+BASEMAP_STYLE = os.environ.get("AC_BASEMAP_STYLE", "https://tiles.openfreemap.org/styles/positron")
+_MAPLIBRE_JS = "https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"
+_MAPLIBRE_CSS = "https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css"
+_MAPLIBRE_LEAFLET_JS = "https://cdn.jsdelivr.net/npm/@maplibre/maplibre-gl-leaflet@0.1.4/leaflet-maplibre-gl.js"
 TTL = 60  # segundos; los planos de asientos escriben cada 15 min y la cartelera tres veces al día
 TZ = ZoneInfo("America/Mexico_City")
 SNAPSHOT_TIMES = job_registry.daily_times(job_keys.SNAPSHOT)  # horas de captura de cartelera, del registro
@@ -270,6 +284,16 @@ def load_dataset(fn_name, **kwargs):
         conn.close()
 
 
+@st.cache_data(ttl=7 * 24 * 3600, show_spinner=False)
+def load_geocode(address):
+    """Coordenadas de una dirección (`scraper.geocode`, Nominatim), en caché una semana: el servicio pide no repetir
+    consultas. Devuelve {lat, lng, label}, None si no la encontró, o {"error": …} si el servicio no respondió."""
+    try:
+        return geocode.geocode(address)
+    except geocode.ApiError as e:
+        return {"error": str(e)}
+
+
 def load_auth(fn_name, **kwargs):
     """Consultas de cuentas (`auth/`), sin caché: la página de usuarios debe reflejar cada acción al instante."""
     conn = auth.connect()
@@ -357,6 +381,22 @@ def pretty(df, index=None):
     if index:
         df = df.set_index(COLUMN_LABEL.get(index, index))
     return df
+
+
+def vector_basemap(fmap):
+    """Pone `BASEMAP_STYLE` como mapa base de un mapa de folium creado con `tiles=None`. Leaflet no dibuja mosaicos
+    vectoriales: lo hace MapLibre a través de su plugin para Leaflet."""
+    # Por las listas del mapa y no por el encabezado: así folium los escribe después de leaflet.js, que el plugin necesita.
+    fmap.default_js = [*fmap.default_js, ("maplibre", _MAPLIBRE_JS), ("maplibre_leaflet", _MAPLIBRE_LEAFLET_JS)]
+    fmap.default_css = [*fmap.default_css, ("maplibre_css", _MAPLIBRE_CSS)]
+    layer = MacroElement()
+    layer._template = Template(
+        "{% macro script(this, kwargs) %}"
+        f"L.maplibreGL({{style: {json.dumps(BASEMAP_STYLE)}, attribution: {json.dumps(MAP_ATTRIBUTION)}}})"
+        ".addTo({{ this._parent.get_name() }});"
+        "{% endmacro %}")
+    fmap.add_child(layer)
+    return fmap
 
 
 def rgb(hex_color, alpha=255):

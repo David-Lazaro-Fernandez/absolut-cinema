@@ -12,6 +12,12 @@ USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/128.0 Safari/537.36"
 )
+# Geocodificador del recomendador del dashboard. Nominatim es gratis con una consulta por segundo, un User-Agent propio
+# y caché. Para tráfico público, usar un servicio propio o de pago:
+# https://operations.osmfoundation.org/policies/nominatim/
+GEOCODER_URL = os.environ.get("AC_GEOCODER_URL", "https://nominatim.openstreetmap.org/search")
+GEOCODER_USER_AGENT = os.environ.get("AC_GEOCODER_USER_AGENT", "absolut-cinema/1.0 (dashboard; recomendador de funciones)")
+GEOCODER_COUNTRY = os.environ.get("AC_GEOCODER_COUNTRY", "mx")
 REQUEST_TIMEOUT = 60      # segundos por petición
 RETRIES = 3               # reintentos ante 5xx / 429 / red
 # Reintentos de una unidad de captura completa (un estado de Cinemex, un lote de Cinépolis) que falló aun con los
@@ -108,6 +114,12 @@ POST_START_TOLERANCE_MIN = 30
 # de funciones que se releen a diario hasta que empiezan: da la curva de venta (decisión 2026-09-25: 30 por título).
 CINEMEX_SITE_URL = os.environ.get("CINEMEX_SITE_URL", "https://cinemex.com/landing/preventas/peliculas/")
 PRESALE_LANDING_SLUG = "preventas"
+
+# Página de compra de una película en un cine (verificado 2026-09-27). No hay enlace a una función:
+# `cinemex.com/checkout/{show_id}` abierto directo da error. En Cinemex, `{date}` es AAAAMMDD y es obligatorio; el slug
+# no cuenta. Cinépolis no filtra por fecha.
+BUY_URL = {"cinemex": "https://cinemex.com/cine/{cinema_id}/{cinema_slug}/fecha-{date}/pelicula-{movie_id}",
+           "cinepolis": "https://cinepolis.com/mx/horarios?cinema={cinema_id}&movie={movie_id}"}
 PRESALE_PANEL_PER_TITLE = int(os.environ.get("AC_PRESALE_PANEL", "30"))
 
 # Dulcería de Cinépolis (sample --concessions): un menú completo por cine, renovado cada tantos días.

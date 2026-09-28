@@ -2,4 +2,7 @@
 streamlit>=1.60          # st.Page(visibility=), st.iframe, width="stretch"
 pandas>=2.2
 watchdog>=4
+folium>=0.20               # mapa del recomendador (Leaflet): el clic devuelve la coordenada, pydeck no
+streamlit-folium>=0.27
+streamlit-js-eval>=1.0          # ubicación del navegador en el recomendador (solo con HTTPS o localhost)
 boto3>=1.35              # correo por Amazon SES (AC_MAIL_BACKEND=ses); en desarrollo no se usa

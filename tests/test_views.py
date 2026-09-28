@@ -31,7 +31,7 @@ from streamlit.testing.v1 import AppTest  # noqa: E402
 
 import analytics  # noqa: E402
 import auth  # noqa: E402
-from analytics.labels import AUTH_TEXT, CHAIN_LABEL, DATASET_LABEL, INDEP_TEXT, OPS_TEXT  # noqa: E402
+from analytics.labels import AUTH_TEXT, CHAIN_LABEL, DATASET_LABEL, INDEP_TEXT, OPS_TEXT, RECOMMEND_TEXT  # noqa: E402
 from auth import security, sessions, users  # noqa: E402
 from ui import session  # noqa: E402
 
@@ -200,6 +200,15 @@ def test_mapa_for_viewer(monkeypatch, conn, viewer):
 
 
 @needs_sqlite
+def test_recomendador_for_viewer(monkeypatch, conn, viewer):
+    at = _run(monkeypatch, cookie=_cookie(conn, viewer), page="recomendador")
+    at.session_state["rec_location"] = (19.35, -99.162)                  # Coyoacán
+    at.run()
+    _clean(at)
+    assert at.markdown                                                    # resumen y tabla de funciones
+
+
+@needs_sqlite
 def test_independientes_for_viewer(monkeypatch, conn, viewer):
     at = _run(monkeypatch, cookie=_cookie(conn, viewer), page="independientes")
     _clean(at)
@@ -251,6 +260,20 @@ def test_mapa_with_recorded_capture(monkeypatch, conn, viewer, recorded_db):
     _clean(at)
     at.sidebar.radio(key="plaza").set_value(None).run()
     _clean(at)
+
+
+def test_recomendador_with_recorded_capture(monkeypatch, conn, viewer, recorded_db):
+    at = _run(monkeypatch, cookie=_cookie(conn, viewer), page="recomendador")
+    _clean(at)
+    assert at.info[-1].value == RECOMMEND_TEXT["no_location"]            # sin punto de partida, solo el plan y el mapa
+    at.session_state["rec_location"] = (21.493764, -104.8664)             # Forum Tepic, de lo grabado
+    at.radio(key="rec_when").set_value(RECOMMEND_TEXT["tomorrow"]).run()  # la cartelera grabada se movió a mañana
+    at.number_input(key="rec_children").set_value(2).run()
+    at.radio(key="rec_snacks").set_value("combo").run()
+    _clean(at)
+    at.number_input(key="rec_adults").set_value(0).run()
+    at.number_input(key="rec_children").set_value(0).run()
+    assert at.info[-1].value == RECOMMEND_TEXT["group_empty"]
 
 
 def test_datos_with_the_cineteca(monkeypatch, conn, viewer, recorded_db):

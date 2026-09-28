@@ -423,12 +423,20 @@ def _take_layouts(conn, chain, rows, stats, label):
     return fail == 0
 
 
+# Cadenas con lector de boletos. La Cineteca no tiene: su página de boletos pide una cookie de sesión de ASP.NET
+# (project.md › Cineteca Nacional › Precio), así que su precio sigue pendiente.
+PRICED_CHAINS = ("cinemex", "cinepolis")
+
+
 def price_pass(conn, days=7, limit=None, dry_run=False):
-    """Una función por (cadena, cine, cubeta de formato, tipo de día) sin muestra en los últimos `days` días."""
+    """Una función por (cadena, cine, cubeta de formato, tipo de día) sin muestra en los últimos `days` días, solo de
+    las cadenas de `PRICED_CHAINS`."""
     stats = {"calls": 0}
     now = now_local()
-    rows = conn.execute("""SELECT * FROM current_showtime WHERE datetime_local >= ? AND date <= ? ORDER BY datetime_local""",
-                        (now.strftime("%Y-%m-%dT%H:%M:%S"), (now + timedelta(days=days)).strftime("%Y-%m-%d"))).fetchall()
+    rows = conn.execute(f"""SELECT * FROM current_showtime
+                            WHERE chain IN ({','.join('?' for _ in PRICED_CHAINS)}) AND datetime_local >= ? AND date <= ?
+                            ORDER BY datetime_local""",
+                        (*PRICED_CHAINS, now.strftime("%Y-%m-%dT%H:%M:%S"), (now + timedelta(days=days)).strftime("%Y-%m-%d"))).fetchall()
     recent = {(r["chain"], r["cinema_id"], r["format_bucket"], r["day_type"]) for r in conn.execute(
         "SELECT chain, cinema_id, format_bucket, day_type FROM price_sample WHERE sampled_at >= ?",
         ((datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="seconds"),))}

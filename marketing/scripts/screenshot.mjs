@@ -12,7 +12,8 @@ const [, , url, width, height, out, full, expr] = process.argv;
 const port = 9300 + Math.floor(Math.random() * 500);
 
 const chrome = spawn(CHROME, [
-  '--headless=new', '--disable-gpu', '--no-first-run', '--hide-scrollbars',
+  // WebGL por software: sin él, el mapa de /a-donde-ir/ (MapLibre) no se dibuja en headless.
+  '--headless=new', '--disable-gpu', '--enable-unsafe-swiftshader', '--use-angle=swiftshader', '--no-first-run', '--hide-scrollbars',
   `--remote-debugging-port=${port}`, `--user-data-dir=/tmp/matine-screenshot-${port}`, 'about:blank',
 ], { stdio: 'ignore' });
 

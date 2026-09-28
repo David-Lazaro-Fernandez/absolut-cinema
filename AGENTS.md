@@ -85,7 +85,9 @@ defecto, la del piloto) o a nivel nacional. Tres capas, sin mezclarse:
   carpeta del script, así `ui/`, `views/`, `analytics/`, `auth/` y `scraper/` también se recargan al
   editarlos. No lo muevas.
 - **`marketing/` es un proyecto aparte** con su propio `package.json`: ninguna capa de Python lo importa y él no importa
-  nada del repo. Su identidad visual sí se hereda a mano de `DESIGN.md` y `analytics/labels.py` (ver
+  nada del repo. La única conexión es un archivo de datos: `scripts/export_recommender.py` escribe
+  `marketing/public/data/a-donde-ir.json` (no versionado) para la demo `/a-donde-ir/`, con la lógica de precios de
+  `analytics/recommender.py`; el sitio solo lo descarga y filtra. Su identidad visual sí se hereda a mano de `DESIGN.md` y `analytics/labels.py` (ver
   `marketing/design.md`), pero eso es documentación, no código compartido.
 
 ## 2. Principios de producto
@@ -213,7 +215,9 @@ el timer lo note. Si añades un flujo de captura, añade su cobertura ahí y su 
 
 - Páginas con `st.navigation` (barra superior; en celular el CSS la fija abajo): `views/cartelera.py` (tres
   capas con los filtros de zona, periodo y franja en la barra lateral; la zona sale de `plaza_selector()` en `ui/common.py`
-  y viaja como `plaza=` en cada `load`), `views/mapa.py` (mapa de cines, pydeck), `views/dulceria.py`, `views/independientes.py` (la Cineteca Nacional),
+  y viaja como `plaza=` en cada `load`), `views/mapa.py` (mapa de cines, pydeck), `views/recomendador.py` (funciones cerca y dentro del presupuesto; su mapa
+  es Leaflet vía `streamlit-folium` porque necesita la coordenada del clic, y la dirección se geocodifica con
+  `scraper/geocode.py` a través de `load_geocode`), `views/dulceria.py`, `views/independientes.py` (la Cineteca Nacional),
   `views/datos.py` (explorador de
   tablas de `snapshots.db`, `analytics/datasets.py`) y, solo para el rol admin, `views/usuarios.py` y `views/operaciones.py`. Un módulo que responde una
   pregunta propia del cliente y no depende del periodo va en su página; lo demás, en la cartelera. **Excepción:**

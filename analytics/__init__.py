@@ -45,6 +45,7 @@ from .queries import (
     snapshot_health,
     today,
 )
+from .recommender import recommend, recommend_catalog, recommend_summary, recommend_titles
 from .seats import (
     capacity_by_cinema,
     capacity_summary,
@@ -73,6 +74,6 @@ __all__ = [
     "showtimes_by_slot", "snapshot_health", "today",
     "plaza_coverage", "plazas",
     "datasets", "presale_compare", "presale_curve", "presale_ranking",
-    "cinema_highlights", "cinema_map", "cinema_sites",
+    "cinema_highlights", "cinema_map", "cinema_sites", "recommend", "recommend_catalog", "recommend_summary", "recommend_titles",
     "independent_conclusions", "independent_overlap", "independent_slots", "independent_summary", "independent_titles",
 ]
