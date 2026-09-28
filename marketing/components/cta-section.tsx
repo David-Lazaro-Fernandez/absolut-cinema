@@ -1,6 +1,6 @@
 'use client';
 
-import { CONTACT_EMAIL, MAILTO } from '@/lib/site';
+import { CONTACT_EMAIL, DEMO_URL } from '@/lib/site';
 import { Arrow } from './icons';
 import { useReveal } from './reveal';
 
@@ -32,7 +32,7 @@ export function CtaSection() {
                 Escríbenos y te mostramos el piloto con datos reales antes de hablar de nada más.
               </p>
               <div className="cta__actions">
-                <a className="pill pill--primary" href={MAILTO}>
+                <a className="pill pill--primary" href={DEMO_URL}>
                   Solicitar acceso
                   <Arrow />
                 </a>
@@ -40,7 +40,7 @@ export function CtaSection() {
                   Ver el calendario de captura
                 </a>
               </div>
-              <p className="cta__note">Sin formulario ni demo grabada · {CONTACT_EMAIL}</p>
+              <p className="cta__note">Sin demo grabada · {CONTACT_EMAIL}</p>
             </div>
             <div className="cta__mark" aria-hidden="true">
               Matin<span>é</span>

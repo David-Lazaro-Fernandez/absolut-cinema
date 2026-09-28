@@ -2582,3 +2582,299 @@ button {
   }
 }
 
+
+/* /request-demo/: a la izquierda qué ofrece la demo; a la derecha el formulario en cuatro pasos sobre tinta.
+   Sin degradado (design.md §6). Empieza debajo de la barra: sobre tinta no se leerían sus enlaces. */
+.demo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: calc(100svh - 80px);
+  margin-top: 80px;
+  border-top: 1px solid var(--line);
+}
+
+.demo__intro {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 22px;
+  padding: 64px clamp(24px, 6vw, 96px);
+}
+
+.demo__title {
+  max-width: 13em;
+  font-size: clamp(2.1rem, 4vw, 3.4rem);
+}
+
+.demo__lead {
+  max-width: 34rem;
+  padding-bottom: 26px;
+  border-bottom: 1px solid var(--line);
+  color: var(--gray);
+}
+
+.demo__points {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.demo__points li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-weight: 500;
+}
+
+.demo__points svg {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  padding: 10px;
+  border-radius: 999px;
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.demo__panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 64px clamp(16px, 5vw, 80px);
+  background: var(--ink);
+}
+
+.demo__card {
+  width: 100%;
+  max-width: 520px;
+  padding: 32px;
+  background: var(--paper);
+  border-radius: 8px;
+}
+
+.demo__steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  list-style: none;
+  margin: 0 0 32px;
+  padding: 0;
+}
+
+.demo__steps li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+/* La línea entre un paso y el siguiente; roja cuando el paso ya pasó. */
+.demo__steps li:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 17px;
+  left: calc(50% + 24px);
+  right: calc(-50% + 24px);
+  height: 2px;
+  background: var(--line);
+}
+
+.demo__steps li.is-done::after {
+  background: var(--red);
+}
+
+.demo__dot {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--gray);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transition: background 0.3s var(--ease-out), color 0.3s var(--ease-out);
+}
+
+.demo__step {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gray);
+}
+
+.is-on .demo__dot {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.is-on .demo__step {
+  color: var(--ink);
+}
+
+.is-done .demo__dot {
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.is-done .demo__step {
+  color: var(--red);
+}
+
+.demo__form,
+.demo__done {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.demo__h {
+  font-size: 1.4rem;
+  font-weight: 800;
+  font-stretch: 82%;
+  line-height: 1.15;
+}
+
+.demo__sub {
+  margin-top: 4px;
+  color: var(--gray);
+}
+
+.demo__sub a {
+  color: var(--red);
+}
+
+.demo__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.demo__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.demo__field > span:first-child {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.demo__field input,
+.demo__field select,
+.demo__field textarea {
+  width: 100%;
+  font: inherit;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 11px 14px;
+}
+
+.demo__field select:invalid {
+  color: var(--gray);
+}
+
+.demo__field textarea {
+  resize: vertical;
+}
+
+.demo__field input:focus,
+.demo__field select:focus,
+.demo__field textarea:focus,
+.demo__phone:focus-within {
+  outline: none;
+  border-color: var(--red);
+}
+
+/* Error en tinta, no en rojo: el rojo es Cinemex o acción, nunca alerta (../DESIGN.md). */
+.demo__field [aria-invalid],
+.demo__phone:has([aria-invalid]) {
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+
+.demo__phone [aria-invalid] {
+  box-shadow: none;
+}
+
+.demo__error {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.demo__phone {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.demo__phone input {
+  border: 0;
+}
+
+.demo__phone input:focus {
+  border: 0;
+}
+
+.demo__prefix {
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  border-right: 1px solid var(--line);
+  color: var(--gray);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.demo__submit {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.demo__back {
+  align-self: center;
+  color: var(--gray);
+  font-size: 0.9rem;
+}
+
+.demo__back:hover {
+  color: var(--ink);
+}
+
+@media (max-width: 900px) {
+  .demo {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .demo__intro {
+    padding: 40px 21px;
+  }
+
+  .demo__panel {
+    padding: 32px 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  .demo__card {
+    padding: 24px 18px;
+  }
+
+  .demo__row {
+    grid-template-columns: 1fr;
+  }
+
+  .demo__step {
+    font-size: 10px;
+  }
+}
