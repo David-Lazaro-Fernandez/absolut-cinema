@@ -1,5 +1,6 @@
 export const CONTACT_EMAIL = 'hola@matine.mx'; // TODO: confirmar bandeja real antes de publicar
 export const MAILTO = `mailto:${CONTACT_EMAIL}`;
+export const DEMO_URL = '/request-demo/';
 
 // Anclas con la ruta completa ("/#…") para que funcionen también desde /a-donde-ir/.
 export const NAV_LINKS = [

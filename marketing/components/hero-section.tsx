@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { MAILTO } from '@/lib/site';
+import { DEMO_URL } from '@/lib/site';
 import { Arrow } from './icons';
 import { AsciiSphere } from './ascii-sphere';
 
@@ -65,7 +65,7 @@ export function HeroSection() {
             función y redacta solo los cambios que cruzan un umbral de negocio. Nada de revisar cartelera a mano.
           </p>
           <div className={`hero__actions fade ${inClass}`} style={{ transitionDelay: '350ms' }}>
-            <a className="pill pill--primary" href={MAILTO}>
+            <a className="pill pill--primary" href={DEMO_URL}>
               Solicitar acceso
               <Arrow />
             </a>

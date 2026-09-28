@@ -15,9 +15,10 @@ alguien en dirección comercial o revenue management de **una cadena de cine que
 sin acceso al producto — decidiendo si vale la pena pedir una demo. Su trabajo en la página es uno
 solo: entender qué hace el producto en los primeros diez segundos y decidir si escribe.
 
-No es un blog y no necesita servidor: es contenido estático (`next.config.mjs` usa `output: 'export'`). Tiene dos
-rutas: la portada y `/a-donde-ir/`, la demo pública del recomendador (§7), que le enseña a cualquiera —no solo a una
-cadena— lo que Matiné sabe de la cartelera con datos reales.
+No es un blog y no necesita servidor: es contenido estático (`next.config.mjs` usa `output: 'export'`). Tiene tres
+rutas: la portada, `/a-donde-ir/`, la demo pública del recomendador (§7), que le enseña a cualquiera —no solo a una
+cadena— lo que Matiné sabe de la cartelera con datos reales, y `/request-demo/`, el formulario para pedir una demo.
+Todo "Solicitar acceso" lleva ahí (`DEMO_URL` en `lib/site.ts`).
 
 ## 2. Identidad heredada, no inventada
 
@@ -140,6 +141,7 @@ clase con otro nombre para lo mismo:
 | `.hgrid__*` | Rejilla con hairlines (gap 1 px sobre `--line`) |
 | `.cta__*` | Llamado final enmarcado |
 | `.footer__*` | Pie |
+| `.demo`, `.demo__*` | `/request-demo/`: a la izquierda qué ofrece la demo; a la derecha, sobre tinta, el formulario en cuatro pasos (correo, datos, cadena, operación) con indicador de pasos |
 | `.rec-stage*`, `.rec-dock*`, `.rec-card*`, `.rec-ask*`, `.rec-menu*`, `.rec-screen*`, `.rec-tabs*`, `.rec__*` | `/a-donde-ir/`: pantalla de búsqueda (mapa a pantalla completa con velo, barra que baja al pie, ficha de cine, menú de opciones) y de resultados (pestañas, tabla que en celular se vuelve tarjetas) |
 
 Sin Tailwind ni framework de CSS: las clases son pocas y con nombre, y eso es parte del contrato
@@ -160,8 +162,9 @@ con este documento. Si el sitio crece a varias rutas, esa es la señal para reco
   algo que el repo implementa (`scraper/diff.py`, `analytics/`, `from_now`, `cinema_week`); las puertas
   falsas de IA señalan a un diseño escrito (`project.md` § "Paso 2") y lo dicen. "IA" a secas, sin decir
   qué hace ni qué no hace (redacta, no calcula), es la versión genérica que no queremos.
-- **Formulario con backend.** El CTA es un `mailto:` (`lib/site.ts`); el correo es un marcador hasta
-  que exista la bandeja real.
+- **Formulario con backend.** El formulario de `/request-demo/` (`components/demo-form.tsx`) no envía a un servidor:
+  abre el correo del visitante con la solicitud escrita, a `CONTACT_EMAIL` (`lib/site.ts`). El correo es un marcador
+  hasta que exista la bandeja real.
 
 ## 7. `/a-donde-ir/`: demo pública del recomendador
 
@@ -245,6 +248,7 @@ cd marketing
 npm install     # una vez
 npm run dev     # http://localhost:3000
 npm run build   # genera marketing/out; falla si hay errores de tipos o de export estático
+node --experimental-strip-types --test lib/demo.test.mjs   # reglas del formulario de /request-demo/
 
 # Capturas con el Chrome instalado, a un viewport exacto (el flag --screenshot de Chrome no
 # respeta anchos menores a ~500 px ni espera a las animaciones):
