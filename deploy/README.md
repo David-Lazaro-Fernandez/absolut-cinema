@@ -158,6 +158,12 @@ Si el túnel cae, el snapshot de Cinépolis falla con `Blocked` (403 con HTML) o
 Privoxy no responde; `make health` lo reporta como captura fallida. Para volver a salir directo, vaciar
 `AC_EGRESS_PROXY` en `/etc/absolut-cinema.env`.
 
+`warp-svc` ocupa ~750 MB de RSS y es el primero que mata el OOM killer en el `t4g.small`. El reemplazo propuesto es
+`wgcf` + `wireproxy`: ~25 MB, con proxy HTTP propio y sin Privoxy. Se probó en local el 2026-09-28, con la captura
+nacional de Cinépolis completa y sin bloqueos, y todavía no está instalado. Antes de cambiar `install.sh` hay que probar
+en el servidor, lado a lado en otro puerto, que el WAF acepte esta salida desde AWS. Detalle en `docs/ec2-sizing.md`,
+"Memoria en `t4g.small`".
+
 ## Restaurar
 
 El respaldo diario (`deploy/backup.sh`, 05:07) deja en el bucket tres cosas: `db/snapshots-FECHA.db.gz` (la base de la
