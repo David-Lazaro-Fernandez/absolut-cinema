@@ -124,6 +124,8 @@ BUY_URL = {"cinemex": "https://cinemex.com/cine/{cinema_id}/{cinema_slug}/fecha-
 # API pública (api/): los sitios que la pueden llamar desde el navegador (CORS) y las peticiones por minuto de cada IP.
 API_ORIGINS = _csv("AC_API_ORIGINS") or ("http://localhost:3000",)
 API_REQUESTS_PER_MINUTE = int(os.environ.get("AC_API_REQUESTS_PER_MINUTE", "60"))
+# Búsquedas que la API calcula a la vez; las demás esperan turno.
+API_THREADS = int(os.environ.get("AC_API_THREADS", "4"))
 PRESALE_PANEL_PER_TITLE = int(os.environ.get("AC_PRESALE_PANEL", "30"))
 
 # Dulcería de Cinépolis (sample --concessions): un menú completo por cine, renovado cada tantos días.

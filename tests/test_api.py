@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 pytest.importorskip("fastapi")
+import anyio.to_thread  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 import analytics  # noqa: E402
@@ -71,6 +72,12 @@ def test_each_ip_has_a_limit_per_minute(client, monkeypatch):
     assert spoofed == [200, 200, 429]                   # X-Forwarded-For del cliente no cuenta
     other = TestClient(main.app, client=("198.51.100.8", 50000))
     assert other.get("/salud").status_code == 200
+
+
+def test_the_api_computes_only_a_few_searches_at_a_time(monkeypatch):
+    monkeypatch.setattr(config, "API_THREADS", 3)
+    with TestClient(main.app) as started:
+        assert started.portal.call(lambda: anyio.to_thread.current_default_thread_limiter().total_tokens) == 3
 
 
 def test_responses_are_compressed(client):

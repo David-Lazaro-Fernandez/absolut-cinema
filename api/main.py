@@ -10,9 +10,11 @@ Local: `make api`; la documentación interactiva queda en http://localhost:8000/
 import threading
 import time
 from collections import OrderedDict, deque
+from contextlib import asynccontextmanager
 from datetime import date, timedelta
 from typing import Annotated, Literal
 
+import anyio.to_thread
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -28,7 +30,7 @@ MAX_PEOPLE = 20
 MAX_RADIUS_KM = 15.0
 PER_CINEMA = 3
 LIMIT = 40
-_CACHE_SIZE = 512
+_CACHE_SIZE = 128                 # ~0.11 MB por respuesta
 _MAX_TRACKED_IPS = 10_000
 
 
@@ -119,7 +121,14 @@ class Options(TypedDict):
     captured_at: str | None
 
 
-app = FastAPI(title="Matiné API", version="1", docs_url="/docs", redoc_url=None)
+@asynccontextmanager
+async def _lifespan(app):
+    # Cada búsqueda en curso ocupa ~13 MB; con 2 núcleos, más hilos solo suman memoria (docs/ec2-sizing.md).
+    anyio.to_thread.current_default_thread_limiter().total_tokens = config.API_THREADS
+    yield
+
+
+app = FastAPI(title="Matiné API", version="1", docs_url="/docs", redoc_url=None, lifespan=_lifespan)
 _cache = OrderedDict()
 _cache_lock = threading.Lock()
 _hits = {}

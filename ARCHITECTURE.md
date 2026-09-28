@@ -119,11 +119,11 @@ línea por corrida en `data/logs/jobs.jsonl` con la duración, el resultado y el
 | `health` | operación | Salud de la captura en 24 h; sale con 1 si hay huecos o fallos | 08:07 | 5 min | servidor y Mac | `data/logs/health.log` |
 | `auth-prune` | acceso | Borra sesiones y enlaces de acceso vencidos hace más de 90 días | domingos 04:07 | 10 min | servidor | `app.db: session`, `token` |
 | `backup` | operación | Copia consistente de snapshots.db y del crudo al bucket | 05:07 | 30 min; 1 reintento a los 10 min | servidor | `bucket de respaldo` |
-| `deploy` | operación | Trae origin/stable si se movió, reinstala si cambió requirements, sincroniza unidades y reinicia el dashboard | cada hora a :02 y :17 y :32 y :47 | 10 min | servidor | `código en /opt/absolut-cinema`, `data/logs/deploy.log` |
+| `deploy` | operación | Trae origin/stable si se movió, reinstala si cambió requirements, sincroniza unidades y reinicia el dashboard y la API | cada hora a :02 y :17 y :32 y :47 | 10 min | servidor | `código en /opt/absolut-cinema`, `data/logs/deploy.log` |
 <!-- jobs:end -->
 
 Fuera del registro, siempre encendidos en el servidor: `absolut-cinema-dashboard.service` (Streamlit en 127.0.0.1:8501,
-detrás de Caddy) y `warp-svc` + `privoxy` (salida por Cloudflare para Cinépolis). GitHub Actions mueve la rama `stable`
+detrás de Caddy), `absolut-cinema-api.service` (API pública en 127.0.0.1:8000, detrás de Caddy, para el sitio en Vercel) y `warp-svc` + `privoxy` (salida por Cloudflare para Cinépolis). GitHub Actions mueve la rama `stable`
 cuando pasan las pruebas y el trabajo `deploy` la trae. A mano, con `!` en la sesión: `make capacity-cinemex PLAZAS=all`
 (pasada nacional única de aforo). Ningún flujo abre órdenes de checkout: el plano de Cinemex sale del `GET` público.
 
@@ -145,10 +145,11 @@ cuando pasan las pruebas y el trabajo `deploy` la trae. A mano, con `!` en la se
 | `scraper.health` (`make health`) | salud de la captura: capturas programadas, fallos, muestreos; las mismas funciones alimentan en vivo la página Operaciones | diario | `logs/health.log` | trabajo `health` |
 | `backup.sh` | copias en línea de `snapshots.db` y `app.db` y sync del crudo | diario 05:07 | bucket (`db/`, `app/`, `raw/`) | trabajo `backup` |
 | `app.py` (+ `ui/`, `views/`) | dashboard Streamlit con login por usuario: Cartelera, Mapa, ¿A dónde ir? (recomendador), Dulcería, Independientes (Cineteca Nacional), Datos (explorador de tablas de SQLite) y, para admin, Usuarios y Operaciones (estado de captura, bases, servidor y logs; lee `scraper.health`) | siempre | `app.db` vía `auth/` (cuentas, sesiones, enlaces, auditoría); `snapshots.db`, solo lectura | `dashboard.service`, detrás de Caddy |
+| `api/main.py` (`make api` en local) | API pública de "¿A dónde ir?" (FastAPI): búsqueda con `analytics.recommend_search`, CORS para `AC_API_ORIGINS`, límite por IP, `AC_API_THREADS` búsquedas a la vez | siempre | nada; `snapshots.db`, solo lectura | `api.service`, detrás de Caddy |
 | `auth.cli` (`make user-create`, `user-list`, `user-reset`, `user-deactivate`, `user-activate`) | administración de cuentas desde la terminal; así nace el primer admin | a mano | `app.db`; correo por SES o `data/logs/mail.log` | manual |
 | `auth.cli prune` (`make auth-prune`) | borra sesiones y enlaces vencidos hace más de 90 días | domingos 04:07 | `app.db`: `session`, `token` | trabajo `auth-prune` |
 | GitHub Actions `tests.yml` | pruebas en cada push a `main`; si pasan, mueve la rama `stable` a ese commit | cada push | rama `stable` del repo | GitHub |
-| `deploy/update.sh` (`make deploy`) | si `origin/stable` se movió: lo trae, reinstala si cambió `requirements-*`, reinicia el dashboard, comprueba salud | cada 15 min | código en `/opt/absolut-cinema`, `logs/deploy.log` | trabajo `deploy` |
+| `deploy/update.sh` (`make deploy`) | si `origin/stable` se movió: lo trae, reinstala si cambió `requirements-*`, reinicia el dashboard y la API, comprueba salud | cada 15 min | código en `/opt/absolut-cinema`, `logs/deploy.log` | trabajo `deploy` |
 | `warp-svc` + `privoxy` (solo servidor) | salida por Cloudflare WARP para `api-g.cinepolis.com`, cuyo WAF bloquea AWS; `http.py` la usa vía `AC_EGRESS_PROXY` | siempre | nada | systemd, instalados por `install.sh` |
 | `geo/` (futuro) | features de zona y arquetipos | trimestral | `geo.db` | a mano en la Mac |
 

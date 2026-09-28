@@ -257,8 +257,9 @@ el timer lo note. Si añades un flujo de captura, añade su cobertura ahí y su 
 - Nada de secretos en el repo. Van en `deploy/absolut-cinema.env` (con `.example` versionado).
 - **Un trabajo programado nuevo es una llave en `jobs/keys.py` y una entrada en `jobs/registry.py`**, seguido de
   `make units`. No se escriben unidades de systemd ni plists a mano: cada una ejecuta `make job KEY=llave`, así
-  cualquier cosa que corre en automático se reproduce a mano igual. El único servicio escrito a mano es el dashboard
-  (`deploy/absolut-cinema-dashboard.service`), porque es permanente, no programado.
+  cualquier cosa que corre en automático se reproduce a mano igual. Los únicos servicios escritos a mano son el dashboard
+  (`deploy/absolut-cinema-dashboard.service`) y la API pública (`deploy/absolut-cinema-api.service`), porque son
+  permanentes, no programados.
 - Los servicios de escritura diarios corren en `:07`, las capturas de cartelera en `:30` y el pase de butacas en `:50`,
   para no chocar entre sí.
 

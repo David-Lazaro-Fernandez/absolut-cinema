@@ -36,13 +36,13 @@ if grep -Eq '^deploy/.*\.(service|timer)$' <<< "$changed"; then
   bash deploy/units.sh
 fi
 
-systemctl restart absolut-cinema-dashboard
+systemctl restart absolut-cinema-dashboard absolut-cinema-api
 for _ in $(seq 1 20); do
-  if curl -fs http://127.0.0.1:8501/_stcore/health >/dev/null; then
-    log "desplegado ${before:0:10} -> ${target:0:10}: dashboard sano"
+  if curl -fs http://127.0.0.1:8501/_stcore/health >/dev/null && curl -fs http://127.0.0.1:8000/salud >/dev/null; then
+    log "desplegado ${before:0:10} -> ${target:0:10}: dashboard y API sanos"
     exit 0
   fi
   sleep 1
 done
-log "ERROR: ${target:0:10} desplegado pero el dashboard no responde; revisa journalctl -u absolut-cinema-dashboard"
+log "ERROR: ${target:0:10} desplegado pero el dashboard o la API no responden; revisa journalctl -u absolut-cinema-dashboard -u absolut-cinema-api"
 exit 1
