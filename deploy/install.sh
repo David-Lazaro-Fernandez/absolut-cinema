@@ -49,10 +49,10 @@ if [ ! -f data/snapshots.db ]; then
   sudo -u absolut make snapshot || echo ">> El primer snapshot falló; el timer lo reintenta en la siguiente captura."
 fi
 
-# Unidades generadas desde jobs/registry.py (deploy/systemd/) y el dashboard; enciende los timers del registro. Los
+# Unidades generadas desde jobs/registry.py (deploy/systemd/), el dashboard y la API; enciende los timers del registro. Los
 # apagados (calibrate-cinemex abre órdenes de checkout) quedan enlazados: systemctl enable --now absolut-cinema-<llave>.timer
 bash deploy/units.sh
-systemctl enable --now absolut-cinema-dashboard.service
+systemctl enable --now absolut-cinema-dashboard.service absolut-cinema-api.service
 
 if [ ! -f /etc/caddy/Caddyfile ] || ! grep -q 8501 /etc/caddy/Caddyfile; then
   cp deploy/Caddyfile /etc/caddy/Caddyfile

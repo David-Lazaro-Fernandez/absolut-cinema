@@ -63,6 +63,7 @@ systemctl start absolut-cinema-backup.service      # forzar un respaldo ahora
 systemctl start absolut-cinema-health.service      # reporte de salud ahora (también: make health)
 cat /opt/absolut-cinema/data/logs/health.log       # una línea por día
 tail /opt/absolut-cinema/data/logs/jobs.jsonl      # una línea por corrida: duración, resultado, memoria
+cd /opt/absolut-cinema && make restart             # como root: reinicia WARP, Privoxy, dashboard, API y Caddy; no toca los timers
 ```
 
 **Alcance de la captura.** Nacional por defecto (Cinépolis ~155 ciudades, Cinemex 31 estados; las dos cadenas se
@@ -107,6 +108,19 @@ Para volver atrás de forma duradera hay que revertir en `main`: con `REF=<commi
 tick vuelve a traer `origin/stable`. No se espera a que termine una captura en curso ni se
 reinician los timers: Python ya cargó sus módulos al arrancar cada corrida (no hay imports del repo dentro de
 funciones), y la siguiente toma el código nuevo. El único reinicio es el del dashboard, de unos segundos.
+
+## API pública para el sitio en Vercel
+
+`absolut-cinema-api.service` corre la API de "¿A dónde ir?" en `127.0.0.1:8000`. Caddy la publica en su propio
+dominio (bloque `api.example.com` de `deploy/Caddyfile`). En un servidor ya instalado, agrega ese bloque a
+`/etc/caddy/Caddyfile` con el dominio real y ejecuta `systemctl reload caddy`. En `/etc/absolut-cinema.env`, pon en
+`AC_API_ORIGINS` los dominios del sitio. En Vercel, pon en `NEXT_PUBLIC_API_URL` la URL `https` de la API. El
+despliegue continuo la reinicia con el dashboard y comprueba `/salud`.
+
+```sh
+curl -s http://127.0.0.1:8000/salud                # última captura de cada cadena
+journalctl -u absolut-cinema-api -f                 # errores de la API
+```
 
 ## Acceso por usuario y correo (SES)
 

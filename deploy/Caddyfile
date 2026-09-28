@@ -10,3 +10,9 @@ cinema.example.com {
     reverse_proxy 127.0.0.1:8501
     encode zstd gzip
 }
+
+# API pública de "¿A dónde ir?" para el sitio en Vercel. Sin basic_auth: es anónima, con CORS (AC_API_ORIGINS) y límite
+# por IP. La API ya comprime sus respuestas.
+api.example.com {
+    reverse_proxy 127.0.0.1:8000
+}

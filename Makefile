@@ -7,7 +7,7 @@ VENV ?= .venv/bin
 
 .PHONY: help job units units-check tick snapshot seats occupancy post-start health prices concessions delivery capacity capacity-cinemex presale \
         calibrate-cinemex dashboard api backup launchd-load launchd-unload \
-        user-create user-list user-reset user-deactivate user-activate auth-prune deploy check lint test test-live fixtures hooks \
+        user-create user-list user-reset user-deactivate user-activate auth-prune deploy restart check lint test test-live fixtures hooks \
         marketing-dev marketing-build export-places
 
 help:               ## lista los targets
@@ -98,6 +98,13 @@ backup:             ## respaldo, requiere BACKUP_BUCKET en el entorno (trabajo `
 
 deploy:             ## servidor: trae origin/stable (o REF=…), reinstala si cambió requirements y reinicia el dashboard (trabajo `deploy`)
 	$(PY) -m jobs.run deploy
+
+# Los timers no se reinician: con Persistent=true, reenlazarlos dispara de golpe las corridas atrasadas.
+SERVICES = warp-svc privoxy absolut-cinema-dashboard absolut-cinema-api caddy
+restart:            ## servidor, como root: reinicia los servicios permanentes (túnel WARP, Privoxy, dashboard, API, Caddy); no toca los timers
+	systemctl restart $(SERVICES)
+	warp-cli --accept-tos connect
+	@for s in $(SERVICES); do printf '%-28s %s\n' "$$s" "$$(systemctl is-active "$$s")"; done
 
 check: lint test    ## lo que corre el pre-push y CI: lint, imports sin dependencias y pruebas
 

@@ -19,10 +19,12 @@ for link in "$SYSTEMD"/absolut-cinema-*.service "$SYSTEMD"/absolut-cinema-*.time
   rm -f "$link" "$SYSTEMD"/*.wants/"$name"
 done
 
-for unit in deploy/systemd/*.service deploy/systemd/*.timer deploy/absolut-cinema-dashboard.service; do
+for unit in deploy/systemd/*.service deploy/systemd/*.timer deploy/absolut-cinema-dashboard.service deploy/absolut-cinema-api.service; do
   ln -sf "$APP/$unit" "$SYSTEMD/$(basename "$unit")"
 done
 systemctl daemon-reload
+# Los servicios permanentes arrancan con la máquina; deploy/update.sh los reinicia.
+systemctl enable absolut-cinema-dashboard.service absolut-cinema-api.service
 
 mapfile -t timers < <(/usr/bin/python3 -m jobs.units timers)
 systemctl enable --now "${timers[@]}"
