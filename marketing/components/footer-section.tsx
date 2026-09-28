@@ -1,4 +1,4 @@
-import { CONTACT_EMAIL, MAILTO, NAV_LINKS } from '@/lib/site';
+import { CONTACT_EMAIL, DEMO_URL, MAILTO, NAV_LINKS } from '@/lib/site';
 
 export function FooterSection() {
   return (
@@ -30,7 +30,7 @@ export function FooterSection() {
                 <a href={MAILTO}>{CONTACT_EMAIL}</a>
               </li>
               <li>
-                <a href={MAILTO}>Solicitar acceso</a>
+                <a href={DEMO_URL}>Solicitar acceso</a>
               </li>
             </ul>
           </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { MAILTO, NAV_LINKS } from '@/lib/site';
+import { DEMO_URL, NAV_LINKS } from '@/lib/site';
 
 export function Navigation() {
   const [scrolled, setScrolled] = useState(false);
@@ -37,7 +37,7 @@ export function Navigation() {
         </div>
 
         <div className="nav__cta">
-          <a className="pill pill--primary pill--sm" href={MAILTO}>
+          <a className="pill pill--primary pill--sm" href={DEMO_URL}>
             Solicitar acceso
           </a>
         </div>
@@ -68,7 +68,7 @@ export function Navigation() {
           ))}
         </div>
         <div className="nav-overlay__actions">
-          <a className="pill pill--primary" href={MAILTO} onClick={() => setOpen(false)}>
+          <a className="pill pill--primary" href={DEMO_URL} onClick={() => setOpen(false)}>
             Solicitar acceso
           </a>
         </div>
