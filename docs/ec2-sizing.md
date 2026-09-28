@@ -104,7 +104,7 @@ este documento pedía 100 GB por una estimación equivocada del crudo.
 | --- | --- | --- | --- | --- | --- |
 | `t4g.nano` | 2 | 0.5 GB | 0.0042 USD | ~3.07 USD | **No.** Insuficiente. |
 | `t4g.micro` | 2 | 1 GB | 0.0084 USD | ~6.13 USD | **No.** Apenas menos que `t4g.small`, insuficiente en pico. |
-| `t4g.small` | 2 | 2 GB | 0.0168 USD | ~12.26 USD | ⚠️ Sin margen: la captura nacional llegó a 1.9 GB de pico (2026-09-25). |
+| `t4g.small` | 2 | 2 GB | 0.0168 USD | ~12.26 USD | ⚠️ Sin margen: la captura nacional llegó a 1.9 GB de pico (2026-09-25). Es la instancia actual; ver "Memoria en `t4g.small`". |
 | **`t4g.medium`** | **2** | **4 GB** | **0.0336 USD** | **~24.53 USD** | ✅ **Recomendado** mientras la captura no tenga memoria acotada. |
 | `t3.medium` (ref) | 2 | 4 GB | — | ~37 USD | Intel; más caro, igual performance. |
 
@@ -154,6 +154,78 @@ sí limita:
   anterior compactado en el crudo o en el bucket) antes de un año.
 
 Las dos van en su propio plan.
+
+## Memoria en `t4g.small` (medido 2026-09-28)
+
+El servidor corre hoy en un `t4g.small` (2 vCPU Graviton2, 2 GB). Graviton no tiene SMT: cada vCPU es un núcleo, así
+que solo dos hilos corren en paralelo de verdad. Se agregó swap como paliativo, pero no ataca la causa.
+
+**Qué pasó.** Un despliegue volvió a enlazar los timers y, con `Persistent=true`, snapshot, seats, delivery, backup y
+health arrancaron juntos. El OOM killer mató primero a `warp-svc` (746 MB de RSS; systemd lo reinició en 15 s) y
+después al `python3` del snapshot (664 MB), a media captura de Cinépolis. Cinemex ya se había escrito.
+
+**Quién ocupa la memoria.**
+
+| Proceso | Lenguaje | RSS | Qué lo baja |
+| --- | --- | --- | --- |
+| `warp-svc` | binario de Cloudflare | 746 MB | cambiarlo por `wireproxy` (ver abajo) |
+| captura (`scraper.run`) | Python | 664 MB | procesar por unidad (ver abajo) |
+| Caddy | Go | ~30–50 MB | nada |
+| Privoxy | C | ~5 MB | sobra con `wireproxy` |
+
+Reescribir en Rust no ataca lo principal: `warp-svc` no es nuestro y la captura pesa por su diseño, no por el lenguaje.
+
+**Captura.** Medido en la Mac con el crudo del 2026-09-28 (~43 MB de JSON, 141 mil funciones):
+
+| Paso | Pico |
+| --- | --- |
+| Los dos crudos cargados | 341 MB |
+| Más `normalize.rows` (dicts, ~1.9 KB por fila) | 608 MB |
+| Solo Cinépolis / solo Cinemex | 406 / 265 MB |
+
+`scraper/run.py` descarga las tres cadenas en paralelo, retiene el crudo nacional completo y lo normaliza entero antes
+de compararlo con `store.load_current`, que suma otras ~140 mil filas. CPython libera memoria, pero el asignador casi
+nunca la regresa al sistema mientras el proceso vive: lo que cuenta es el pico. Si cada unidad (~1–2 MB de crudo) se
+normaliza y se escribe al llegar, el pico estimado baja a ~150 MB.
+
+**`wireproxy` en vez de `warp-svc` (prueba local, 2026-09-28).** `wgcf` registra una cuenta WARP gratuita y genera el
+perfil de WireGuard. `wireproxy` (`windtf/wireproxy` v1.1.3) abre el túnel en espacio de usuario y expone un proxy HTTP,
+así que Privoxy sobra. Resultado en la Mac:
+
+- Salida `AS13335 Cloudflare`, MX.
+- Captura nacional de Cinépolis completa: 20/20 unidades y 1,094 llamadas, sin `Blocked`.
+- 23–26 MB de RSS, estable durante 70 min.
+- +0.1–0.2 s por llamada.
+
+Dos corridas salieron hasta 4× más lentas y no se repitió. La prueba instrumentada de CDMX (146 llamadas, 151 s) no tuvo
+errores ni reintentos. Falta probar en el servidor que el WAF de Cinépolis acepte esta salida desde AWS: la Mac ya sale
+por WARP aunque no use el proxy.
+
+**API pública (`api/`, prueba de carga local, 2026-09-28).** FastAPI + pydantic cuestan ~29 MB fijos: 48 MB contra 19 MB
+de `analytics` solo, y 21 MB con `http.server`. La memoria crece con las búsquedas simultáneas, ~13 MB por búsqueda en
+curso dentro de `recommend_search`, no con el framework. Diez a veinte usuarios buscaron sin pausa en CDMX, GDL y MTY,
+con el límite por IP desactivado:
+
+| Usuarios | Hilos | Peticiones/s | Latencia p50 | RSS pico |
+| --- | --- | --- | --- | --- |
+| 1 | 40 | 2.9 | 350 ms | 80 MB |
+| 10 | 40 | 20.5 | 479 ms | 212 MB |
+| 20 | 40 | 22.7 | 866 ms | 311 MB |
+| 20 | 8 | 18.3 | 1,125 ms | 181 MB |
+| 20 | 4 | 10.5 | 1,701 ms | 142 MB |
+
+Las cifras son de una Mac de 14 núcleos; en el servidor se esperan ~3–4 búsquedas por segundo. Con 2 núcleos, más
+hilos solo ocupan memoria, así que conviene limitar la API a 2–4 hilos (el grupo de anyio que usa FastAPI). La caché de
+`api/main.py` guarda hasta 512 respuestas de ~0.11 MB (~56 MB en el peor caso): 128 bastan. Con el límite de 60
+peticiones por minuto por IP, 10 usuarios reales piden a lo más 10 por segundo.
+
+**CPU de ráfaga.** Los `t4g` tienen una línea base del 20 % por vCPU. En modo `unlimited` (el default) lo que pasa de
+ahí se cobra; en `standard` la CPU se frena al 20 % al agotar los créditos. Vigilar `CPUCreditBalance` en CloudWatch.
+
+**Orden de trabajo.** Primero `wireproxy` (~700 MB). Luego la captura por unidad (~450 MB). Después, los trabajos pesados
+en serie con un candado compartido en `jobs/run.py` y `MemoryMax=` en sus unidades, para que el kernel mate al trabajo y
+no al túnel; también el catch-up que provoca el despliegue. Al final, el límite de hilos y la caché de la API. Con más
+clientes, separar la captura del servidor que atiende usuarios o volver a `t4g.medium`.
 
 ## Red y almacenamiento
 
