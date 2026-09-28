@@ -32,9 +32,8 @@ jobs:
           python -m venv .venv
           .venv/bin/pip install -q -r requirements.txt -r requirements-dev.txt
 
-      - name: make check (lo mismo que el pre-push)
-        # Ruff, imports con el Python del sistema (sin venv: si alguien importó pandas en scraper/, analytics/ o jobs/,
-        # falla aquí y no en el servidor), lockfile de npmjs y pytest. Sin data/snapshots.db, las pantallas usan la captura grabada.
+      - name: make check (igual que el pre-push)
+        # Sin data/snapshots.db, las pantallas usan la captura grabada.
         run: make check
 
       - name: marcar commit estable
