@@ -1,8 +1,6 @@
-"""Página del recomendador: el usuario dice desde dónde sale (dirección, su ubicación o un clic en el mapa), quiénes van
-(adultos, niños, adultos mayores), qué dulcería quieren, cuánto quieren gastar en total y cuándo, y ve las funciones de
-las tres cadenas que le quedan cerca y caben en el presupuesto. El cálculo vive en `analytics/recommender.py`; aquí
-solo se toman los datos y se pinta. El mapa es Leaflet (`streamlit-folium`) porque necesita la coordenada de un clic
-en cualquier punto, y pydeck solo avisa de clics sobre un objeto."""
+"""Página del recomendador: las funciones cerca del usuario que caben en el presupuesto de su grupo. El cálculo está
+en `analytics/recommender.py`. El mapa es Leaflet (`streamlit-folium`) porque necesita la coordenada de cualquier clic;
+pydeck solo informa clics sobre un objeto."""
 import folium
 from streamlit_folium import st_folium
 from streamlit_js_eval import get_geolocation
@@ -10,7 +8,7 @@ from streamlit_js_eval import get_geolocation
 from ui.common import *  # noqa: F401,F403
 
 T = RECOMMEND_TEXT
-_CDMX_CENTER = (19.4326, -99.1332)        # Zócalo: el mapa abre aquí hasta que hay un punto de partida
+_CDMX_CENTER = (19.4326, -99.1332)        # Zócalo, hasta que hay punto de partida
 _DAYS_AHEAD = 13                           # las cadenas publican hasta el miércoles de la semana siguiente
 _PER_CINEMA, _LIMIT = 3, 40
 _MARKER_RADIUS = 7
@@ -94,7 +92,7 @@ with seccion("rec-plan"):
         day = s2.date_input(T["date"], value=today_d, min_value=today_d, max_value=today_d + timedelta(days=_DAYS_AHEAD),
                             format="DD/MM/YYYY", key="rec_date")
 
-# El clic del mapa llega en la recarga siguiente: se lee del estado del componente y solo cuenta si es un clic nuevo.
+# El clic del mapa llega en la recarga siguiente. Solo cuenta si es un clic nuevo.
 clicked = (st.session_state.get("rec_map") or {}).get("last_clicked")
 if clicked and clicked != st.session_state.get("rec_click_seen"):
     st.session_state["rec_click_seen"] = clicked

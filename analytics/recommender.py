@@ -1,17 +1,15 @@
-"""Recomendador de funciones: dada una ubicación, quiénes van (adultos, niños, tercera edad), qué dulcería quieren y
-cuánto quieren gastar en total, qué funciones de las tres cadenas les quedan cerca y caben en el presupuesto.
+"""Recomendador de funciones: las funciones cerca de un punto que caben en el presupuesto de un grupo (adultos, niños y
+tercera edad), con boletos y dulcería.
 
-Boletos: los de la lectura de precio más reciente del cine para el mismo formato (tradicional, VIP, gran formato,
-3D/4D) y tipo de día (fin de semana, martes y miércoles de promoción, lunes y jueves), sin eventos ni matinés. Cada
-lectura trae todos los boletos de esa función ("ADULTO", "MENOR", "MAYOR 60" en Cinemex; "Admisión General", "Niños",
-"3ra Edad" en Cinépolis): el adulto es el boleto general y niños y tercera edad se buscan por nombre; si la función no
-tiene boleto de niño o de tercera edad, pagan el general. Es precio de lista con la fecha de su lectura, no el de esa
-función exacta. Una función sin lectura propia no se estima: queda sin precio y fuera del presupuesto.
+Boletos: la lectura de precio más reciente del cine para el mismo formato y tipo de día, sin eventos ni matinés. Es
+precio de lista, no el de esa función. El adulto paga el boleto general. Niños y tercera edad se buscan por nombre del
+boleto ("MENOR", "Niños", "3ra Edad"); si la función no los tiene, pagan el general. Una función sin lectura no se
+estima: queda sin precio y fuera del presupuesto.
 
-Dulcería: paquetes (`SNACK_PACKAGES`) con el precio del menú en sala de cada cine. Solo Cinépolis publica menú por
-complejo; en Cinemex y la Cineteca el paquete queda sin precio (`snacks_total` None) y la fila dice cuánto cuestan los
-boletos, sin inventar la dulcería. La distancia es en línea recta (haversine), no tiempo de traslado. En un empate,
-Cinemex va primero.
+Dulcería: los paquetes de `SNACK_PACKAGES` con el menú en sala de cada cine. Solo Cinépolis publica ese menú. En
+Cinemex y la Cineteca el paquete queda sin precio (`snacks_total` None).
+
+La distancia es en línea recta (haversine). En un empate, Cinemex va primero.
 """
 import json
 import math
@@ -26,15 +24,14 @@ from .queries import _FORMAT_CASE, _window
 from .seats import _DAY_TYPE_CASE
 
 SORTS = ("distance", "price", "time")
-# Estado del costo de una función: "complete" (boletos y dulcería con precio), "snacks_unpriced" (boletos con precio,
-# el paquete de dulcería no) y "unpriced" (sin precio de boletos). Solo las completas compiten por el presupuesto con
-# su total; las otras dos se listan aparte para no parecer más baratas por falta de dato.
+# "complete": boletos y dulcería con precio. "snacks_unpriced": la dulcería no tiene precio. "unpriced": los boletos
+# no tienen precio. Solo "complete" compite por el presupuesto; las otras van aparte para no parecer más baratas.
 STATUSES = ("complete", "snacks_unpriced", "unpriced")
 # Paquete → [(producto del menú de Cinépolis, cuántas personas cubre cada uno)].
 SNACK_PACKAGES = {
     "none": [],
-    "popcorn": [("Palomitas", 1), ("Refresco", 1)],        # palomitas y refresco por persona (tamaño base)
-    "combo": [("Combo Clásico", 2)],                       # un combo por cada dos personas
+    "popcorn": [("Palomitas", 1), ("Refresco", 1)],        # tamaño base
+    "combo": [("Combo Clásico", 2)],
 }
 _CHILD_WORDS = ("menor", "nino")
 _SENIOR_WORDS = ("mayor", "tercera", "3 era", "3ra", "3a edad")
@@ -100,7 +97,7 @@ def _candidates(conn, lat, lng, *, d0, d1, from_now, hours, radius_km, title_nor
         WHERE c.lat BETWEEN ? AND ? AND c.lng BETWEEN ? AND ?
         ORDER BY f.chain, f.show_id""", params + [lat - dlat, lat + dlat, lng - dlng, lng + dlng])
     snack_costs = _snack_prices(conn, snacks, adults + children + seniors)
-    reference = _snack_prices(conn, "popcorn", 1)     # palomitas y refresco de una persona, como referencia
+    reference = _snack_prices(conn, "popcorn", 1)
     out = []
     for r in data:
         if title_norm and r["title_norm"] != title_norm or formats and r["format_bucket"] not in formats:
@@ -146,19 +143,15 @@ def _fits(r, budget):
 def recommend(conn, lat, lng, d0=None, d1=None, from_now=True, hours=None, adults=2, children=0, seniors=0,
               snacks="none", budget=None, radius_km=5.0, title_norm=None, formats=None, status="complete", sort="distance",
               per_cinema=None, limit=40):
-    """Funciones a `radius_km` o menos de (`lat`, `lng`) en la ventana, de las tres cadenas, para un grupo de `adults`,
-    `children` y `seniors` con el paquete de dulcería `snacks` (clave de `SNACK_PACKAGES`), solo las del `status` pedido
-    (`STATUSES`): "complete" (por defecto) las de costo completo cuyo `total` cabe en `budget` (None = sin tope);
-    "snacks_unpriced" las que tienen boletos con precio que caben en `budget` pero no precio del paquete de dulcería;
-    "unpriced" las que no tienen precio de boletos.
-    `title_norm` (llave de título) y `formats` (cubetas de formato) acotan. Por fila: `chain`, `show_id`, `cinema_id`,
-    `cinema_name`, `lat`, `lng`, `title`, `title_norm`, `date`, `datetime_local`, `language`, `format_bucket`,
-    `day_type`, `price_sampled_at`, `adult_price`, `child_price`, `senior_price`, `tickets_total`, `snacks_total`
-    (0 sin dulcería, None si el cine no tiene precio del paquete), `snack_reference` (palomitas y refresco para una
-    persona en ese cine, como referencia aunque no se pida dulcería; None sin menú), `total` (None si falta la
-    dulcería), `status` y `distance_km`.
-    Orden según `sort` ("distance", "price" o "time"); en un empate, Cinemex primero. `per_cinema` deja a lo más esas
-    funciones de cada cine (las primeras según el orden), para que la lista no sea de un solo cine."""
+    """Funciones a `radius_km` o menos de (`lat`, `lng`) para un grupo de `adults`, `children` y `seniors` con el
+    paquete `snacks` (clave de `SNACK_PACKAGES`). Solo devuelve las del `status` pedido (ver `STATUSES`). `budget`
+    (None = sin tope) se aplica al `total` en "complete" y a los boletos en "snacks_unpriced". `title_norm` y `formats`
+    acotan la búsqueda.
+    Por fila: `chain`, `show_id`, `cinema_id`, `cinema_name`, `lat`, `lng`, `title`, `title_norm`, `date`,
+    `datetime_local`, `language`, `format_bucket`, `day_type`, `price_sampled_at`, `adult_price`, `child_price`,
+    `senior_price`, `tickets_total`, `snacks_total` (0 sin paquete, None sin precio), `snack_reference` (palomitas y
+    refresco de una persona; None sin menú), `total` (None sin precio de dulcería), `status` y `distance_km`.
+    Orden según `sort` ("distance", "price" o "time"). `per_cinema` limita las funciones de cada cine."""
     found = [r for r in _candidates(conn, lat, lng, d0=d0, d1=d1, from_now=from_now, hours=hours, radius_km=radius_km,
                                     title_norm=title_norm, formats=formats, adults=adults, children=children,
                                     seniors=seniors, snacks=snacks)
@@ -194,7 +187,7 @@ def recommend_summary(conn, lat, lng, d0=None, d1=None, from_now=True, hours=Non
 
 def recommend_titles(conn, lat, lng, d0=None, d1=None, from_now=True, hours=None, radius_km=5.0):
     """Películas con funciones a `radius_km` o menos en la ventana: `title_norm` (llave de título), `title`, `shows` y
-    `cinemas`. Orden: funciones descendentes, luego título. Es la lista para elegir una película en el recomendador."""
+    `cinemas`. Orden: más funciones primero, luego título."""
     titles = {}
     for r in _candidates(conn, lat, lng, d0=d0, d1=d1, from_now=from_now, hours=hours, radius_km=radius_km,
                          title_norm=None, formats=None, adults=1, children=0, seniors=0, snacks="none"):
@@ -208,8 +201,8 @@ def recommend_titles(conn, lat, lng, d0=None, d1=None, from_now=True, hours=None
 
 
 def recommend_catalog(conn, d0=None, d1=None, from_now=True, plaza="cdmx"):
-    """Lo que necesita un recomendador que corre en el navegador (la versión pública, sin servidor), con la misma
-    lógica de precios que `recommend`: {`cinemas`, `prices`, `shows`, `packages`}.
+    """Los datos para un recomendador en el navegador, con la lógica de precios de `recommend`:
+    {`cinemas`, `prices`, `shows`, `packages`}.
     - `cinemas`: `chain`, `chain_label`, `cinema_id`, `cinema_name`, `lat`, `lng` y `snacks` ({producto: precio} del
       menú en sala para los productos de `SNACK_PACKAGES`; vacío si el cine no publica menú). Orden: cadena y nombre.
     - `prices`: por `chain`, `cinema_id`, `format_bucket` y `day_type`, la lectura más reciente sin eventos ni matinés:
