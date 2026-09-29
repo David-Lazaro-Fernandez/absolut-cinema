@@ -8,6 +8,7 @@ import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useStat
 import { preconnect } from 'react-dom';
 import { API_URL, searchParams, useApi } from '@/lib/api';
 import { type PlacesFile, buildIndex, makePlace, plain, searchPlaces } from '@/lib/places';
+import { FooterSection } from '@/components/footer-section';
 import { Calendar, Close, Locate, People, Pin, Popcorn, Send, Sliders, Wallet } from '@/components/rec-icons';
 import {
   type Options,
@@ -380,30 +381,40 @@ export function Recommender() {
   }, [view, tab]);
 
   // En celular el teclado tapa el pie de la pantalla. El mapa conserva su alto y la barra sube sobre el teclado.
-  // iOS desplaza la página para mostrar el campo; aquí se regresa arriba. Con zoom, el alto visible no es teclado.
-  // Con menos de la mitad del alto visible, el plan de la línea de contexto se oculta para no tapar el mapa. Se
-  // compara contra el alto más grande visto: hay navegadores que achican innerHeight con el teclado.
+  // El teclado se mide contra el alto visible más grande visto con el mismo ancho: iOS también achica innerHeight.
+  // iOS desplaza la página o la vista para mostrar el campo; la barra se coloca en el borde inferior de lo que se ve
+  // (offsetTop + height), así queda sobre el teclado aunque ese desplazamiento no se pueda deshacer. Con zoom, el
+  // alto visible no es teclado. Con menos de la mitad del alto visible, el plan del contexto se oculta.
+  const stage = useRef<HTMLElement>(null);
   const [keyboard, setKeyboard] = useState(0);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [short, setShort] = useState(false);
   const docked = view === 'search' && Boolean(start);
   useEffect(() => {
     const vv = window.visualViewport;
     if (!vv || !docked) return;
-    let tallest = vv.height;
+    let tallest = Math.max(window.innerHeight, vv.height);
+    let width = vv.width;
     const fit = () => {
-      const covered = vv.scale > 1 ? 0 : Math.round(window.innerHeight - vv.height);
-      const open = covered > KEYBOARD_MIN;
-      setKeyboard(open ? covered : 0);
+      if (vv.width !== width) [tallest, width] = [vv.height, vv.width];
       tallest = Math.max(tallest, vv.height);
-      setShort(vv.scale <= 1 && vv.height < tallest / 2);
+      const zoomed = vv.scale > 1;
+      const open = !zoomed && tallest - vv.height > KEYBOARD_MIN;
       if (open && window.scrollY) window.scrollTo(0, 0);
+      const bottom = stage.current?.getBoundingClientRect().bottom ?? tallest;
+      setKeyboardOpen(open);
+      setKeyboard(open ? Math.max(0, Math.round(bottom - vv.offsetTop - vv.height)) : 0);
+      setShort(!zoomed && vv.height < tallest / 2);
     };
     vv.addEventListener('resize', fit);
     vv.addEventListener('scroll', fit);
+    window.addEventListener('scroll', fit, { passive: true });
     return () => {
       vv.removeEventListener('resize', fit);
       vv.removeEventListener('scroll', fit);
+      window.removeEventListener('scroll', fit);
       setKeyboard(0);
+      setKeyboardOpen(false);
       setShort(false);
     };
   }, [docked]);
@@ -615,6 +626,7 @@ export function Recommender() {
   if (view === 'results' && ready && result) {
     const rows = lists[tab];
     return (
+      <>
       <section className="rec-screen">
         <div className="rec-screen__bar">
           <button type="button" className="pill pill--ghost pill--sm" onClick={() => setView('search')}>
@@ -692,6 +704,8 @@ export function Recommender() {
           Powered by: Matiné, Photon (komoot) © OpenStreetMap. Mapa © OpenFreeMap y OpenStreetMap.
         </p>
       </section>
+      <FooterSection />
+      </>
     );
   }
 
@@ -821,7 +835,8 @@ export function Recommender() {
 
   return (
     <section
-      className={`rec-stage ${located ? 'is-located' : ''} ${keyboard ? 'is-typing' : ''} ${short ? 'is-short' : ''}`}
+      ref={stage}
+      className={`rec-stage ${located ? 'is-located' : ''} ${keyboardOpen ? 'is-typing' : ''} ${short ? 'is-short' : ''}`}
       style={{ '--keyboard': `${keyboard}px` } as CSSProperties}
     >
       <div className="rec-stage__map">
