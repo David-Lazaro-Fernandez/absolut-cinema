@@ -1,7 +1,13 @@
 // Tipos y etiquetas de "¿A dónde ir?". La API calcula (`api/main.py` sobre `analytics/recommender.py`). Este módulo
 // describe sus respuestas, con los mismos nombres de campo.
 
-export type Snacks = 'none' | 'popcorn' | 'combo';
+export type Snacks = 'none' | 'best' | 'popcorn' | 'combo_1' | 'combo_2' | 'combo_3' | 'combo_4';
+
+/** Un combo de `analytics/snack_combos.csv`: cuántas personas cubre y a quién ("all", "children" o "adults"). */
+export type Combo = { name: string; min: number; max: number; for: 'all' | 'children' | 'adults' };
+
+/** Una línea del desglose de dulcería de una función. */
+export type SnackItem = { name: string; units: number; price: number };
 export type Sort = 'distance' | 'price' | 'time';
 
 /** Una plaza: clave, etiqueta, centro de sus cines y caja [oeste, sur, este, norte]. */
@@ -14,6 +20,7 @@ export type Options = {
   formats: string[];
   cinemas: { chain: string; chain_label: string; cinema_name: string; lat: number; lng: number }[];
   snacks: Snacks[];
+  combos: Combo[];
   captured_at: string | null;
 };
 
@@ -32,6 +39,7 @@ export type Row = {
   buy_url: string | null;
   tickets_total: number | null;
   snacks_total: number | null;
+  snacks_items: SnackItem[] | null;
   snack_reference: number | null;
   total: number | null;
 };
@@ -70,6 +78,7 @@ export type Query = {
   children: number;
   seniors: number;
   snacks: Snacks;
+  combo: string | null;
   budget: number | null;
   radiusKm: number;
   hours: [number, number];
@@ -94,8 +103,12 @@ export const LANGUAGE_LABEL: Record<string, string> = {
 };
 export const SNACK_LABEL: Record<Snacks, string> = {
   none: 'Sin dulcería',
+  best: 'Lo más barato para el grupo',
   popcorn: 'Palomitas y refresco por persona',
-  combo: 'Un Combo Clásico cada dos',
+  combo_1: 'Un combo por persona',
+  combo_2: 'Un combo cada dos',
+  combo_3: 'Un combo cada tres',
+  combo_4: 'Un combo cada cuatro',
 };
 export const SORT_LABEL: Record<Sort, string> = { distance: 'Más cerca', price: 'Más barato', time: 'Más pronto' };
 

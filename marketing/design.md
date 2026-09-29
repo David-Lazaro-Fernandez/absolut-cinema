@@ -195,6 +195,10 @@ día; ve las funciones que le quedan cerca y caben.
   amplia no deje cines fuera; la tabla pinta 20 por
   página (`PAGE`) y "Ver N más" agrega otras 20. El selector de días sale de `opciones.dates`, así que muestra dos. La ficha de un edificio pide `funciones?sitio=lat,lng`. Si la API
   falla o limita (429), la barra lo dice en palabras.
+- **Dulcería** (2026-09-29). La fila "Dulcería" del menú ofrece los paquetes de `opciones.snacks` como fichas
+  ("Lo más barato para el grupo", "Un combo cada dos"…) y, debajo, "O elige un combo": la lista completa de
+  `opciones.combos` con a quién cubre cada uno. Un combo elegido manda sobre la ficha. Bajo el total de dulcería de
+  cada función va su desglose en gris (`.rec__items`, "2 × Combo Clásico"). El cálculo es de `../analytics/recommender.py`.
 - **Neutral entre cadenas** (decisión 2026-09-27): a diferencia del dashboard, aquí no se destaca a Cinemex. Los
   cines van todos en tinta, sin color por cadena, y un empate se resuelve por distancia y hora. El único rojo es la
   acción: el botón Buscar, los rótulos de los pasos y el punto de partida.

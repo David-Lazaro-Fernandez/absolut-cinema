@@ -11,10 +11,12 @@ import { type PlacesFile, buildIndex, makePlace, plain, searchPlaces } from '@/l
 import { FooterSection } from '@/components/footer-section';
 import { Calendar, Close, Locate, People, Pin, Popcorn, Send, Sliders, Wallet } from '@/components/rec-icons';
 import {
+  type Combo,
   type Options,
   type Query,
   type Row,
   type Search,
+  type SnackItem,
   type Snacks,
   type Sort,
   FORMAT_LABEL,
@@ -193,15 +195,25 @@ function Pick({ label, value, row, chain, today }: { label: string; value: strin
   );
 }
 
+// "2 × Combo Clásico + 1 × Palomitas y refresco": qué lleva la dulcería de una función.
+const itemsText = (items: SnackItem[]) => items.map((i) => `${i.units} × ${i.name}`).join(' + ');
+
+// "2 a 3 personas", "1 niño", "2 adultos": a quién cubre un combo.
+function comboPeople(c: Combo) {
+  const n = c.min === c.max ? `${c.max}` : `${c.min} a ${c.max}`;
+  const who = { all: ['persona', 'personas'], children: ['niño', 'niños'], adults: ['adulto', 'adultos'] }[c.for];
+  return `${n} ${c.max === 1 ? who[0] : who[1]}`;
+}
+
 function ShowsTable({
   rows,
-  snacks,
+  withSnacks,
   today,
   chains,
   partial,
 }: {
   rows: Row[];
-  snacks: Snacks;
+  withSnacks: boolean;
   today: string;
   chains: Record<string, string>;
   partial?: boolean;
@@ -240,9 +252,12 @@ function ShowsTable({
               <td className="num rec__c-tickets" data-label="Boletos">{r.tickets_total !== null ? money(r.tickets_total) : '—'}</td>
               {!partial && (
                 <td className="num rec__c-snacks" data-label="Dulcería">
-                  {snacks !== 'none'
-                    ? money(r.snacks_total!)
-                    : r.snack_reference !== null
+                  {withSnacks ? (
+                    <>
+                      {money(r.snacks_total!)}
+                      {r.snacks_items && r.snacks_items.length > 0 && <span className="rec__items">{itemsText(r.snacks_items)}</span>}
+                    </>
+                  ) : r.snack_reference !== null
                       ? <span className="rec__ref" title="Palomitas y refresco para una persona, como referencia">ref. {money(r.snack_reference)}</span>
                       : <span className="rec__ref">sin precio en sala</span>}
                 </td>
@@ -322,6 +337,9 @@ export function Recommender() {
   const [seniors, setSeniors] = useState(0);
   const [budget, setBudget] = useState('');
   const [snacks, setSnacks] = useState<Snacks>('none');
+  const [combo, setCombo] = useState<string | null>(null);   // un combo elegido de la lista manda sobre `snacks`
+  const withSnacks = snacks !== 'none' || combo !== null;
+  const snackPlan = combo ?? SNACK_LABEL[snacks].toLowerCase();
   const [date, setDate] = useState('');
   const [hours, setHours] = useState('Todo el día');
   const [radiusKm, setRadiusKm] = useState(5);
@@ -505,6 +523,7 @@ export function Recommender() {
             children,
             seniors,
             snacks,
+            combo,
             budget: budgetValue > 0 ? budgetValue : null,
             radiusKm,
             hours: HOURS[hours],
@@ -513,7 +532,7 @@ export function Recommender() {
             sort,
           }
         : null,
-    [start, people, date, adults, children, seniors, snacks, budgetValue, radiusKm, hours, title, format, sort],
+    [start, people, date, adults, children, seniors, snacks, combo, budgetValue, radiusKm, hours, title, format, sort],
   );
   const searched = useApi<Search>('/v1/a-donde-ir/funciones', useMemo(() => (query ? searchParams(query) : null), [query]), now.minutes);
   const result = searched.data;
@@ -607,7 +626,7 @@ export function Recommender() {
   }
   const lists: Record<Tab, Row[]> = {
     complete: result?.complete ?? [],
-    snacks_unpriced: snacks !== 'none' ? result?.snacks_unpriced ?? [] : [],
+    snacks_unpriced: withSnacks ? result?.snacks_unpriced ?? [] : [],
     unpriced: result?.unpriced ?? [],
   };
   const counts: Record<Tab, number> = {
@@ -634,7 +653,7 @@ export function Recommender() {
             ← Cambiar búsqueda
           </button>
           <span className="rec-screen__plan">
-            {groupText(adults, children, seniors)} · {SNACK_LABEL[snacks].toLowerCase()} · {dayLabel(date, now.date).toLowerCase()}
+            {groupText(adults, children, seniors)} · {snackPlan} · {dayLabel(date, now.date).toLowerCase()}
             {budgetValue > 0 ? ` · hasta ${money(budgetValue)}` : ''}
           </span>
         </div>
@@ -693,7 +712,7 @@ export function Recommender() {
         {tab === 'unpriced' && <p className="rec__hint">No hay precio de lista de su cine para ese formato y día; por eso no entran al presupuesto.</p>}
 
         {rows.length > 0 && (
-          <ShowsTable rows={rows.slice(0, shown)} snacks={snacks} today={now.date} chains={chains} partial={tab !== 'complete'} />
+          <ShowsTable rows={rows.slice(0, shown)} withSnacks={withSnacks} today={now.date} chains={chains} partial={tab !== 'complete'} />
         )}
         {rows.length > shown && (
           <button type="button" className="pill pill--ghost rec-screen__more" onClick={() => setShown((n) => n + PAGE)}>
@@ -733,14 +752,38 @@ export function Recommender() {
           <Counter label="Adultos mayores" value={seniors} max={API_MAX_PEOPLE - adults - children} onChange={setSeniors} />
         </div>
       </MenuRow>
-      <MenuRow id="snacks" open={open} onToggle={toggle} icon={<Popcorn />} label="Dulcería" value={SNACK_LABEL[snacks]}>
+      <MenuRow id="snacks" open={open} onToggle={toggle} icon={<Popcorn />} label="Dulcería" value={combo ?? SNACK_LABEL[snacks]}>
         <div className="rec__chips" role="radiogroup" aria-label="Dulcería">
-          {(Object.keys(SNACK_LABEL) as Snacks[]).map((k) => (
-            <button key={k} type="button" role="radio" aria-checked={snacks === k} className={`rec__chip ${snacks === k ? 'is-on' : ''}`} onClick={() => setSnacks(k)}>
-              {SNACK_LABEL[k]}
-            </button>
-          ))}
+          {(options?.snacks ?? (Object.keys(SNACK_LABEL) as Snacks[])).map((k) => {
+            const on = combo === null && snacks === k;
+            return (
+              <button
+                key={k}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                className={`rec__chip ${on ? 'is-on' : ''}`}
+                onClick={() => {
+                  setSnacks(k);
+                  setCombo(null);
+                }}
+              >
+                {SNACK_LABEL[k]}
+              </button>
+            );
+          })}
         </div>
+        <label className="rec__field">
+          <span className="rec__label">O elige un combo</span>
+          <select value={combo ?? ''} onChange={(e) => setCombo(e.target.value || null)}>
+            <option value="">Ninguno en particular</option>
+            {(options?.combos ?? []).map((c) => (
+              <option key={c.name} value={c.name}>
+                {c.name} · {comboPeople(c)}
+              </option>
+            ))}
+          </select>
+        </label>
       </MenuRow>
       <MenuRow
         id="when"
@@ -927,7 +970,7 @@ export function Recommender() {
                       ? 'Agrega al menos una persona en las opciones.'
                       : !result
                         ? 'Buscando funciones…'
-                        : `${groupText(adults, children, seniors)} · ${SNACK_LABEL[snacks].toLowerCase()} · toca un cine para ver sus funciones`}
+                        : `${groupText(adults, children, seniors)} · ${snackPlan} · toca un cine para ver sus funciones`}
             </span>
             {options && people > 0 && result && (
               <button

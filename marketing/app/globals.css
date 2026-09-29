@@ -2259,13 +2259,20 @@ button {
 }
 
 .rec__field input,
+/* La flecha nativa se pega al borde de la píldora y no respeta el padding: se dibuja con dos gradientes en gris. */
 .rec__field select {
   font: inherit;
   color: var(--ink);
-  background: var(--paper);
+  appearance: none;
+  background-color: var(--paper);
+  background-image: linear-gradient(45deg, transparent 50%, var(--gray) 50%),
+    linear-gradient(135deg, var(--gray) 50%, transparent 50%);
+  background-position: calc(100% - 22px) 50%, calc(100% - 17px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
   border: 1px solid var(--ink-20);
   border-radius: 999px;
-  padding: 10px 16px;
+  padding: 10px 40px 10px 16px;
   min-width: 0;
 }
 
@@ -2327,6 +2334,10 @@ button {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.rec__chips + .rec__field {
+  margin-top: 16px;
 }
 
 .rec__chip {
@@ -2446,6 +2457,14 @@ button {
 .rec__ref {
   display: block;
   font-size: 0.78rem;
+  color: var(--gray);
+}
+
+/* El desglose de la dulcería bajo su total, también en la tarjeta de celular. */
+.rec__items {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 400;
   color: var(--gray);
 }
 

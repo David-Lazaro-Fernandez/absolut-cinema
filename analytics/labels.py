@@ -471,7 +471,11 @@ COLUMN_LABEL.update({
 
 # --- Recomendador (analytics/recommender.py, views/recomendador.py) ---
 RECOMMEND_SORT = {"distance": "Más cerca", "price": "Más barato", "time": "Más pronto"}
-SNACK_LABEL = {"none": "Sin dulcería", "popcorn": "Palomitas y refresco por persona", "combo": "Un Combo Clásico cada dos"}
+# Paquetes de dulcería (`analytics/recommender.py`). "combo_N": un combo para N personas cada N, el más barato de su cine.
+SNACK_LABEL = {"none": "Sin dulcería", "best": "Lo más barato para el grupo", "popcorn": "Palomitas y refresco por persona",
+               "combo_1": "Un combo por persona", "combo_2": "Un combo cada dos", "combo_3": "Un combo cada tres",
+               "combo_4": "Un combo cada cuatro"}
+SNACK_SINGLE = "Palomitas y refresco"      # el relleno de una persona en el desglose
 GROUP_LABEL = {    # tipo de boleto → (singular, plural)
     "adults": ("adulto", "adultos"), "children": ("niño", "niños"), "seniors": ("adulto mayor", "adultos mayores"),
 }

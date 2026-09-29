@@ -55,6 +55,8 @@ def test_the_request_is_validated(client):
     assert client.get("/v1/a-donde-ir/funciones", params={**base, "adultos": 0}).status_code == 422
     assert client.get("/v1/a-donde-ir/funciones", params={**base, "fecha": "2027-01-01"}).status_code == 422
     assert client.get("/v1/a-donde-ir/funciones", params={**base, "dulceria": "nachos"}).status_code == 422
+    assert client.get("/v1/a-donde-ir/funciones", params={**base, "combo": "Combo Inventado"}).status_code == 422
+    assert client.get("/v1/a-donde-ir/funciones", params={**base, "combo": "Maxicombo Familiar"}).status_code == 200
     assert client.get("/v1/a-donde-ir/funciones", params={**base, "sitio": "abc"}).status_code == 422
 
 
@@ -107,7 +109,7 @@ def test_responses_are_compressed(client):
 def test_the_options_come_before_the_search(client):
     res = client.get("/v1/a-donde-ir/opciones")
     assert res.status_code == 200 and res.headers["cache-control"] == "public, max-age=300"
-    assert set(res.json()) == {"plazas", "dates", "formats", "cinemas", "snacks", "captured_at"}
+    assert set(res.json()) == {"plazas", "dates", "formats", "cinemas", "snacks", "combos", "captured_at"}
     assert res.json()["captured_at"].endswith("+00:00")
 
 

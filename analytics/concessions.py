@@ -63,14 +63,18 @@ def concession_basket(conn, chain="cinepolis", plaza=None):
 
 
 def concession_product_by_cinema(conn, product_name, chain="cinepolis", plaza=None):
-    """Precio de un producto en cada complejo, de mayor a menor, con `cinema_type` (vip | traditional)."""
+    """Precio de un producto en cada complejo, de mayor a menor, con `product_name` y `cinema_type` (vip | traditional).
+    `product_name` es un nombre o una lista de nombres; se comparan sin los espacios de las orillas."""
+    names = [product_name] if isinstance(product_name, str) else list(product_name)
     latest, scope = _latest(plaza)
     return rows(conn, f"""
         WITH {latest}
-        SELECT m.cinema_id, COALESCE(n.cinema_name, m.cinema_id) cinema_name, m.price_cents / 100.0 price, m.category,
+        SELECT m.cinema_id, COALESCE(n.cinema_name, m.cinema_id) cinema_name, TRIM(m.product_name) product_name,
+               m.price_cents / 100.0 price, m.category,
                CASE WHEN m.cinema_id LIKE '%vip%' THEN 'vip' ELSE 'traditional' END cinema_type
         FROM m LEFT JOIN names n ON n.chain = m.chain AND n.cinema_id = m.cinema_id
-        WHERE m.chain = ? AND m.product_name = ? ORDER BY price DESC, cinema_name""", (*scope, chain, product_name))
+        WHERE m.chain = ? AND TRIM(m.product_name) IN ({",".join("?" * len(names))})
+        ORDER BY price DESC, cinema_name, product_name""", (*scope, chain, *names))
 
 
 def concession_by_cinema(conn, chain="cinepolis", plaza=None):

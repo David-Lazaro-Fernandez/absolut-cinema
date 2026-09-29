@@ -952,8 +952,16 @@ dulcería en sala, va aparte sin cifra inventada.
   Cinemex; "Niños", "3 Era Edad" en Cinépolis), el regular (el más caro que no pasa del general, no una promoción
   como "Que Oferton"); si no hay, pagan el general. Cubre 6,852 de 6,859 funciones de Cinemex y 5,217 de 5,219 de
   Cinépolis de hoy y mañana en CDMX (medido el 2026-09-27).
-- **Dulcería:** paquetes (`SNACK_PACKAGES`): sin dulcería, palomitas y refresco por persona (tamaño base) o un Combo
-  Clásico cada dos, con el menú en sala de cada cine de Cinépolis (`concession_product_by_cinema`). Cinemex tiene
+- **Dulcería** (2026-09-29): paquetes (`SNACK_PACKAGES`, etiquetas en `SNACK_LABEL`) o un combo elegido (`combo=`),
+  con el menú en sala de cada cine de Cinépolis a sus precios y solo con lo que ese cine vende
+  (`concession_product_by_cinema`). Paquetes: sin dulcería; "lo más barato para el grupo" (la combinación más barata de
+  combos y palomitas con refresco sueltos que cubre a todos, por programación dinámica: una combinación cubre a n
+  personas si la suma de los mínimos no pasa de n y la de los máximos llega a n); palomitas y refresco por persona
+  (tamaño base); y "un combo cada N" (N de 1 a 4, el combo más barato del cine para N). Cuántas personas cubre cada
+  combo no lo publica el menú: lo dice `analytics/snack_combos.csv` (82 combos, un rango `personas_min`–`personas_max`
+  y `para`: todos, niños o adultos; revisado por David el 2026-09-29). Los Maxicombo cubren de 2 a 3; los de crepa o
+  pastel con bebida, 1; los de cerveza solo adultos; el Junior solo niños. Un combo nuevo del menú no entra al cálculo
+  hasta agregarlo a la tabla. Cada función lleva el desglose (`snacks_items`: nombre, unidades y precio). Cinemex tiene
   apagada la venta de dulcería en línea y la Cineteca no tiene menú: sus funciones van a "sin precio de dulcería en
   sala" (`status="snacks_unpriced"`), con el costo de los boletos, y no compiten por el presupuesto con las completas.
 - **Estados** (`STATUSES`): `complete` (su total cabe en el presupuesto), `snacks_unpriced` (los boletos caben, la

@@ -6,16 +6,25 @@ precio de lista, no el de esa función. El adulto paga el boleto general. Niños
 boleto ("MENOR", "Niños", "3ra Edad"); si la función no los tiene, pagan el general. Una función sin lectura no se
 estima: queda sin precio y fuera del presupuesto.
 
-Dulcería: los paquetes de `SNACK_PACKAGES` con el menú en sala de cada cine. Solo Cinépolis publica ese menú. En
-Cinemex y la Cineteca el paquete queda sin precio (`snacks_total` None).
+Dulcería: el paquete (`SNACK_PACKAGES`) o el combo elegido con el menú en sala de cada cine, a los precios de ese cine
+y solo con lo que ese cine vende. Cuántas personas cubre cada combo lo dice `snack_combos.csv` (versionado, revisado a
+mano: el menú no lo publica), como un rango de mínimo a máximo. Solo Cinépolis publica su menú. En Cinemex y la
+Cineteca el paquete queda sin precio (`snacks_total` None).
+  - "best": la combinación más barata de combos y palomitas con refresco sueltos que cubre al grupo. Una combinación
+    cubre a n personas si la suma de los mínimos no pasa de n y la de los máximos llega a n. Un combo "para" niños
+    cubre solo a niños; uno "para" adultos (con cerveza), solo a adultos y adultos mayores.
+  - "popcorn": palomitas y refresco por persona.
+  - "combo_N": el combo más barato del cine para N personas, uno cada N, entre los que son para todos.
 
 La distancia es en línea recta (haversine). En un empate, Cinemex va primero, salvo con `favor_us=False` (la demo
 pública es neutral).
 """
+import csv
 import json
 import math
 import re
 import unicodedata
+from pathlib import Path
 from urllib.parse import quote
 
 from scraper import config
@@ -23,7 +32,7 @@ from scraper import config
 from .cinema_locations import _NOT_EVENT, MAP_CHAINS, display_name
 from .concessions import concession_product_by_cinema
 from .db import rows
-from .labels import CHAIN_LABEL, PLAZA_LABEL, US
+from .labels import CHAIN_LABEL, PLAZA_LABEL, SNACK_LABEL, SNACK_SINGLE, US
 from .plaza import plaza_where
 from .queries import _FORMAT_CASE, _window
 from .seats import _DAY_TYPE_CASE
@@ -32,12 +41,19 @@ SORTS = ("distance", "price", "time")
 # "complete": boletos y dulcería con precio. "snacks_unpriced": la dulcería no tiene precio. "unpriced": los boletos
 # no tienen precio. Solo "complete" compite por el presupuesto; las otras van aparte para no parecer más baratas.
 STATUSES = ("complete", "snacks_unpriced", "unpriced")
-# Paquete → [(producto del menú de Cinépolis, cuántas personas cubre cada uno)].
-SNACK_PACKAGES = {
-    "none": [],
-    "popcorn": [("Palomitas", 1), ("Refresco", 1)],        # tamaño base
-    "combo": [("Combo Clásico", 2)],
-}
+SNACK_PACKAGES = tuple(SNACK_LABEL)
+COMBOS_PATH = Path(__file__).resolve().parent / "snack_combos.csv"
+_SINGLE = ("Palomitas", "Refresco")       # tamaño base: palomitas y refresco de una persona
+_FOR = {"todos": "all", "ninos": "children", "adultos": "adults"}
+
+
+def _load_combos():
+    with open(COMBOS_PATH, encoding="utf-8") as fh:
+        return {r["product_name"].strip(): {"min": int(r["personas_min"]), "max": int(r["personas_max"]), "for": _FOR[r["para"]]}
+                for r in csv.DictReader(fh)}
+
+
+COMBOS = _load_combos()
 _CHILD_WORDS = ("menor", "nino")
 _SENIOR_WORDS = ("mayor", "tercera", "3 era", "3ra", "3a edad")
 _EARTH_KM = 6371.0
@@ -68,17 +84,68 @@ def _ticket_prices(tickets_json, general_cents):
     return general, pick(_CHILD_WORDS), pick(_SENIOR_WORDS)
 
 
-def _snack_prices(conn, snacks, people):
-    """{(chain, cinema_id): costo del paquete para `people`} de los cines con todos sus productos en el menú."""
-    items = SNACK_PACKAGES[snacks]
-    if not items:
-        return {}
-    per_cinema = {}
-    for product, covers in items:
-        units = math.ceil(people / covers)
-        for r in concession_product_by_cinema(conn, product):
-            per_cinema.setdefault(r["cinema_id"], {})[product] = r["price"] * units
-    return {("cinepolis", cinema_id): round(sum(p.values()), 2) for cinema_id, p in per_cinema.items() if len(p) == len(items)}
+def _menus(conn, cinema_ids):
+    """{cinema_id: {producto: precio}} de los cines de Cinépolis pedidos, solo con los combos de `COMBOS` y `_SINGLE`."""
+    menus = {}
+    for r in concession_product_by_cinema(conn, [*COMBOS, *_SINGLE]):
+        if r["cinema_id"] in cinema_ids:
+            menus.setdefault(r["cinema_id"], {})[r["product_name"]] = r["price"]
+    return menus
+
+
+def _cover(options, n):
+    """El costo mínimo de cubrir exactamente a 0…n personas con `options` [(precio, nombre, mínimo, máximo)], sin tope de
+    unidades: [(costo, (nombre, precio, personas antes))]; infinito si no se puede."""
+    best = [(0.0, None)] + [(math.inf, None)] * n
+    for m in range(1, n + 1):
+        for price, name, lo, hi in options:
+            for k in range(lo, min(hi, m) + 1):
+                if best[m - k][0] + price < best[m][0]:
+                    best[m] = (best[m - k][0] + price, (name, price, m - k))
+    return best
+
+
+def _units(best, m):
+    """Los productos que `_cover` eligió para cubrir a `m` personas: [(nombre, precio)], uno por unidad."""
+    out = []
+    while m and best[m][1]:
+        name, price, m = best[m][1]
+        out.append((name, price))
+    return out
+
+
+def _plan(units):
+    """(total, desglose) de [(nombre, precio)]: el desglose agrupa por producto, [{`name`, `units`, `price`}]."""
+    items = {}
+    for name, price in units:
+        items.setdefault((name, price), 0)
+        items[(name, price)] += 1
+    breakdown = [{"name": name, "units": k, "price": price} for (name, price), k in sorted(items.items(), key=lambda i: (-i[0][1], i[0][0]))]
+    return round(sum(price for _, price in units), 2), breakdown
+
+
+def _snack_plan(menu, snacks, combo, adults, children):
+    """(total, desglose) del paquete `snacks` o del combo `combo` para el grupo con el menú de un cine, o None si su menú
+    no lo tiene. `adults` incluye a los adultos mayores."""
+    people = adults + children
+    single = round(sum(menu[p] for p in _SINGLE), 2) if all(p in menu for p in _SINGLE) else None
+    if combo:
+        return _plan([(combo, menu[combo])] * math.ceil(people / COMBOS[combo]["max"])) if combo in menu else None
+    if snacks == "popcorn":
+        return _plan([(SNACK_SINGLE, single)] * people) if single is not None else None
+    if snacks.startswith("combo_"):
+        size = int(snacks.removeprefix("combo_"))
+        fits = sorted((menu[name], name) for name, c in COMBOS.items()
+                      if name in menu and c["for"] == "all" and c["min"] <= size <= c["max"])
+        return _plan([(fits[0][1], fits[0][0])] * math.ceil(people / size)) if fits else None
+
+    def options(who):
+        return sorted((menu[name], name, c["min"], c["max"]) for name, c in COMBOS.items() if name in menu and c["for"] == who)
+    general = options("all") + ([(single, SNACK_SINGLE, 1, 1)] if single is not None else [])
+    for_all, for_kids, for_grown = _cover(general, people), _cover(options("children"), children), _cover(options("adults"), adults)
+    cost, j, i = min((for_kids[j][0] + for_grown[i][0] + for_all[people - j - i][0], j, i)
+                     for j in range(children + 1) for i in range(adults + 1))
+    return _plan(_units(for_kids, j) + _units(for_grown, i) + _units(for_all, people - j - i)) if cost < math.inf else None
 
 
 def _slug(text):
@@ -95,7 +162,7 @@ def _buy_url(r):
                            date=r["date"].replace("-", ""), movie_id=quote(str(r["movie_id"])))
 
 
-def _candidates(conn, lat, lng, *, d0, d1, from_now, hours, radius_km, adults, children, seniors, snacks):
+def _candidates(conn, lat, lng, *, d0, d1, from_now, hours, radius_km, adults, children, seniors, snacks, combo=None):
     """Todas las funciones de la ventana a `radius_km` o menos, con boletos, dulcería, costo, distancia y enlace de
     compra, sin ordenar."""
     where, params, _ = _window(d0, d1, from_now, hours=hours, chains=MAP_CHAINS)
@@ -117,8 +184,9 @@ def _candidates(conn, lat, lng, *, d0, d1, from_now, hours, radius_km, adults, c
                    AND p.format_bucket = f.format_bucket AND p.day_type = f.day_type
         WHERE c.lat BETWEEN ? AND ? AND c.lng BETWEEN ? AND ?
         ORDER BY f.chain, f.show_id""", params + [lat - dlat, lat + dlat, lng - dlng, lng + dlng])
-    snack_costs = _snack_prices(conn, snacks, adults + children + seniors)
-    reference = _snack_prices(conn, "popcorn", 1)
+    menus = _menus(conn, {r["cinema_id"] for r in data if r["chain"] == "cinepolis"})
+    plans = {cinema_id: _snack_plan(menu, snacks, combo, adults + seniors, children) for cinema_id, menu in menus.items()} \
+        if snacks != "none" or combo else {}
     out = []
     for r in data:
         r["distance_km"] = round(_distance_km(lat, lng, r["lat"], r["lng"]), 2)
@@ -132,8 +200,10 @@ def _candidates(conn, lat, lng, *, d0, d1, from_now, hours, radius_km, adults, c
             r["tickets_total"] = round(adults * r["adult_price"] + children * r["child_price"] + seniors * r["senior_price"], 2)
         else:
             r["adult_price"] = r["child_price"] = r["senior_price"] = r["tickets_total"] = None
-        r["snacks_total"] = 0.0 if snacks == "none" else snack_costs.get((r["chain"], r["cinema_id"]))
-        r["snack_reference"] = reference.get((r["chain"], r["cinema_id"]))
+        menu = menus.get(r["cinema_id"], {}) if r["chain"] == "cinepolis" else {}
+        plan = (0.0, []) if snacks == "none" and not combo else plans.get(r["cinema_id"]) if r["chain"] == "cinepolis" else None
+        r["snacks_total"], r["snacks_items"] = plan or (None, None)
+        r["snack_reference"] = round(sum(menu[p] for p in _SINGLE), 2) if all(p in menu for p in _SINGLE) else None
         r["total"] = round(r["tickets_total"] + r["snacks_total"], 2) \
             if r["tickets_total"] is not None and r["snacks_total"] is not None else None
         r["status"] = "unpriced" if r["tickets_total"] is None else "complete" if r["total"] is not None else "snacks_unpriced"
@@ -218,32 +288,34 @@ def _sites(found, budget):
 
 
 def recommend(conn, lat, lng, d0=None, d1=None, from_now=True, hours=None, adults=2, children=0, seniors=0,
-              snacks="none", budget=None, radius_km=5.0, title_norm=None, formats=None, status="complete", sort="distance",
-              per_cinema=None, limit=40):
+              snacks="none", combo=None, budget=None, radius_km=5.0, title_norm=None, formats=None, status="complete",
+              sort="distance", per_cinema=None, limit=40):
     """Funciones a `radius_km` o menos de (`lat`, `lng`) para un grupo de `adults`, `children` y `seniors` con el
-    paquete `snacks` (clave de `SNACK_PACKAGES`). Solo devuelve las del `status` pedido (ver `STATUSES`). `budget`
+    paquete `snacks` (clave de `SNACK_PACKAGES`) o el combo `combo` (nombre de `COMBOS`, uno cada su máximo de
+    personas; manda sobre `snacks`). Solo devuelve las del `status` pedido (ver `STATUSES`). `budget`
     (None = sin tope) se aplica al `total` en "complete" y a los boletos en "snacks_unpriced". `title_norm` y `formats`
     acotan la búsqueda.
     Por fila: `chain`, `show_id`, `cinema_id`, `cinema_name`, `lat`, `lng`, `title`, `title_norm`, `date`,
     `datetime_local`, `language`, `format_bucket`, `day_type`, `price_sampled_at`, `adult_price`, `child_price`,
-    `senior_price`, `tickets_total`, `snacks_total` (0 sin paquete, None sin precio), `snack_reference` (palomitas y
+    `senior_price`, `tickets_total`, `snacks_total` (0 sin paquete, None sin precio), `snacks_items` (el desglose,
+    [{`name`, `units`, `price`}]; None sin precio), `snack_reference` (palomitas y
     refresco de una persona; None sin menú), `total` (None sin precio de dulcería), `status`, `distance_km`, `movie_id`
     y `buy_url` (la página de compra en la cadena; None si no hay).
     Orden según `sort` ("distance", "price" o "time"). `per_cinema` limita las funciones de cada cine."""
     found = [r for r in _candidates(conn, lat, lng, d0=d0, d1=d1, from_now=from_now, hours=hours, radius_km=radius_km,
-                                    adults=adults, children=children, seniors=seniors, snacks=snacks)
+                                    adults=adults, children=children, seniors=seniors, snacks=snacks, combo=combo)
              if _matches(r, title_norm, formats)]
     return _pick(found, status, budget, _sort_key(sort), per_cinema, limit)
 
 
 def recommend_summary(conn, lat, lng, d0=None, d1=None, from_now=True, hours=None, adults=2, children=0, seniors=0,
-                      snacks="none", budget=None, radius_km=5.0, title_norm=None, formats=None):
+                      snacks="none", combo=None, budget=None, radius_km=5.0, title_norm=None, formats=None):
     """Resumen de lo que `recommend` encuentra, sin límite: `shows` y `cinemas` (funciones de costo completo que caben y
     sus cines), `snacks_unpriced` (funciones cuyos boletos caben pero sin precio del paquete de dulcería), `unpriced`
     (funciones cercanas sin precio de boletos), y entre las completas `nearest`, `cheapest`, `priciest` (filas como las
     de `recommend`, None si no hay) y `saving` (lo que se ahorra yendo a la más barata frente a la más cara)."""
     found = [r for r in _candidates(conn, lat, lng, d0=d0, d1=d1, from_now=from_now, hours=hours, radius_km=radius_km,
-                                    adults=adults, children=children, seniors=seniors, snacks=snacks)
+                                    adults=adults, children=children, seniors=seniors, snacks=snacks, combo=combo)
              if _matches(r, title_norm, formats)]
     return _summary(found, budget)
 
@@ -256,7 +328,7 @@ def recommend_titles(conn, lat, lng, d0=None, d1=None, from_now=True, hours=None
 
 
 def recommend_search(conn, lat, lng, d0=None, d1=None, from_now=True, hours=None, adults=2, children=0, seniors=0,
-                     snacks="none", budget=None, radius_km=5.0, title_norm=None, formats=None, sort="distance",
+                     snacks="none", combo=None, budget=None, radius_km=5.0, title_norm=None, formats=None, sort="distance",
                      per_cinema=3, limit=40, favor_us=True, site=None):
     """Todo lo que una búsqueda necesita, en una sola lectura de la base: {`summary`, `complete`, `snacks_unpriced`,
     `unpriced`, `sites`, `titles`}. Los parámetros son los de `recommend`.
@@ -268,7 +340,7 @@ def recommend_search(conn, lat, lng, d0=None, d1=None, from_now=True, hours=None
     `favor_us=False` resuelve los empates sin favorecer a Cinemex. `site=(lat, lng)` deja solo las funciones de ese
     edificio, sin tope por cine ni límite."""
     everything = _candidates(conn, lat, lng, d0=d0, d1=d1, from_now=from_now, hours=hours, radius_km=radius_km,
-                             adults=adults, children=children, seniors=seniors, snacks=snacks)
+                             adults=adults, children=children, seniors=seniors, snacks=snacks, combo=combo)
     found = [r for r in everything if _matches(r, title_norm, formats)]
     if site is not None:
         found = [r for r in found if (r["lat"], r["lng"]) == tuple(site)]
@@ -280,14 +352,17 @@ def recommend_search(conn, lat, lng, d0=None, d1=None, from_now=True, hours=None
 
 
 def recommend_options(conn, plazas=("cdmx", "gdl", "mty"), d0=None, d1=None, from_now=True):
-    """Lo que un buscador necesita antes de buscar: {`plazas`, `dates`, `formats`, `cinemas`, `snacks`}.
+    """Lo que un buscador necesita antes de buscar: {`plazas`, `dates`, `formats`, `cinemas`, `snacks`, `combos`}.
     - `plazas`: `plaza`, `label`, `lat`, `lng` (centro de sus cines) y `bbox` ([oeste, sur, este, norte], la caja de sus
       cines con `_AREA_MARGIN_DEG` de margen). Solo las que tienen cines.
     - `dates`: `date` y `day_type` de los días con funciones en la ventana. Orden: fecha.
     - `formats`: las cubetas de formato de esas funciones, en orden alfabético.
     - `cinemas`: `chain`, `chain_label`, `cinema_name`, `lat` y `lng` de los cines con coordenadas. Orden: cadena y nombre.
-    - `snacks`: las claves de `SNACK_PACKAGES`."""
-    out = {"plazas": [], "dates": {}, "formats": set(), "cinemas": [], "snacks": list(SNACK_PACKAGES)}
+    - `snacks`: las claves de `SNACK_PACKAGES`.
+    - `combos`: `name`, `min`, `max` (personas) y `for` ("all", "children" o "adults") de cada combo de `COMBOS`.
+      Orden: nombre."""
+    out = {"plazas": [], "dates": {}, "formats": set(), "cinemas": [], "snacks": list(SNACK_PACKAGES),
+           "combos": [{"name": name, **c} for name, c in sorted(COMBOS.items())]}
     for plaza in plazas:
         pw, pp = plaza_where(plaza, chains=MAP_CHAINS)
         cinemas = rows(conn, f"""
