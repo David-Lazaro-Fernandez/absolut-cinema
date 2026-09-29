@@ -382,9 +382,10 @@ export function Recommender() {
 
   // En celular el teclado tapa el pie de la pantalla. El mapa conserva su alto y la barra sube sobre el teclado.
   // El teclado se mide contra el alto visible más grande visto con el mismo ancho: iOS también achica innerHeight.
-  // iOS desplaza la página o la vista para mostrar el campo; la barra se coloca en el borde inferior de lo que se ve
-  // (offsetTop + height), así queda sobre el teclado aunque ese desplazamiento no se pueda deshacer. Con zoom, el
-  // alto visible no es teclado. Con menos de la mitad del alto visible, el plan del contexto se oculta.
+  // iOS desplaza la vista para mostrar el campo. La barra no lo pelea: se coloca en el borde inferior de lo que se ve,
+  // en coordenadas del documento (pageTop + height), así queda sobre el teclado durante y después de ese
+  // desplazamiento. Con zoom, el alto visible no es teclado. Con menos de la mitad del alto visible, el plan del
+  // contexto se oculta.
   const stage = useRef<HTMLElement>(null);
   const [keyboard, setKeyboard] = useState(0);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
@@ -400,10 +401,10 @@ export function Recommender() {
       tallest = Math.max(tallest, vv.height);
       const zoomed = vv.scale > 1;
       const open = !zoomed && tallest - vv.height > KEYBOARD_MIN;
-      if (open && window.scrollY) window.scrollTo(0, 0);
-      const bottom = stage.current?.getBoundingClientRect().bottom ?? tallest;
+      const el = stage.current;
+      const bottom = el ? el.offsetTop + el.offsetHeight : tallest;
       setKeyboardOpen(open);
-      setKeyboard(open ? Math.max(0, Math.round(bottom - vv.offsetTop - vv.height)) : 0);
+      setKeyboard(open ? Math.max(0, Math.round(bottom - vv.pageTop - vv.height)) : 0);
       setShort(!zoomed && vv.height < tallest / 2);
     };
     vv.addEventListener('resize', fit);
