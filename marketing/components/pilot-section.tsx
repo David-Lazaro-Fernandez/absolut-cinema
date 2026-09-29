@@ -3,15 +3,16 @@
 import { useEffect, useState } from 'react';
 import { Reveal } from './reveal';
 
-// Horarios del Makefile de la raíz (snapshot, seats, sync, daily, delivery). Hora de la Ciudad de México.
+// Horarios de ../jobs/registry.py (snapshot, seats, prices, health, presale, delivery). Hora de la Ciudad de México.
 const SCHEDULE = [
   { time: '07:30', title: 'Cartelera completa', sub: 'Ambas cadenas, función por función' },
   { time: '13:30', title: 'Cartelera completa', sub: 'Segunda pasada del día' },
   { time: '20:30', title: 'Cartelera completa', sub: 'Cierre del día y funciones nocturnas' },
   { time: 'Cada hora', title: 'Planos de asientos', sub: 'Asistencia tras el inicio, en las plazas del piloto' },
-  { time: ':22 y :52', title: 'Copia al archivo histórico', sub: 'Solo se agrega; nada se borra' },
-  { time: '06:00', title: 'Salud, precios y dulcería', sub: 'Huecos de captura, boleto por formato, menú en sala' },
-  { time: '15:00', title: 'Dulcería a domicilio', sub: 'Rappi y DiDi Food con las tiendas abiertas' },
+  { time: '06:07', title: 'Precios y dulcería', sub: 'Boleto por formato y tipo de día, menú en sala' },
+  { time: '08:07', title: 'Salud de la captura', sub: 'Huecos y fallos de las últimas 24 horas' },
+  { time: '10:07', title: 'Preventas', sub: 'Butacas vendidas de cada título antes del estreno' },
+  { time: '15:07', title: 'Dulcería a domicilio', sub: 'Apps de entrega, con las tiendas abiertas' },
 ];
 
 export function PilotSection() {
@@ -34,9 +35,9 @@ export function PilotSection() {
               <span className="muted">no una maqueta.</span>
             </h2>
             <p className="lead" style={{ fontSize: '1.15rem', color: 'var(--gray)', maxWidth: '34rem' }}>
-              Matiné corre hoy en producción sobre Cinemex frente a Cinépolis: captura la cartelera de los 777 cines de
-              ambas cadenas en todo México, la compara dentro de cada plaza (Ciudad de México, Guadalajara y
-              Monterrey) y guarda el histórico. Cada número de esta página sale de esa operación, no de una proyección.
+              Matiné corre hoy en producción con las dos cadenas más grandes de México: captura la cartelera de todos
+              sus cines en el país, la compara dentro de cada plaza (Ciudad de México, Guadalajara y Monterrey) y
+              guarda el histórico. Cada número de esta página sale de esa operación, no de una proyección.
             </p>
             <div className="pilot__stats">
               <div>
@@ -46,8 +47,8 @@ export function PilotSection() {
                 <div className="stat__label">cadenas comparadas</div>
               </div>
               <div>
-                <div className="stat__value">777</div>
-                <div className="stat__label">cines capturados, tres veces al día</div>
+                <div className="stat__value">32</div>
+                <div className="stat__label">estados capturados, tres veces al día</div>
               </div>
               <div>
                 <div className="stat__value">3</div>

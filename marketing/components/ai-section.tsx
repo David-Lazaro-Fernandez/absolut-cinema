@@ -1,10 +1,11 @@
-import { CONTACT_EMAIL } from '@/lib/site';
+import { DEMO_URL } from '@/lib/site';
 import { Arrow } from './icons';
 import { Reveal } from './reveal';
 
-// Fake door test (design.md §3): nada de esto existe hoy. Cada puerta lleva su propio asunto en el mailto para
-// contar el interés por separado. El diseño del resumen narrado vive en ../project.md § "Paso 2".
-const door = (subject: string) => `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}`;
+// Fake door test (design.md §3): nada de esto existe hoy. Cada puerta lleva a /request-demo/ con su llave de
+// EARLY_ACCESS, que el formulario pone en el asunto para contar el interés por separado. El diseño del resumen
+// narrado vive en ../project.md § "Paso 2".
+const door = (key: string) => `${DEMO_URL}?acceso=${key}`;
 
 const DOORS = [
   {
@@ -13,7 +14,7 @@ const DOORS = [
     text:
       'El modelo recibe solo los hallazgos que ya cruzaron su umbral y devuelve un resumen ejecutivo en prosa. Cada cifra del texto se valida contra los datos de entrada; si no existe, el texto se descarta y queda la plantilla.',
     cta: 'Quiero el resumen narrado',
-    subject: 'Acceso anticipado: Resumen general narrado con IA',
+    access: 'resumen',
   },
   {
     status: 'Próximamente',
@@ -21,7 +22,7 @@ const DOORS = [
     text:
       'Eliges el proveedor (Anthropic, OpenAI, Google o Bedrock desde tu propia cuenta de AWS). La clave se guarda cifrada, solo se muestran sus últimos cuatro caracteres, se puede revocar en un clic y cada uso queda auditado.',
     cta: 'Me interesa usar mi propia clave',
-    subject: 'Acceso anticipado: IA con la clave de mi cadena',
+    access: 'clave',
   },
   {
     status: 'En evaluación',
@@ -29,7 +30,7 @@ const DOORS = [
     text:
       'Cuando la competencia cancela, mueve o abre funciones en tu plaza, un agente lo detecta en la siguiente captura y te lo escribe con la evidencia adjunta, por correo o por WhatsApp. Tú fijas el umbral que amerita aviso.',
     cta: 'Avísenme cuando exista',
-    subject: 'Acceso anticipado: agente de alertas de cartelera',
+    access: 'alertas',
   },
 ];
 
@@ -84,7 +85,7 @@ export function AiSection() {
                 <span className="ai__status">{d.status}</span>
                 <h3 className="ai__title">{d.title}</h3>
                 <p className="ai__text">{d.text}</p>
-                <a className="ai__more" href={door(d.subject)}>
+                <a className="ai__more" href={door(d.access)}>
                   {d.cta}
                   <Arrow />
                 </a>

@@ -53,25 +53,30 @@ no está en `analytics/labels.py`, agrégalo ahí y a `../DESIGN.md` primero.
 
 - **Primera persona del producto, no de Cinemex.** El dashboard interno "habla como Cinemex"
   (`AGENTS.md` §2.6); este sitio no — aquí Matiné se dirige a cadenas que **no** son Cinemex.
-  Cinemex aparece solo como el piloto que prueba que el producto funciona con datos reales, nunca
-  como "nosotros". En las maquetas del tablero, "Tu cadena" va en rojo y "Competencia" en tinta,
-  porque eso es lo que esa cadena vería al entrar.
+  En las maquetas del tablero, "Tu cadena" va en rojo y "Competencia" en tinta, porque eso es lo que
+  esa cadena vería al entrar.
+- **Sin nombres de cadenas ni de plataformas en la portada ni en `/request-demo/`** (decisión 2026-09-28). El piloto
+  es "las dos cadenas más grandes de México", el cine independiente es "cine independiente" y Rappi y DiDi Food son
+  "apps de entrega". Nombrar al cliente del piloto revela quién es, y el sitio le habla a su competencia. Tampoco se
+  dice de dónde sale el dato ("la API de cada cadena"): se dice "lo que cada cadena publica". La excepción es
+  `/a-donde-ir/` (§7): ahí la cadena de cada función es un dato que el visitante necesita para comprar.
 - **Afirmaciones concretas, sin inflar.** Nada de "líder del mercado", "revolucionario",
   "el mejor". Si una frase no se sostiene con lo que el producto hace hoy (un piloto, dos cadenas,
   tres plazas comparables), no se escribe. El piloto se nombra como piloto, no como "cientos de
   clientes".
 - **Cero cifras inventadas.** Cualquier número en la página sale de una constante real del repo y se
-  anota de dónde: horarios del `Makefile` (07:30, 13:30, 20:30; planos cada hora; sync :22 y :52;
-  06:00; 15:00), tipos de cambio y franjas de `analytics/labels.py`, plazas de `scraper/plazas.py`,
-  cines por cadena de `project.md` (499 Cinépolis, 278 Cinemex, verificado 2026-09-11). Nunca un
+  anota de dónde: horarios de `../jobs/registry.py` (07:30, 13:30, 20:30; planos cada hora; 06:07; 08:07; 10:07;
+  15:07), tipos de cambio y franjas de `analytics/labels.py`, plazas de `scraper/plazas.py`, los 32 estados con cines
+  capturados de `snapshots.db` (verificado 2026-09-28). Sin conteo de cines por cadena: identificaría a cada una. Nunca un
   porcentaje de resultado ("+40 % más ventas"). Si un número del repo cambia, cambia aquí.
 - **Español, gramática cuidada**, igual que el resto del repo.
 - **Fake door tests, y así se hacen.** Lo que está planeado pero no construido (hoy: la capa narrativa con IA de
   `../project.md` § "Paso 2" y un agente de alertas) **sí** puede aparecer en la página para medir demanda, con tres
   condiciones: se rotula como "Próximamente" o "En evaluación" (`.ai__status`), nunca se describe como disponible ni
-  con resultados; su maqueta lo dice en el pie ("no es una salida real"); y cada puerta tiene su **propio CTA** con un
-  asunto distinto en el `mailto:` (`door()` en `ai-section.tsx`), que es lo que se cuenta. Sin asunto propio, la puerta
-  no mide nada.
+  con resultados; su maqueta lo dice en el pie ("no es una salida real"); y cada puerta tiene su **propio CTA**, que
+  lleva a `/request-demo/?acceso=llave` (`door()` en `ai-section.tsx`, llaves en `EARLY_ACCESS` de `lib/site.ts`). El
+  formulario pone el asunto de esa puerta en el correo, y eso es lo que se cuenta. Sin asunto propio, la puerta no
+  mide nada.
 
 ## 4. Composición de la portada
 
@@ -83,12 +88,13 @@ marca. Un componente por sección en `components/`, en este orden:
    desenfoque (`.nav--scrolled`). En celular, hamburguesa y menú a pantalla completa con los enlaces
    en display. Un solo botón sólido: "Solicitar acceso".
 2. **`hero-section.tsx`.** Rótulo con raya (`.eyebrow`), titular en display de dos líneas con un
-   verbo que rota letra a letra ("programa / cancela / mueve / cobra": lo que el producto detecta) y
+   verbo que rota letra a letra ("programa / cancela / mueve / cobra / prevende": lo que el producto detecta) y
    un subrayado rojo suave, párrafo + botones en dos columnas, etiqueta "Piloto activo". Al fondo,
    una rejilla tenue y la esfera ASCII (`ascii-sphere.tsx`) en tinta. Al pie, la **cinta** (`.ticker`)
    de cifras reales en marquesina: no son resultados, son lo que el producto mide.
-3. **`features-section.tsx`.** "Capacidades": lista numerada `01–04` separada por hairlines, título a la
-   izquierda y un SVG animado a la derecha (línea de tiempo, barras al 100 %, corte del día, precios).
+3. **`features-section.tsx`.** "Capacidades": lista numerada `01–06` separada por hairlines, título a la
+   izquierda y un SVG animado a la derecha (línea de tiempo, barras al 100 %, corte del día, precios, curva de
+   preventa, plano de asientos).
    Los SVG van en `currentColor`; la fila de "tu cadena" lleva `.us` (rojo).
 4. **`how-it-works-section.tsx`.** Sección invertida en tinta con las tres capas reales del producto
    (`../DESIGN.md` §"Jerarquía en tres capas") como pasos I/II/III que avanzan solos cada 5 s con una
@@ -99,12 +105,12 @@ marca. Un componente por sección en `components/`, en este orden:
    ventana fija con la maqueta del resumen en prosa (`.mk__prose`), donde las cifras validadas se marcan en
    rojo suave sin ser cifras. Va después de "Cómo funciona" porque narra lo que esas tres capas producen.
 6. **`pilot-section.tsx`.** Cifras grandes a la izquierda (`.stat__*`) y a la derecha el calendario
-   diario de captura (`.sched`) con una fila activa que rota, sacado del `Makefile`.
+   diario de captura (`.sched`) con una fila activa que rota, sacado de `../jobs/registry.py`.
 7. **`principles-section.tsx`.** Los seis principios de `AGENTS.md` §2 en una rejilla de hairlines
    (`.hgrid`, 3 × 2), numerados.
 8. **`cta-section.tsx`.** Caja con borde de tinta, esquinas decorativas, foco rojo suave que sigue al
    ratón (variables `--mx/--my`, sin hex en el JSX) y el wordmark contorneado. Botón sólido + botón
-   fantasma; nota en mayúsculas con el correo.
+   fantasma a `/a-donde-ir/` (la única prueba que se usa sin pedir demo); nota en mayúsculas con el correo.
 9. **`footer-section.tsx`.** Marca + dos columnas (Producto, Contacto) + barra inferior. Sin redes
    sociales ni "todos los sistemas operativos": no hay página de estado pública.
 
@@ -154,7 +160,7 @@ con este documento. Si el sitio crece a varias rutas, esa es la señal para reco
 - **El héroe con blob de gradiente morado-azul.** No es la marca; color plano y el trío
   rojo–tinta–blanco de `../DESIGN.md`. La esfera ASCII es tinta al 35 %, nunca un color nuevo.
 - **Logos de clientes falsos, testimonios o precios inventados.** La referencia los traía; aquí no
-  hay ninguno porque no existen. Hay un piloto con un nombre real (Cinemex) y se nombra tal cual.
+  hay ninguno porque no existen. Hay un piloto real, y se describe sin nombrar al cliente (§3).
 - **"Métricas en vivo" que no lo son.** Ni reloj ni punto verde de "todo operativo": esta página es
   estática y no ve la operación. El punto rojo de "Piloto activo" es una etiqueta, no un estado.
 - **Captura del dashboard con números que parezcan reales.** Las maquetas de la ventana son
@@ -226,6 +232,10 @@ día; ve las funciones que le quedan cerca y caben.
   el paso "Horario" con el cine y la película elegidos. No hay enlace a la función exacta. La Cineteca no lleva
   enlace.
 - **Celular.** Debajo de 700 px cada función es una tarjeta con el cine y el total arriba (`.rec__c-*`).
+- **Sin pie en la búsqueda** (2026-09-28). La pantalla del mapa no lleva `FooterSection`: sin nada debajo, la página no
+  tiene a dónde desplazarse cuando iOS abre el teclado. El pie va solo en la pantalla de resultados. La barra se coloca
+  en el borde inferior de lo visible (`visualViewport.offsetTop + height`), medido contra el alto más grande visto,
+  porque iOS también achica `innerHeight` con el teclado.
 
 - **Estructura: una pantalla por cosa** (2026-09-27, a pedido de David; fondo papel y reglas de `../DESIGN.md`: sin
   sombras, radio 8 px en tarjetas, píldora solo en controles). Nada se lee haciendo scroll por toda la página:

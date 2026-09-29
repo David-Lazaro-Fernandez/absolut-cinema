@@ -5,17 +5,19 @@ import { DEMO_URL } from '@/lib/site';
 import { Arrow } from './icons';
 import { AsciiSphere } from './ascii-sphere';
 
-const WORDS = ['programa', 'cancela', 'mueve', 'cobra'];
+const WORDS = ['programa', 'cancela', 'mueve', 'cobra', 'prevende'];
 
-// Cada cifra sale de una constante real del repo (Makefile, scraper/plazas.py, analytics/labels.py, project.md).
+// Cada cifra sale de una constante real del repo (jobs/registry.py, scraper/plazas.py, analytics/labels.py, project.md).
+// Sin nombres de cadenas (design.md §3).
 const TICKER = [
   { value: '3×', label: 'capturas completas al día', meta: '07:30 · 13:30 · 20:30' },
-  { value: '777', label: 'cines capturados en todo México', meta: '499 de Cinépolis · 278 de Cinemex' },
+  { value: '32', label: 'estados con cines capturados', meta: 'las dos cadenas más grandes, en todo México' },
   { value: '3', label: 'plazas comparables', meta: 'CDMX · Guadalajara · Monterrey' },
   { value: '5', label: 'tipos de cambio detectados', meta: 'nueva · cancelada · movida · idioma o formato · ocupación' },
   { value: '6', label: 'franjas horarias', meta: 'de la matiné a después de las 9 P.M.' },
   { value: 'Jue–Mié', label: 'semana de cine', meta: 'lo que ambas cadenas publican completo' },
   { value: '1 h', label: 'entre lecturas de planos de asientos', meta: 'asistencia tras el inicio' },
+  { value: '1×', label: 'lectura diaria de cada preventa', meta: 'butacas vendidas antes del estreno' },
   { value: '100 %', label: 'del crudo guardado', meta: 'cada captura se puede recalcular' },
 ];
 
@@ -77,7 +79,7 @@ export function HeroSection() {
 
         <div className={`hero__tag fade ${inClass}`} style={{ transitionDelay: '450ms' }}>
           <span className="dot" />
-          Piloto activo: Cinemex frente a Cinépolis, captura nacional
+          Piloto activo con las dos cadenas más grandes de México
         </div>
       </div>
 

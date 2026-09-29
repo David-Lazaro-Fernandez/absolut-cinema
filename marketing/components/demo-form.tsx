@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import * as check from '@/lib/demo';
-import { CONTACT_EMAIL } from '@/lib/site';
+import { CONTACT_EMAIL, EARLY_ACCESS } from '@/lib/site';
 import { Arrow } from './icons';
 
 const STEPS = ['Correo', 'Datos', 'Cadena', 'Operación'];
@@ -55,6 +55,7 @@ const RULES: [string, (d: Data) => string][][] = [
 
 // El orden y las etiquetas del correo que recibe Matiné.
 const SUMMARY: [string, string][] = [
+  ['access', 'Llegó desde'],
   ['email', 'Correo'],
   ['first_name', 'Nombre'],
   ['last_name', 'Apellido'],
@@ -90,6 +91,12 @@ export function DemoForm() {
   const [errors, setErrors] = useState<Data>({});
   const [sent, setSent] = useState(false);
 
+  // Una llave desconocida se ignora: solo las puertas de EARLY_ACCESS cambian el asunto.
+  useEffect(() => {
+    const access = EARLY_ACCESS[new URLSearchParams(window.location.search).get('acceso') ?? ''];
+    if (access) setData((d) => ({ ...d, access }));
+  }, []);
+
   const field = (name: string) => ({
     name,
     id: `demo-${name}`,
@@ -119,7 +126,8 @@ export function DemoForm() {
     const body = SUMMARY.filter(([k]) => data[k]?.trim())
       .map(([k, label]) => `${label}: ${data[k].trim()}`)
       .join('\n');
-    const subject = `Solicitar demo — ${data.company?.trim()} (${data.first_name?.trim()} ${data.last_name?.trim()})`;
+    const who = `${data.company?.trim()} (${data.first_name?.trim()} ${data.last_name?.trim()})`;
+    const subject = `${data.access ?? 'Solicitar demo'} — ${who}`;
     const params = new URLSearchParams({ subject, body });
     window.location.href = `mailto:${CONTACT_EMAIL}?${params.toString().replace(/\+/g, '%20')}`;
     setSent(true);
@@ -136,7 +144,7 @@ export function DemoForm() {
         <ul className="demo__points">
           <li>
             <Arrow />
-            Cinemex, Cinépolis y la Cineteca Nacional
+            Las dos cadenas más grandes del país y cine independiente
           </li>
           <li>
             <Arrow />
