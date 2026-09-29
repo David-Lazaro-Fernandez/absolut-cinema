@@ -966,7 +966,15 @@ dulcería en sala, va aparte sin cifra inventada.
 - **Versión pública (2026-09-27):** `/a-donde-ir/` en la landing (`marketing/`, ver `marketing/design.md` §7).
   Desde el 2026-09-28 consulta la API pública (`api/main.py`): `GET /v1/a-donde-ir/opciones` (plazas de CDMX,
   Guadalajara y Monterrey, días, formatos, cines y hora de la captura) y `GET /v1/a-donde-ir/funciones`
-  (`analytics.recommend_search` con empate neutral, `favor_us=False`). Antes descargaba un JSON con el catálogo
+  (`analytics.recommend_search` con empate neutral, `favor_us=False`). Desde el 2026-09-29 solo busca hoy y mañana
+  (`DAYS_AHEAD = 1`) y responde todos los cines del radio con hasta 6 funciones cada uno (`PER_CINEMA`), sin tope
+  total; con `pelicula`, todas las funciones de esa película. Antes eran 13 días, 40 funciones por pestaña y 3 por
+  cine: una búsqueda de 15 km en la colonia Americana de Guadalajara (39 cines cerca) mostraba 16 cines; ahora
+  muestra los 39 (9 Cinemex, 30 Cinépolis; 234 funciones, 123 KB, 8 KB con gzip). El peor caso, el centro de CDMX a
+  15 km, son ~680 funciones de 110 cines (327 KB, 21 KB con gzip, ~0.3 s). El tope por cine evita entregar la
+  cartelera entera de la zona (~37 funciones por cine y día). `funciones` no tiene caché en el servidor: la llave
+  lleva el punto y todos los filtros, así que dos visitantes casi nunca coinciden, y el navegador ya guarda sus
+  respuestas (`marketing/lib/api.ts`, 60 s). `opciones` y `salud`, iguales para todos, sí la tienen. Antes descargaba un JSON con el catálogo
   entero (precios de todos los cines); se quitó porque regalaba el dato del cliente y nadie lo regeneraba en
   producción. El navegador elige la plaza más cercana al punto de partida. Cada función enlaza a la compra en el sitio de su cadena (`config.BUY_URL`, verificado 2026-09-27):
   Cinépolis `cinepolis.com/mx/horarios?cinema={cinema_id}&movie={movie_id}` abre el paso "Horario" con cine y
@@ -1203,7 +1211,7 @@ respaldo. Pruebas: validación de cifras y adaptador con respuestas grabadas, si
 - **Memoria del servidor (`t4g.small`, medido 2026-09-28; `docs/ec2-sizing.md`).** En orden: `warp-svc` + Privoxy →
   `wgcf` + `wireproxy` (746 MB → ~25 MB; probado en local, falta el servidor); captura por unidad en vez de retener el
   crudo nacional (pico de ~650 MB → ~150 MB estimado); trabajos pesados en serie y `MemoryMax=`; API con 2–4 hilos y
-  caché de 128 respuestas.
+  caché solo para `opciones` y `salud` (2026-09-29).
 - **Costo de la base (decidido el 2026-09-25: solo SQLite, ver "Decisión: solo SQLite").** RDS cobró ~8 USD en ~180 h por ~500 MB de datos; para la etapa de prueba
   se evalúa quitarlo: Postgres en el mismo EC2 (sin cambios de código; ~150–250 MB de RAM con `shared_buffers` chico) o
   todo en SQLite (portar `sync/`, `archive/` y `auth/`, ~1,650 líneas). Se decide con el pico de memoria real de cada

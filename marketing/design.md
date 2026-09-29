@@ -182,7 +182,10 @@ día; ve las funciones que le quedan cerca y caben.
   dashboard (`../analytics/recommender.py`). La página nunca recibe el catálogo completo. `NEXT_PUBLIC_API_URL` fija
   la dirección al construir; en local es `http://localhost:8000`. `lib/api.ts` pide `opciones` al cargar: ciudades,
   días, formatos, cines para las sugerencias y la hora de la captura. Pide `funciones` 250 ms después del último
-  cambio del plan y cancela la consulta anterior. La ficha de un edificio pide `funciones?sitio=lat,lng`. Si la API
+  cambio del plan y cancela la consulta anterior. Desde el 2026-09-29 la API solo ofrece hoy y mañana y responde
+  todos los cines del radio con hasta 6 funciones cada uno (con película, todas las suyas), para que una búsqueda
+  amplia no deje cines fuera; la tabla pinta 20 por
+  página (`PAGE`) y "Ver N más" agrega otras 20. El selector de días sale de `opciones.dates`, así que muestra dos. La ficha de un edificio pide `funciones?sitio=lat,lng`. Si la API
   falla o limita (429), la barra lo dice en palabras.
 - **Neutral entre cadenas** (decisión 2026-09-27): a diferencia del dashboard, aquí no se destaca a Cinemex. Los
   cines van todos en tinta, sin color por cadena, y un empate se resuelve por distancia y hora. El único rojo es la

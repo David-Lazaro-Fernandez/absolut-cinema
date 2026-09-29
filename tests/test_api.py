@@ -2,6 +2,7 @@
 y `analytics.connect()` en solo lectura. Punto de partida: Forum Tepic (Cinemex, con su Platino en el mismo edificio)."""
 import re
 import sqlite3
+from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -38,7 +39,6 @@ def test_a_search_returns_only_what_is_near(client):
     assert set(body) == {"summary", "complete", "snacks_unpriced", "unpriced", "sites", "titles"}
     assert body["unpriced"] and all(r["distance_km"] <= 1 for r in body["unpriced"])
     assert {r["chain"] for r in body["unpriced"]} == {"cinemex"}                     # nada de Hermosillo
-    assert len(body["unpriced"]) <= main.LIMIT
 
 
 def test_a_search_shows_only_what_the_page_needs(client):
@@ -56,6 +56,25 @@ def test_the_request_is_validated(client):
     assert client.get("/v1/a-donde-ir/funciones", params={**base, "fecha": "2027-01-01"}).status_code == 422
     assert client.get("/v1/a-donde-ir/funciones", params={**base, "dulceria": "nachos"}).status_code == 422
     assert client.get("/v1/a-donde-ir/funciones", params={**base, "sitio": "abc"}).status_code == 422
+
+
+def test_only_today_and_tomorrow_can_be_searched(client):
+    def status(day):
+        return client.get("/v1/a-donde-ir/funciones", params={**FORUM_TEPIC, "fecha": day}).status_code
+    assert status("2026-09-26") == 200 and status("2026-09-27") == 200 and status("2026-09-28") == 422
+
+
+def test_no_cinema_fills_a_tab(client):
+    body = client.get("/v1/a-donde-ir/funciones", params={**FORUM_TEPIC, "fecha": DAY, "radio": 15}).json()
+    for tab in ("complete", "snacks_unpriced", "unpriced"):
+        counts = Counter(r["cinema_name"] for r in body[tab])
+        assert max(counts.values(), default=0) <= main.PER_CINEMA
+
+
+def test_a_movie_shows_all_its_times(client):
+    params = {**FORUM_TEPIC, "fecha": DAY, "radio": 15, "pelicula": "resident evil noche cero"}
+    counts = Counter(r["cinema_name"] for r in client.get("/v1/a-donde-ir/funciones", params=params).json()["unpriced"])
+    assert counts["Forum Tepic"] > main.PER_CINEMA
 
 
 def test_only_the_configured_sites_get_cors(client):
