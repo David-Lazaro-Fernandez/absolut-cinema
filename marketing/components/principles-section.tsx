@@ -30,7 +30,7 @@ const PRINCIPLES = [
   {
     title: 'En tu voz',
     text:
-      'El tablero habla en primera persona de tu cadena: "nosotros" eres tú. Sin nombres internos ni jerga técnica en pantalla; cada etiqueta está escrita para quien decide.',
+      'El tablero se configura para tu cadena: tu cadena frente a la competencia, en primera persona. Sin nombres internos ni jerga técnica en pantalla; cada etiqueta está escrita para quien decide.',
   },
 ];
 

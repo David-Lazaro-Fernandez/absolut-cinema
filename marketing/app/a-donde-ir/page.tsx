@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { Navigation } from '@/components/navigation';
 import { Recommender } from '@/components/recommender';
-import { FooterSection } from '@/components/footer-section';
 
 export const metadata: Metadata = {
   title: '¿A dónde ir al cine? — Matiné',
@@ -16,7 +15,6 @@ export default function ADondeIr() {
       <main>
         <Recommender />
       </main>
-      <FooterSection />
     </>
   );
 }

@@ -36,11 +36,11 @@ export function CtaSection() {
                   Solicitar acceso
                   <Arrow />
                 </a>
-                <a className="pill pill--ghost" href="#piloto">
-                  Ver el calendario de captura
+                <a className="pill pill--ghost" href="/a-donde-ir/">
+                  Probar ¿A dónde ir?
                 </a>
               </div>
-              <p className="cta__note">Sin demo grabada · {CONTACT_EMAIL}</p>
+              <p className="cta__note">Demo en vivo con datos de tu plaza · {CONTACT_EMAIL}</p>
             </div>
             <div className="cta__mark" aria-hidden="true">
               Matin<span>é</span>

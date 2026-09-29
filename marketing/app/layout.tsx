@@ -4,7 +4,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'Matiné — Inteligencia competitiva de cartelera',
   description:
-    'Matiné captura la cartelera de tu competencia varias veces al día y redacta solo los cambios que cruzan un umbral de negocio. Piloto activo en CDMX.',
+    'Matiné captura la cartelera de tu competencia varias veces al día y redacta solo los cambios que cruzan un umbral de negocio. Piloto activo en todo México.',
   icons: { icon: '/abs.ico' },
 };
 

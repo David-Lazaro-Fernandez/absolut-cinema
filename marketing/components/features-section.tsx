@@ -28,8 +28,22 @@ const FEATURES = [
     number: '04',
     title: 'Precio, aforo y dulcería',
     text:
-      'Boleto por formato y tipo de día, butacas por sala medidas en el plano de asientos, menú de dulcería en sala y a domicilio. Datos que existen en la API de cada cadena y nadie sigue en el tiempo.',
+      'Boleto por formato y tipo de día, butacas por sala medidas en el plano de asientos, menú de dulcería en sala y a domicilio. Datos que cada cadena publica y nadie sigue en el tiempo.',
     Visual: PricesVisual,
+  },
+  {
+    number: '05',
+    title: 'Preventas, antes del estreno',
+    text:
+      'Qué títulos están en preventa en cada cadena y qué porcentaje de las butacas lleva vendido. Cada función se relee a diario, así ves el ritmo de venta, y sabes cuándo un título solo está en preventa con la competencia.',
+    Visual: PresaleVisual,
+  },
+  {
+    number: '06',
+    title: 'Asistencia real, después del inicio',
+    text:
+      'El plano de asientos se lee de 15 a 75 minutos después de que empieza la función, cuando la venta ya terminó. Es la ocupación final, en porcentaje del aforo de cada sala, no una estimación.',
+    Visual: SeatsVisual,
   },
 ];
 
@@ -158,6 +172,47 @@ function PricesVisual() {
       {[40, 70, 100, 130, 160].map((x) => (
         <circle key={x} cx={x} cy="148" r="2.5" opacity="0.4" />
       ))}
+    </svg>
+  );
+}
+
+function PresaleVisual() {
+  const days = [28, 52, 76, 100, 124, 148, 172];
+  return (
+    <svg viewBox="0 0 200 160" fill="none" stroke="currentColor" strokeWidth="2">
+      <line x1="20" y1="132" x2="180" y2="132" opacity="0.3" />
+      {days.map((x) => (
+        <line key={x} x1={x} y1="128" x2={x} y2="136" opacity="0.3" />
+      ))}
+      <polyline className="us" points="28,124 52,118 76,108 100,92 124,74 148,52 172,30" strokeLinecap="round" strokeLinejoin="round" pathLength="1" strokeDasharray="1" strokeDashoffset="1">
+        <animate attributeName="stroke-dashoffset" values="1;0;0" keyTimes="0;0.7;1" dur="5s" repeatCount="indefinite" />
+      </polyline>
+      <polyline points="28,126 52,122 76,118 100,110 124,102 148,92 172,80" strokeLinecap="round" strokeLinejoin="round" opacity="0.45" pathLength="1" strokeDasharray="1" strokeDashoffset="1">
+        <animate attributeName="stroke-dashoffset" values="1;0;0" keyTimes="0;0.7;1" dur="5s" repeatCount="indefinite" />
+      </polyline>
+      <line x1="172" y1="20" x2="172" y2="132" strokeWidth="1" strokeDasharray="3 4" opacity="0.5" />
+    </svg>
+  );
+}
+
+function SeatsVisual() {
+  const cols = [0, 1, 2, 3, 4, 5, 6, 7];
+  const rows = [0, 1, 2, 3, 4];
+  return (
+    <svg viewBox="0 0 200 160" fill="currentColor">
+      <rect x="40" y="18" width="120" height="6" rx="3" opacity="0.3" />
+      {rows.map((r) =>
+        cols.map((c) => {
+          const taken = (r * 3 + c * 5) % 7 < 4;
+          return (
+            <rect key={`${r}-${c}`} x={32 + c * 18} y={42 + r * 20} width="12" height="12" rx="2" opacity={taken ? 0.9 : 0.15}>
+              {taken && (
+                <animate attributeName="opacity" values="0.15;0.9;0.9" keyTimes="0;0.4;1" dur="5s" begin={`${(r + c) * 0.08}s`} repeatCount="indefinite" />
+              )}
+            </rect>
+          );
+        }),
+      )}
     </svg>
   );
 }
