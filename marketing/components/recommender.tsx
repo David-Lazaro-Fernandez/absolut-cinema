@@ -257,7 +257,7 @@ function ShowsTable({
 
 type RowId = 'group' | 'snacks' | 'when' | 'budget' | 'more';
 type Tab = 'complete' | 'snacks_unpriced' | 'unpriced';
-const PAGE = 20; // funciones por página en la pantalla de resultados
+const PAGE = 10; // funciones por página en la pantalla de resultados
 
 function MenuRow({
   id,

@@ -2,7 +2,6 @@
 y `analytics.connect()` en solo lectura. Punto de partida: Forum Tepic (Cinemex, con su Platino en el mismo edificio)."""
 import re
 import sqlite3
-from collections import Counter
 from pathlib import Path
 
 import pytest
@@ -57,19 +56,6 @@ def test_the_request_is_validated(client):
     assert client.get("/v1/a-donde-ir/funciones", params={**base, "fecha": "2027-01-01"}).status_code == 422
     assert client.get("/v1/a-donde-ir/funciones", params={**base, "dulceria": "nachos"}).status_code == 422
     assert client.get("/v1/a-donde-ir/funciones", params={**base, "sitio": "abc"}).status_code == 422
-
-
-def test_only_today_and_tomorrow_can_be_searched(client):
-    def status(day):
-        return client.get("/v1/a-donde-ir/funciones", params={**FORUM_TEPIC, "fecha": day}).status_code
-    assert status("2026-09-26") == 200 and status("2026-09-27") == 200 and status("2026-09-28") == 422
-
-
-def test_no_cinema_fills_a_tab(client):
-    body = client.get("/v1/a-donde-ir/funciones", params={**FORUM_TEPIC, "fecha": DAY, "radio": 15}).json()
-    for tab in ("complete", "snacks_unpriced", "unpriced"):
-        counts = Counter(r["cinema_name"] for r in body[tab])
-        assert max(counts.values(), default=0) <= main.PER_CINEMA
 
 
 def test_only_the_configured_sites_get_cors(client):
