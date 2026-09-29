@@ -28,8 +28,9 @@ from scraper import config
 DAYS_AHEAD = 1                     # el demo solo ofrece hoy y mañana
 MAX_PEOPLE = 20
 MAX_RADIUS_KM = 15.0
-PER_CINEMA = 6                     # todos los cines del radio salen, sin entregar su cartelera entera
-_CACHE_SIZE = 16                   # solo `opciones` y `salud`: iguales para todos y chicas
+PER_CINEMA = 6                     # varias horas por cine, sin que un complejo llene la pestaña
+LIMIT = 120                        # 15 km en GDL son ~39 cines: caben todos, y nunca sale el catálogo completo
+_CACHE_SIZE = 64                  # ~0.3 MB por respuesta y 0.56 MB en la peor (CDMX, 15 km, combo): ~36 MB
 _MAX_TRACKED_IPS = 10_000
 
 
@@ -154,16 +155,12 @@ app.add_middleware(CORSMiddleware, allow_origins=list(config.API_ORIGINS), allow
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
-def _connect():
-    try:
-        return analytics.connect()
-    except FileNotFoundError:
-        raise HTTPException(503, "La base de datos no está disponible.") from None
-
-
 def _read(key, compute):
     """`compute(conn)` con caché. La llave incluye el id de la última captura: una captura nueva la invalida."""
-    conn = _connect()
+    try:
+        conn = analytics.connect()
+    except FileNotFoundError:
+        raise HTTPException(503, "La base de datos no está disponible.") from None
     try:
         version = conn.execute("SELECT MAX(id) FROM snapshot").fetchone()[0]
         with _cache_lock:
@@ -222,8 +219,7 @@ def shows(response: Response,
           sitio: Annotated[str | None, Query(pattern=r"^-?\d+(\.\d+)?,-?\d+(\.\d+)?$",
                                              description="lat,lng de un edificio: todas sus funciones")] = None) -> Search:
     """Las funciones cerca de (`lat`, `lng`) que caben, un punto por edificio para el mapa y las películas cercanas.
-    Hasta `PER_CINEMA` funciones por cine; con `pelicula`, todas las de esa película. Los empates no favorecen a
-    ninguna cadena."""
+    Los empates no favorecen a ninguna cadena."""
     people = adultos + ninos + mayores
     if not 1 <= people <= MAX_PEOPLE:
         raise HTTPException(422, f"El grupo debe tener entre 1 y {MAX_PEOPLE} personas.")
@@ -236,11 +232,8 @@ def shows(response: Response,
     params = dict(lat=round(lat, 4), lng=round(lng, 4), d0=fecha.isoformat(), d1=fecha.isoformat(),
                   hours=(desde, hasta), adults=adultos, children=ninos, seniors=mayores, snacks=dulceria,
                   budget=presupuesto, radius_km=radio, title_norm=pelicula, formats=(formato,) if formato else None,
-                  sort=orden, per_cinema=None if pelicula else PER_CINEMA, limit=None, favor_us=False, site=site)
+                  sort=orden, per_cinema=PER_CINEMA, limit=LIMIT, favor_us=False, site=site)
     response.headers["Cache-Control"] = "public, max-age=60"
-    # Sin caché en el servidor: dos visitantes casi nunca piden lo mismo, y el navegador ya guarda la suya.
-    conn = _connect()
-    try:
-        return analytics.recommend_search(conn, **params)
-    finally:
-        conn.close()
+    # El minuto va en la llave: con `from_now`, una función que ya empezó sale de la respuesta.
+    return _read(("funciones", int(time.time() // 60), *sorted(params.items())),
+                 lambda conn: analytics.recommend_search(conn, **params))

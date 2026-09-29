@@ -216,8 +216,8 @@ con el límite por IP desactivado:
 
 Las cifras son de una Mac de 14 núcleos; en el servidor se esperan ~3–4 búsquedas por segundo. Con 2 núcleos, más
 hilos solo ocupan memoria, así que conviene limitar la API a 2–4 hilos (el grupo de anyio que usa FastAPI). La caché de
-`api/main.py` solo guarda `opciones` y `salud` (2026-09-29); `funciones` se calcula en cada petición (~0.3 s, ~1.3 MB mientras
-dura en el peor caso, CDMX a 15 km). Con el límite de 60
+`api/main.py` guarda 64 respuestas: con 120 funciones por pestaña y 6 por cine (2026-09-29) cada una ocupa ~0.3 MB y hasta 0.56 MB
+(CDMX a 15 km con combo), ~36 MB en el peor caso. Con el límite de 60
 peticiones por minuto por IP, 10 usuarios reales piden a lo más 10 por segundo.
 
 **CPU de ráfaga.** Los `t4g` tienen una línea base del 20 % por vCPU. En modo `unlimited` (el default) lo que pasa de
