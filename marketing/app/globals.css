@@ -1702,7 +1702,8 @@ button {
 
   .rec-stage__glass,
   .rec-dock,
-  .rec-menu--down {
+  .rec-menu,
+  .rec-menu__scrim {
     transition: none;
   }
 
@@ -1789,7 +1790,7 @@ button {
 }
 
 .rec-stage.is-located .rec-dock {
-  top: 100%;
+  top: calc(100% - var(--keyboard, 0px));
   transform: translate(-50%, calc(-100% - 24px));
 }
 
@@ -1937,10 +1938,11 @@ button {
   background: transparent;
   padding: 10px 4px;
   outline: none;
+  text-overflow: ellipsis;
 }
 
 .rec-ask__input::placeholder {
-  color: var(--gray);
+  color: var(--ink-30);
 }
 
 .rec-ask__locate {
@@ -1987,6 +1989,10 @@ button {
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 8px;
+  transition:
+    opacity 0.4s ease-in-out,
+    transform 0.4s ease-in-out,
+    visibility 0.4s ease-in-out;
 }
 
 /* Sugerencias de lugares. Abren hacia abajo con la barra al centro y hacia arriba con la barra al pie. */
@@ -2057,8 +2063,15 @@ button {
   bottom: auto;
 }
 
+/* Cerrado, se desvanece hacia la barra: hacia abajo si abre arriba de ella, hacia arriba si abre debajo. */
 .rec-menu:not(.is-open) {
-  display: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px);
+}
+
+.rec-menu--down:not(.is-open) {
+  transform: translateY(-8px);
 }
 
 .rec-menu__row {
@@ -2464,6 +2477,17 @@ button {
     text-align: center;
   }
 
+  /* Con el teclado abierto, solo la barra y sus sugerencias: el contexto vuelve al cerrar el teclado. */
+  .rec-stage.is-typing .rec-dock__context,
+  .rec-stage.is-typing .rec-card {
+    display: none;
+  }
+
+  /* Con menos de la mitad del alto visible, el plan no tapa el mapa. */
+  .rec-stage.is-short .rec-dock__plan {
+    display: none;
+  }
+
   .rec-screen {
     padding: 100px 21px 64px;
   }
@@ -2476,54 +2500,77 @@ button {
     padding-left: 14px;
   }
 
-  /* Sin punto de partida, el menú abre entre la barra y las ciudades. Las filas de grid (0fr a 1fr) animan hasta el
-     alto real; max-height corta la transición. */
-  .rec-stage:not(.is-located) .rec-dock {
+  .rec-menu__value {
+    display: none;
+  }
+
+  /* El menú de opciones es una hoja que sube desde el pie sobre un velo de tinta, como el Drawer inferior de
+     Material UI. Se cierra tocando el velo o con Esc. */
+  .rec-menu__scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    background: var(--ink-30);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease-in-out;
+  }
+
+  .rec-menu__scrim.is-open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .rec-menu--sheet,
+  .rec-menu--sheet:not(.is-open) {
+    position: fixed;
+    z-index: 61;
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: var(--keyboard, 0px); /* Sube con el teclado, como el dock: así se ve el campo de presupuesto. */
     display: flex;
     flex-direction: column;
-    transform: translate(-50%, -56px);
-  }
-
-  .rec-menu--down {
-    position: static;
-    order: 1;
-    display: grid;
-    grid-template-rows: 1fr;
-    max-height: none;
+    max-height: calc(85svh - var(--keyboard, 0px));
     overflow: hidden;
-    margin-top: 8px;
+    padding: 10px 6px max(100px, env(safe-area-inset-bottom));
+    text-align: left;
+    border-bottom: 0;
+    border-radius: 8px 8px 0 0;
+    opacity: 1;
+    transform: translateY(100%);
     transition:
-      grid-template-rows 0.4s ease-in-out,
-      margin-top 0.4s ease-in-out,
-      padding 0.4s ease-in-out,
-      border-color 0.4s ease-in-out,
-      opacity 0.4s ease-in-out,
-      transform 0.4s ease-in-out;
+      transform 0.4s ease-in-out,
+      visibility 0.4s ease-in-out;
   }
 
-  .rec-menu--down .rec-menu__inner {
+  .rec-menu--sheet.is-open {
+    transform: none;
+  }
+
+  .rec-menu__handle {
+    flex: none;
+    align-self: center;
+    width: 36px;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--line);
+  }
+
+  .rec-menu__title {
+    flex: none;
+    margin: 14px 14px 8px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .rec-menu--sheet .rec-menu__inner {
     min-height: 0;
-    max-height: calc(50svh - 150px);
     overflow-y: auto;
   }
 
-  .rec-menu--down:not(.is-open) {
-    display: grid;
-    grid-template-rows: 0fr;
-    margin-top: 0;
-    padding-block: 0;
-    border-color: transparent;
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-
-  .rec-stage:not(.is-located) .rec-stage__cities,
-  .rec-stage:not(.is-located) .rec-stage__hint {
-    order: 2;
-  }
-
-  .rec-menu__value {
-    display: none;
+  .rec-menu--sheet .rec-menu__row + .rec-menu__row {
+    border-top: 1px solid var(--line);
   }
 }
 

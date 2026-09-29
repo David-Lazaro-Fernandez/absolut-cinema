@@ -4,7 +4,7 @@
 // cada búsqueda. La página no recibe el catálogo completo.
 
 import dynamic from 'next/dynamic';
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { preconnect } from 'react-dom';
 import { API_URL, searchParams, useApi } from '@/lib/api';
 import { type PlacesFile, buildIndex, makePlace, plain, searchPlaces } from '@/lib/places';
@@ -114,6 +114,7 @@ const HOURS: Record<string, [number, number]> = {
 };
 const RADII = [2, 5, 10, 15];
 const MAP_OVERLAP = 150; // px del mapa que tapa el dock con punto de partida
+const KEYBOARD_MIN = 120; // px; menos es la barra del navegador que se esconde, no el teclado
 
 type Point = { lat: number; lng: number; label: string };
 
@@ -294,6 +295,22 @@ function MenuRow({
   );
 }
 
+// En celular el menú de opciones es una hoja inferior; en escritorio, un menú pegado a la barra. Mismo corte que el CSS.
+const PHONE = '(max-width: 700px)';
+const onPhoneChange = (notify: () => void) => {
+  const query = window.matchMedia(PHONE);
+  query.addEventListener('change', notify);
+  return () => query.removeEventListener('change', notify);
+};
+
+function usePhone() {
+  return useSyncExternalStore(onPhoneChange, () => window.matchMedia(PHONE).matches, () => false);
+}
+
+// En celular la barra deja poco ancho al campo de dirección: su texto guía se corta en 26 caracteres.
+const PHONE_HINT_CHARS = 26;
+const clip = (text: string, max: number) => (text.length > max ? `${text.slice(0, max).trimEnd()}…` : text);
+
 export function Recommender() {
   const [start, setStart] = useState<Point | null>(null);
   const [address, setAddress] = useState('');
@@ -322,6 +339,7 @@ export function Recommender() {
   const [shown, setShown] = useState(PAGE);
   const [plazaIndex, setPlazaIndex] = useState(0);
   const menuBox = useRef<HTMLDivElement>(null);
+  const phone = usePhone();
   // Cada minuto: con la página abierta, una función que ya empezó sale de los resultados.
   const [now, setNow] = useState(() => nowIn());
   useEffect(() => {
@@ -343,8 +361,9 @@ export function Recommender() {
 
   useEffect(() => {
     if (!menu) return;
+    // En celular la hoja no está dentro del dock: la cierra su velo.
     const outside = (e: MouseEvent) => {
-      if (menuBox.current && !menuBox.current.contains(e.target as Node)) setMenu(false);
+      if (!phone && menuBox.current && !menuBox.current.contains(e.target as Node)) setMenu(false);
     };
     const escape = (e: KeyboardEvent) => e.key === 'Escape' && setMenu(false);
     document.addEventListener('mousedown', outside);
@@ -353,12 +372,41 @@ export function Recommender() {
       document.removeEventListener('mousedown', outside);
       document.removeEventListener('keydown', escape);
     };
-  }, [menu]);
+  }, [menu, phone]);
 
   useEffect(() => {
     window.scrollTo({ top: 0 });
     setShown(PAGE);
   }, [view, tab]);
+
+  // En celular el teclado tapa el pie de la pantalla. El mapa conserva su alto y la barra sube sobre el teclado.
+  // iOS desplaza la página para mostrar el campo; aquí se regresa arriba. Con zoom, el alto visible no es teclado.
+  // Con menos de la mitad del alto visible, el plan de la línea de contexto se oculta para no tapar el mapa. Se
+  // compara contra el alto más grande visto: hay navegadores que achican innerHeight con el teclado.
+  const [keyboard, setKeyboard] = useState(0);
+  const [short, setShort] = useState(false);
+  const docked = view === 'search' && Boolean(start);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv || !docked) return;
+    let tallest = vv.height;
+    const fit = () => {
+      const covered = vv.scale > 1 ? 0 : Math.round(window.innerHeight - vv.height);
+      const open = covered > KEYBOARD_MIN;
+      setKeyboard(open ? covered : 0);
+      tallest = Math.max(tallest, vv.height);
+      setShort(vv.scale <= 1 && vv.height < tallest / 2);
+      if (open && window.scrollY) window.scrollTo(0, 0);
+    };
+    vv.addEventListener('resize', fit);
+    vv.addEventListener('scroll', fit);
+    return () => {
+      vv.removeEventListener('resize', fit);
+      vv.removeEventListener('scroll', fit);
+      setKeyboard(0);
+      setShort(false);
+    };
+  }, [docked]);
 
   // Un enlace con ?lat=19.35&lng=-99.16 abre la página con ese punto de partida.
   useEffect(() => {
@@ -649,7 +697,19 @@ export function Recommender() {
 
   const located = Boolean(start);
   const menuRows = (
-    <div className={`rec-menu ${located ? '' : 'rec-menu--down'} ${menu ? 'is-open' : ''}`} role="menu" aria-label="Opciones de la búsqueda" inert={!menu}>
+    <div
+      className={`rec-menu ${phone ? 'rec-menu--sheet' : located ? '' : 'rec-menu--down'} ${menu ? 'is-open' : ''}`}
+      role={phone ? 'dialog' : 'menu'}
+      aria-modal={phone || undefined}
+      aria-label="Opciones de la búsqueda"
+      inert={!menu}
+    >
+      {phone && (
+        <>
+          <span className="rec-menu__handle" aria-hidden="true" />
+          <p className="rec-menu__title" aria-hidden="true">Opciones</p>
+        </>
+      )}
       <div className="rec-menu__inner">
       <MenuRow id="group" open={open} onToggle={toggle} icon={<People />} label="Quiénes van" value={groupText(adults, children, seniors)}>
         <div className="rec__row">
@@ -760,7 +820,10 @@ export function Recommender() {
   );
 
   return (
-    <section className={`rec-stage ${located ? 'is-located' : ''}`}>
+    <section
+      className={`rec-stage ${located ? 'is-located' : ''} ${keyboard ? 'is-typing' : ''} ${short ? 'is-short' : ''}`}
+      style={{ '--keyboard': `${keyboard}px` } as CSSProperties}
+    >
       <div className="rec-stage__map">
         <RecommenderMap
           center={center}
@@ -827,11 +890,17 @@ export function Recommender() {
         </aside>
       )}
 
+      {phone && (
+        <>
+          <div className={`rec-menu__scrim ${menu ? 'is-open' : ''}`} aria-hidden="true" onClick={() => setMenu(false)} />
+          {menuRows}
+        </>
+      )}
       <div className="rec-dock" ref={menuBox}>
-        {menuRows}
+        {!phone && menuRows}
         {located && (
           <div className="rec-dock__context">
-            <span>
+            <span className="rec-dock__plan">
               {optionsError || searched.error || siteSearch.error
                 ? optionsError || searched.error || siteSearch.error
                 : !options
@@ -907,7 +976,10 @@ export function Recommender() {
             aria-controls="rec-suggest"
             aria-autocomplete="list"
             autoComplete="off"
-            placeholder={located ? 'Cambiar punto de partida: calle, colonia o lugar' : '¿Desde dónde sales? Calle, colonia o lugar'}
+            placeholder={clip(
+              located ? 'Cambiar punto de partida: calle, colonia o lugar' : '¿Desde dónde sales? Calle, colonia o lugar',
+              phone ? PHONE_HINT_CHARS : Infinity,
+            )}
             aria-label="Dirección o lugar de partida"
           />
           <button type="button" className="rec-ask__locate" onClick={locate} disabled={busy}>

@@ -110,7 +110,9 @@ marca. Un componente por sección en `components/`, en este orden:
 
 **Movimiento.** Toda transición y animación usa la curva `--ease-out` (`cubic-bezier(0.22, 1, 0.36, 1)`), también el
 movimiento del mapa de `/a-donde-ir/` (MapLibre recibe esa misma curva, leída de la variable). Las únicas en `linear`
-son las continuas o de tiempo: la cinta del hero y la barra de progreso de "Cómo funciona".
+son las continuas o de tiempo: la cinta del hero y la barra de progreso de "Cómo funciona". La excepción es el menú de opciones de
+`/a-donde-ir/`, que entra y sale con `ease-in-out` 0.4 s: en escritorio aparece con opacidad y 8 px de desplazamiento
+desde la barra; en celular la hoja sube desde el pie y su velo aparece.
 
 Ancho de lectura `--wrap: 1120px`, el mismo que `.block-container` del dashboard; la barra de
 navegación llega a 1400 px solo sin scroll. Todo lo que aparece al hacer scroll usa `Reveal` /
@@ -234,9 +236,12 @@ día; ve las funciones que le quedan cerca y caben.
      plan y el botón rojo "Ver funciones en N cines". Los cines que tienen funciones que caben son puntos en tinta;
      tocar uno lo agranda y abre su ficha flotante (todas sus funciones que caben, por hora, con total); tocar fuera
      de un cine mueve el punto de partida. El crédito del mapa va arriba a la izquierda. El botón de opciones abre un
-     menú con quiénes van, dulcería, cuándo, presupuesto y más filtros (hacia abajo con la barra al centro, hacia
-     arriba con la barra al pie): cada fila es una línea (ícono, qué y su valor en gris) que al tocarla muestra sus
-     controles y una ×; se cierra con un clic afuera o Esc.
+     menú con quiénes van, dulcería, cuándo, presupuesto y más filtros. En escritorio va pegado a la barra (hacia abajo
+     con la barra al centro, hacia arriba con la barra al pie) y se cierra con un clic afuera o Esc. En celular
+     (2026-09-28) es una hoja inferior, como el Drawer inferior de Material UI: sube desde el pie sobre un velo de tinta
+     al 30 %, con asa, título "Opciones", filas separadas por hairlines y radio 8 px solo arriba; se cierra tocando el
+     velo o con Esc. Cada fila es una línea (ícono, qué y su valor en gris) que al tocarla muestra sus controles y
+     una ×.
   2. *Resultados*: "← Cambiar búsqueda" con el plan en una línea, el resumen y pestañas (Caben, Sin precio de dulcería,
      Sin precio de boletos, cada una con su total) en vez de secciones apiladas; 10 funciones a la vez con "Ver más".
 
