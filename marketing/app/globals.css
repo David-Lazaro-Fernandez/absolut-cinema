@@ -1794,6 +1794,12 @@ button {
   transform: translate(-50%, calc(-100% - 24px));
 }
 
+/* Con el teclado, la barra sigue a la vista sin animar: iOS reporta el alto varias veces mientras sube el teclado y
+   una transición volvería a empezar con cada valor. */
+.rec-stage.is-typing .rec-dock {
+  transition: none;
+}
+
 .rec-dock__context {
   display: flex;
   align-items: center;
