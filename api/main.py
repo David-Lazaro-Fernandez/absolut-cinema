@@ -25,12 +25,12 @@ import analytics
 from analytics import recommender
 from scraper import config
 
-DAYS_AHEAD = 13                    # las cadenas publican hasta el miércoles de la semana siguiente
+DAYS_AHEAD = 1                     # el demo solo ofrece hoy y mañana
 MAX_PEOPLE = 20
 MAX_RADIUS_KM = 15.0
-PER_CINEMA = 3
-LIMIT = 40
-_CACHE_SIZE = 128                 # ~0.11 MB por respuesta
+PER_CINEMA = 6                     # varias horas por cine, sin que un complejo llene la pestaña
+LIMIT = 120                        # 15 km en GDL son ~39 cines: caben todos, y nunca sale el catálogo completo
+_CACHE_SIZE = 64                  # ~0.3 MB por respuesta y 0.56 MB en la peor (CDMX, 15 km, combo): ~36 MB
 _MAX_TRACKED_IPS = 10_000
 
 
