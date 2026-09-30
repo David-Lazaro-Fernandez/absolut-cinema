@@ -2259,13 +2259,20 @@ button {
 }
 
 .rec__field input,
+/* La flecha nativa se pega al borde de la píldora y no respeta el padding: se dibuja con dos gradientes en gris. */
 .rec__field select {
   font: inherit;
   color: var(--ink);
-  background: var(--paper);
+  appearance: none;
+  background-color: var(--paper);
+  background-image: linear-gradient(45deg, transparent 50%, var(--gray) 50%),
+    linear-gradient(135deg, var(--gray) 50%, transparent 50%);
+  background-position: calc(100% - 22px) 50%, calc(100% - 17px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
   border: 1px solid var(--ink-20);
   border-radius: 999px;
-  padding: 10px 16px;
+  padding: 10px 40px 10px 16px;
   min-width: 0;
 }
 
@@ -2327,6 +2334,10 @@ button {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.rec__chips + .rec__field {
+  margin-top: 16px;
 }
 
 .rec__chip {
@@ -2447,6 +2458,53 @@ button {
   display: block;
   font-size: 0.78rem;
   color: var(--gray);
+}
+
+/* El desglose de la dulcería bajo su total, también en la tarjeta de celular. */
+.rec__items {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--gray);
+}
+
+/* El título de la película, en dos líneas como máximo, para dejarle espacio a la columna Promoción. El título completo
+   va en el atributo `title`. */
+.rec__movie {
+  display: -webkit-box;
+  max-width: 190px;
+  margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.rec__c-promo {
+  min-width: 130px;
+}
+
+/* El nombre del programa (Loop, Club Cinépolis) y su globo. */
+.rec__tip {
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  cursor: help;
+}
+
+.rec__bubble {
+  position: fixed;
+  z-index: 50;
+  width: max-content;
+  max-width: 260px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  text-align: left;
+  transform: translate(-50%, calc(-100% - 6px));
+  pointer-events: none;
 }
 
 .rec__plain {
@@ -2598,6 +2656,7 @@ button {
       'title title'
       'time dist'
       'format format'
+      'promo promo'
       'tickets snacks';
     gap: 6px 16px;
     padding: 22px 0;
@@ -2623,6 +2682,10 @@ button {
   .rec__c-dist { grid-area: dist; text-align: right !important; color: var(--gray); }
   .rec__c-format { grid-area: format; font-size: 0.9rem; color: var(--gray); }
   .rec__c-format .rec__chain { display: inline; margin-left: 6px; }
+  .rec__movie { display: block; max-width: none; }
+  .rec__c-promo { grid-area: promo; min-width: 0; font-size: 0.9rem; }
+  .rec__c-promo .rec__items { display: inline; margin-left: 6px; }
+  .rec__c-promo--none { display: none; }
   .rec__c-tickets,
   .rec__c-snacks { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); font-size: 0.85rem; color: var(--gray); }
   .rec__c-tickets { grid-area: tickets; }

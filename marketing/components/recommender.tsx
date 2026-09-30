@@ -11,10 +11,13 @@ import { type PlacesFile, buildIndex, makePlace, plain, searchPlaces } from '@/l
 import { FooterSection } from '@/components/footer-section';
 import { Calendar, Close, Locate, People, Pin, Popcorn, Send, Sliders, Wallet } from '@/components/rec-icons';
 import {
+  type Combo,
   type Options,
+  type Promo,
   type Query,
   type Row,
   type Search,
+  type SnackItem,
   type Snacks,
   type Sort,
   FORMAT_LABEL,
@@ -193,15 +196,65 @@ function Pick({ label, value, row, chain, today }: { label: string; value: strin
   );
 }
 
+// "2 × Combo Clásico + Palomitas y refresco": el desglose de la dulcería de una función.
+const ITEM_CHARS = 16;
+const itemsText = (items: SnackItem[], max = Infinity) =>
+  items.map((i) => `${i.units > 1 ? `${i.units} × ` : ''}${clip(i.name, max)}`).join(' + ');
+
+// La promoción del día: si ya va en el total, "incluye Combo Lunes"; si no, la alternativa para 2 con su precio.
+const promoPrice = (p: Promo) => (p.price_max ? `${money(p.price)} o ${money(p.price_max)}` : money(p.price));
+
+// El globo que explica el programa (Loop, Club Cinépolis). Va en `position: fixed` porque la tabla recorta lo que
+// sobresale (`overflow-x: auto`). Abre con el cursor y con el foco, así que en celular abre al tocarlo.
+const TIP_HALF = 130;
+function ProgramTip({ name, about }: { name: string; about: string }) {
+  const [at, setAt] = useState<{ x: number; y: number } | null>(null);
+  const open = (e: { currentTarget: HTMLElement }) => {
+    const box = e.currentTarget.getBoundingClientRect();
+    const x = Math.min(Math.max(box.left + box.width / 2, TIP_HALF), window.innerWidth - TIP_HALF);
+    setAt({ x, y: box.top });
+  };
+  const close = () => setAt(null);
+  return (
+    <span className="rec__tip" tabIndex={0} aria-label={`${name}: ${about}`}
+      onMouseEnter={open} onFocus={open} onMouseLeave={close} onBlur={close}>
+      {name}
+      {at && <span role="tooltip" className="rec__bubble" style={{ left: at.x, top: at.y }}>{about}</span>}
+    </span>
+  );
+}
+
+// La columna Promoción: el nombre y, en gris, si ya va en el total o cuánto cuesta para 2, y qué programa pide.
+function PromoCell({ promo }: { promo: Promo }) {
+  return (
+    <>
+      <span title={`${promo.includes}. ${promo.condition}`}>{promo.name}</span>
+      <span className="rec__items">
+        {promo.applied ? 'en el total' : `${promoPrice(promo)} para ${promo.people}`}
+        {promo.program && promo.program_about && (
+          <> · con <ProgramTip name={promo.program} about={promo.program_about} /></>
+        )}
+      </span>
+    </>
+  );
+}
+
+// "2 a 3 personas", "1 niño", "2 adultos": a quién cubre un combo.
+function comboPeople(c: Combo) {
+  const n = c.min === c.max ? `${c.max}` : `${c.min} a ${c.max}`;
+  const who = { all: ['persona', 'personas'], children: ['niño', 'niños'], adults: ['adulto', 'adultos'] }[c.for];
+  return `${n} ${c.max === 1 ? who[0] : who[1]}`;
+}
+
 function ShowsTable({
   rows,
-  snacks,
+  withSnacks,
   today,
   chains,
   partial,
 }: {
   rows: Row[];
-  snacks: Snacks;
+  withSnacks: boolean;
   today: string;
   chains: Record<string, string>;
   partial?: boolean;
@@ -216,6 +269,7 @@ function ShowsTable({
             <th>Función</th>
             <th>Formato</th>
             <th className="num">Boletos</th>
+            <th>Promoción</th>
             {!partial && <th className="num">Dulcería</th>}
             {!partial && <th className="num">Total</th>}
             <th className="num">Distancia</th>
@@ -228,7 +282,9 @@ function ShowsTable({
                 <strong>{r.cinema_name}</strong>
                 <span className="rec__chain">{chains[r.chain]}</span>
               </td>
-              <td className="rec__c-title">{r.title}</td>
+              <td className="rec__c-title">
+                <p className="rec__movie" title={r.title}>{r.title}</p>
+              </td>
               <td className="num rec__c-time">
                 {r.date === today ? time12(startMinutes(r)) : `${dayLabel(r.date, today)}, ${time12(startMinutes(r))}`}
                 <BuyLink row={r} chain={chains[r.chain]} />
@@ -237,12 +293,20 @@ function ShowsTable({
                 {FORMAT_LABEL[r.format_bucket] ?? r.format_bucket}
                 <span className="rec__chain">{LANGUAGE_LABEL[r.language] ?? r.language}</span>
               </td>
-              <td className="num rec__c-tickets" data-label="Boletos">{r.tickets_total !== null ? money(r.tickets_total) : '—'}</td>
+              <td className="num rec__c-tickets" data-label="Boletos">
+                {r.tickets_total !== null ? money(r.tickets_total) : '—'}
+              </td>
+              <td className={`rec__c-promo${r.promo ? '' : ' rec__c-promo--none'}`} data-label="Promoción">
+                {r.promo ? <PromoCell promo={r.promo} /> : '—'}
+              </td>
               {!partial && (
                 <td className="num rec__c-snacks" data-label="Dulcería">
-                  {snacks !== 'none'
-                    ? money(r.snacks_total!)
-                    : r.snack_reference !== null
+                  {withSnacks ? (
+                    <>
+                      {money(r.snacks_total!)}
+                      {r.snacks_items && r.snacks_items.length > 0 && <span className="rec__items" title={itemsText(r.snacks_items)}>{itemsText(r.snacks_items, ITEM_CHARS)}</span>}
+                    </>
+                  ) : r.snack_reference !== null
                       ? <span className="rec__ref" title="Palomitas y refresco para una persona, como referencia">ref. {money(r.snack_reference)}</span>
                       : <span className="rec__ref">sin precio en sala</span>}
                 </td>
@@ -322,6 +386,9 @@ export function Recommender() {
   const [seniors, setSeniors] = useState(0);
   const [budget, setBudget] = useState('');
   const [snacks, setSnacks] = useState<Snacks>('none');
+  const [combo, setCombo] = useState<string | null>(null);   // un combo elegido de la lista manda sobre `snacks`
+  const withSnacks = snacks !== 'none' || combo !== null;
+  const snackPlan = combo ?? SNACK_LABEL[snacks].toLowerCase();
   const [date, setDate] = useState('');
   const [hours, setHours] = useState('Todo el día');
   const [radiusKm, setRadiusKm] = useState(5);
@@ -380,12 +447,9 @@ export function Recommender() {
     setShown(PAGE);
   }, [view, tab]);
 
-  // En celular el teclado tapa el pie de la pantalla. El mapa conserva su alto y la barra sube sobre el teclado.
-  // El teclado se mide contra el alto visible más grande visto con el mismo ancho: iOS también achica innerHeight.
-  // iOS desplaza la vista para mostrar el campo. La barra no lo pelea: se coloca en el borde inferior de lo que se ve,
-  // en coordenadas del documento (pageTop + height), así queda sobre el teclado durante y después de ese
-  // desplazamiento. Con zoom, el alto visible no es teclado. Con menos de la mitad del alto visible, el plan del
-  // contexto se oculta.
+  // En celular la barra queda sobre el teclado y el mapa conserva su alto. iOS también achica innerHeight con el
+  // teclado: por eso se compara con el alto visible más grande. iOS desplaza la vista al enfocar el campo: por eso la
+  // barra va al borde inferior de lo visible en coordenadas del documento. Con zoom, el alto visible no es teclado.
   const stage = useRef<HTMLElement>(null);
   const [keyboard, setKeyboard] = useState(0);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
@@ -505,6 +569,7 @@ export function Recommender() {
             children,
             seniors,
             snacks,
+            combo,
             budget: budgetValue > 0 ? budgetValue : null,
             radiusKm,
             hours: HOURS[hours],
@@ -513,7 +578,7 @@ export function Recommender() {
             sort,
           }
         : null,
-    [start, people, date, adults, children, seniors, snacks, budgetValue, radiusKm, hours, title, format, sort],
+    [start, people, date, adults, children, seniors, snacks, combo, budgetValue, radiusKm, hours, title, format, sort],
   );
   const searched = useApi<Search>('/v1/a-donde-ir/funciones', useMemo(() => (query ? searchParams(query) : null), [query]), now.minutes);
   const result = searched.data;
@@ -607,7 +672,7 @@ export function Recommender() {
   }
   const lists: Record<Tab, Row[]> = {
     complete: result?.complete ?? [],
-    snacks_unpriced: snacks !== 'none' ? result?.snacks_unpriced ?? [] : [],
+    snacks_unpriced: withSnacks ? result?.snacks_unpriced ?? [] : [],
     unpriced: result?.unpriced ?? [],
   };
   const counts: Record<Tab, number> = {
@@ -634,7 +699,7 @@ export function Recommender() {
             ← Cambiar búsqueda
           </button>
           <span className="rec-screen__plan">
-            {groupText(adults, children, seniors)} · {SNACK_LABEL[snacks].toLowerCase()} · {dayLabel(date, now.date).toLowerCase()}
+            {groupText(adults, children, seniors)} · {snackPlan} · {dayLabel(date, now.date).toLowerCase()}
             {budgetValue > 0 ? ` · hasta ${money(budgetValue)}` : ''}
           </span>
         </div>
@@ -693,7 +758,7 @@ export function Recommender() {
         {tab === 'unpriced' && <p className="rec__hint">No hay precio de lista de su cine para ese formato y día; por eso no entran al presupuesto.</p>}
 
         {rows.length > 0 && (
-          <ShowsTable rows={rows.slice(0, shown)} snacks={snacks} today={now.date} chains={chains} partial={tab !== 'complete'} />
+          <ShowsTable rows={rows.slice(0, shown)} withSnacks={withSnacks} today={now.date} chains={chains} partial={tab !== 'complete'} />
         )}
         {rows.length > shown && (
           <button type="button" className="pill pill--ghost rec-screen__more" onClick={() => setShown((n) => n + PAGE)}>
@@ -733,14 +798,38 @@ export function Recommender() {
           <Counter label="Adultos mayores" value={seniors} max={API_MAX_PEOPLE - adults - children} onChange={setSeniors} />
         </div>
       </MenuRow>
-      <MenuRow id="snacks" open={open} onToggle={toggle} icon={<Popcorn />} label="Dulcería" value={SNACK_LABEL[snacks]}>
+      <MenuRow id="snacks" open={open} onToggle={toggle} icon={<Popcorn />} label="Dulcería" value={combo ?? SNACK_LABEL[snacks]}>
         <div className="rec__chips" role="radiogroup" aria-label="Dulcería">
-          {(Object.keys(SNACK_LABEL) as Snacks[]).map((k) => (
-            <button key={k} type="button" role="radio" aria-checked={snacks === k} className={`rec__chip ${snacks === k ? 'is-on' : ''}`} onClick={() => setSnacks(k)}>
-              {SNACK_LABEL[k]}
-            </button>
-          ))}
+          {(options?.snacks ?? (Object.keys(SNACK_LABEL) as Snacks[])).map((k) => {
+            const on = combo === null && snacks === k;
+            return (
+              <button
+                key={k}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                className={`rec__chip ${on ? 'is-on' : ''}`}
+                onClick={() => {
+                  setSnacks(k);
+                  setCombo(null);
+                }}
+              >
+                {SNACK_LABEL[k]}
+              </button>
+            );
+          })}
         </div>
+        <label className="rec__field">
+          <span className="rec__label">O elige un combo</span>
+          <select value={combo ?? ''} onChange={(e) => setCombo(e.target.value || null)}>
+            <option value="">Ninguno en particular</option>
+            {(options?.combos ?? []).map((c) => (
+              <option key={c.name} value={c.name}>
+                {c.name} · {comboPeople(c)}
+              </option>
+            ))}
+          </select>
+        </label>
       </MenuRow>
       <MenuRow
         id="when"
@@ -927,7 +1016,7 @@ export function Recommender() {
                       ? 'Agrega al menos una persona en las opciones.'
                       : !result
                         ? 'Buscando funciones…'
-                        : `${groupText(adults, children, seniors)} · ${SNACK_LABEL[snacks].toLowerCase()} · toca un cine para ver sus funciones`}
+                        : `${groupText(adults, children, seniors)} · ${snackPlan} · toca un cine para ver sus funciones`}
             </span>
             {options && people > 0 && result && (
               <button

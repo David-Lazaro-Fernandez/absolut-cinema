@@ -35,6 +35,25 @@ _MAX_TRACKED_IPS = 10_000
 
 # Lo que sale de la API. FastAPI quita cualquier otra llave de los dicts de `analytics`: los precios por tipo de
 # persona, los ids de cine y película y la fecha de muestreo no salen.
+class SnackItem(TypedDict):
+    name: str
+    units: int
+    price: float
+
+
+class Promo(TypedDict):
+    name: str
+    kind: str
+    includes: str
+    program: str | None
+    program_about: str | None
+    condition: str
+    price: float
+    price_max: float | None
+    people: int
+    applied: bool
+
+
 class Show(TypedDict):
     chain: str
     show_id: str
@@ -50,8 +69,10 @@ class Show(TypedDict):
     buy_url: str | None
     tickets_total: float | None
     snacks_total: float | None
+    snacks_items: list[SnackItem] | None
     snack_reference: float | None
     total: float | None
+    promo: Promo | None
 
 
 class Summary(TypedDict):
@@ -111,12 +132,17 @@ class OptionCinema(TypedDict):
     lng: float
 
 
+# `for` ("all", "children" o "adults") es palabra reservada: el TypedDict va con la sintaxis funcional.
+Combo = TypedDict("Combo", {"name": str, "min": int, "max": int, "for": str})
+
+
 class Options(TypedDict):
     plazas: list[Plaza]
     dates: list[Day]
     formats: list[str]
     cinemas: list[OptionCinema]
     snacks: list[str]
+    combos: list[Combo]
     captured_at: str | None
 
 
@@ -196,7 +222,7 @@ def health():
 
 @app.get("/v1/a-donde-ir/opciones")
 def options(response: Response) -> Options:
-    """Plazas (centro y caja), días con funciones, formatos, cines para las sugerencias y paquetes de dulcería.
+    """Plazas (centro y caja), días con funciones, formatos, cines para las sugerencias, paquetes de dulcería y combos.
     `captured_at` es la hora de la captura más reciente."""
     d0, d1 = _days()
     response.headers["Cache-Control"] = "public, max-age=300"
@@ -212,7 +238,8 @@ def shows(response: Response,
           adultos: Annotated[int, Query(ge=0, le=MAX_PEOPLE)] = 2,
           ninos: Annotated[int, Query(ge=0, le=MAX_PEOPLE)] = 0,
           mayores: Annotated[int, Query(ge=0, le=MAX_PEOPLE)] = 0,
-          dulceria: Literal[tuple(recommender.SNACK_PACKAGES)] = "none",
+          dulceria: Literal[recommender.SNACK_PACKAGES] = "none",
+          combo: Annotated[str | None, Query(max_length=120, description="Nombre de un combo de `opciones`; manda sobre `dulceria`")] = None,
           presupuesto: Annotated[float | None, Query(gt=0)] = None,
           radio: Annotated[float, Query(gt=0, le=MAX_RADIUS_KM)] = 5.0,
           desde: Annotated[int, Query(ge=0, le=23)] = 0, hasta: Annotated[int, Query(ge=1, le=24)] = 24,
@@ -232,9 +259,11 @@ def shows(response: Response,
         raise HTTPException(422, f"La fecha debe estar entre {first} y {last}.")
     if desde >= hasta:
         raise HTTPException(422, "`desde` debe ser menor que `hasta`.")
+    if combo is not None and combo not in recommender.COMBOS:
+        raise HTTPException(422, "`combo` debe ser uno de los combos de `opciones`.")
     site = tuple(float(x) for x in sitio.split(",")) if sitio else None
     params = dict(lat=round(lat, 4), lng=round(lng, 4), d0=fecha.isoformat(), d1=fecha.isoformat(),
-                  hours=(desde, hasta), adults=adultos, children=ninos, seniors=mayores, snacks=dulceria,
+                  hours=(desde, hasta), adults=adultos, children=ninos, seniors=mayores, snacks=dulceria, combo=combo,
                   budget=presupuesto, radius_km=radio, title_norm=pelicula, formats=(formato,) if formato else None,
                   sort=orden, per_cinema=None if pelicula else PER_CINEMA, limit=None, favor_us=False, site=site)
     response.headers["Cache-Control"] = "public, max-age=60"

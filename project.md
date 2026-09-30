@@ -257,6 +257,29 @@ incrusta `upcoming`, `promos`, `cinemas`, `states` y `appConfig`, sin señales d
 `*.useinsider.com` son de Insider, la plataforma de personalización y analítica de Cinemex: describen al visitante
 (segmentos, predicciones, identidad), no al mercado, y no se usan.
 
+**Combos de Cinemex Loop (verificado 2026-09-29).** Los combos por día (Lunes, Martes, Miércoles, Jueves, Viernes)
+son solo para miembros de Cinemex Loop. El nivel One es gratis y tiene los mismos combos y precios que los niveles de
+pago. El `GET sessions/{id}` público no los trae: son tipos de boleto (`loyalty_level`) que solo ve una sesión
+iniciada. Los precios salen de los términos de Loop (`GET posts/terminos-y-condiciones-cinemex-loop`, la página
+`cinemex.com/loop/terminos`, a la que Cinemex remite en redes). El precio por cine está en PDF enlazados desde ahí
+("Consulta el listado AQUÍ"): Lunes `6949d29d954d2.pdf`, Miércoles `6949d32f8b6a7.pdf` (la misma lista), Viernes
+`694c3d23deace.pdf`, en `statics.cinemex.com/uploads/cms/attachments/`. Lunes y Miércoles cuestan $210 o $230 según el
+cine; Viernes, $275 a $365 en cinco niveles. El nivel sigue el precio del boleto del cine, pero se traslapa: no se
+deduce de él. El nombre del PDF es un `uniqid` de PHP (hora en hex): una versión nueva llega con URL nueva, no reemplaza
+el archivo. Los PDF vigentes son del 2025-12-22/24. La landing 238 ("Previa_Test", un borrador aún publicado) conserva
+los de octubre de 2025 ($155/$165, el mismo reparto de cines). Los PDF usan nombres internos, no los de la API: el cruce
+a `cinema_id` está en `analytics/loop_combos.csv`, a mano; una fila sin `cinema_id` está pendiente de decidir (`note`).
+Los mismos términos (nivel One, sección 7) traen combos a **precio nacional**, sin lista:
+- Martes 2x1 en boletos, hasta 3 por persona, sin Palco, 4DX, 4D, IMAX, Atmos ni 3D.
+- Combo Martes Pareja ($340: 2 boletos 2D, palomitas grandes, 2 refrescos medianos y un Snickers) y Combo Martes
+  Individual ($240: 1 boleto, palomitas y refresco medianos y un hot dog), solo en experiencia Tradicional.
+- Combo Jueves de Estreno Tradicional ($255; con nachos, $299) y el de los complejos Market ($310).
+- Combo Individual Lunes / Miércoles ($180: 1 boleto 2D, palomitas y refresco medianos y nachos con queso), en la sección
+  de beneficios para todos los niveles.
+- Combo Lunes Platino ($365), Platino Pizza ($465) y Market ($310). Todavía no están en el recomendador.
+La página de registro (`cinemex.com/registro`) anuncia lo mismo: "Todos los martes 2x1" y "Combo Lunes y Jueves a precio
+preferencial".
+
 **Preventas de Cinépolis (verificado 2026-09-25).** La página cinepolis.com/mx/proximamente sale de
 `movies(countryId: "MX", category: "coming-soon")` en `v2/billboards/graphql`, sin filtro de cines: 42 títulos con
 `releaseDate` en una sola página. Sus funciones ya están en la captura, porque `Billboard` trae todas las fechas
@@ -952,10 +975,59 @@ dulcería en sala, va aparte sin cifra inventada.
   Cinemex; "Niños", "3 Era Edad" en Cinépolis), el regular (el más caro que no pasa del general, no una promoción
   como "Que Oferton"); si no hay, pagan el general. Cubre 6,852 de 6,859 funciones de Cinemex y 5,217 de 5,219 de
   Cinépolis de hoy y mañana en CDMX (medido el 2026-09-27).
-- **Dulcería:** paquetes (`SNACK_PACKAGES`): sin dulcería, palomitas y refresco por persona (tamaño base) o un Combo
-  Clásico cada dos, con el menú en sala de cada cine de Cinépolis (`concession_product_by_cinema`). Cinemex tiene
+- **Dulcería** (2026-09-29): paquetes (`SNACK_PACKAGES`, etiquetas en `SNACK_LABEL`) o un combo elegido (`combo=`),
+  con el menú en sala de cada cine de Cinépolis a sus precios y solo con lo que ese cine vende
+  (`concession_product_by_cinema`). Paquetes: sin dulcería; "lo más barato para el grupo" (la combinación más barata de
+  combos y palomitas con refresco sueltos que cubre a todos, por programación dinámica: una combinación cubre a n
+  personas si la suma de los mínimos no pasa de n y la de los máximos llega a n); palomitas y refresco por persona
+  (tamaño base); y "un combo cada N" (N de 1 a 4, el combo más barato del cine para N). Cuántas personas cubre cada
+  combo no lo publica el menú: lo dice `analytics/snack_combos.csv` (82 combos, un rango `personas_min`–`personas_max`
+  y `para`: todos, niños o adultos; revisado por David el 2026-09-29). Los Maxicombo cubren de 2 a 3; los de crepa o
+  pastel con bebida, 1; los de cerveza solo adultos; el Junior solo niños. Un combo nuevo del menú no entra al cálculo
+  hasta agregarlo a la tabla. Cada función lleva el desglose (`snacks_items`: nombre, unidades y precio). Cinemex tiene
   apagada la venta de dulcería en línea y la Cineteca no tiene menú: sus funciones van a "sin precio de dulcería en
   sala" (`status="snacks_unpriced"`), con el costo de los boletos, y no compiten por el presupuesto con las completas.
+- **Promoción del día** (2026-09-29): cada función trae `promo` ({`name`, `kind`, `includes`, `program`,
+  `program_about`, `condition`, `price`, `price_max`, `people`, `applied`}) si su cadena tiene una ese día y en esa
+  sala. Un día puede tener varias (`_DAY_PROMOS`); la función lleva la que más le conviene al grupo. Los textos están en
+  `labels.PROMO`.
+  - Cinemex Loop, sala tradicional 2D:
+    - Combo Lunes, Miércoles y Viernes, a precio por cine de `analytics/loop_combos.csv` (ver "Combos de Cinemex Loop"
+      en la sección de Cinemex).
+    - A precio nacional: Combo Martes Pareja ($340), Combo Jueves de Estreno ($255, o $310 en los complejos Market) y
+      los combos para 1 persona (Individual Lunes y Miércoles, $180; Martes Individual, $240). En los complejos Market
+      solo aplica el del jueves.
+  - Cinemex Loop, Martes 2x1: 2D, Platino incluido, sin IMAX, Atmos ni 4D. Un boleto gratis por cada boleto igual,
+    hasta 3 por cuenta.
+  - Club Cinépolis, Combo Lunes: 2D tradicional, Macro XE, Pluus y Junior a $245 o $270; IMAX y 4DX a $305 o $330. Sin
+    3D, VIP ni ScreenX. Cinépolis no publica cuál de los dos precios tiene cada cine, así que va el rango
+    (`price_max`).
+  - Club Cinépolis, Martes 2x1: todas las salas (VIP incluida) salvo ScreenX, LED y las que no están en los términos.
+  - Miércoles 2x1 de Cinépolis, en la app o la web y sin cuenta: 2D, 3D y Pluus, sin VIP, Macro XE, IMAX, 4DX ni
+    Junior, y sin días festivos de fecha fija.
+  - Un 2x1 cobra 2 boletos al precio de adulto más alto de la semana del cine: el mayor del último `general_cents` por
+    tipo de día, en la misma cubeta de formato con la que se cobra la función.
+  - Ninguna aplica en preventa (fecha antes del `release_date` de `presale_sample`, de la misma cadena) ni en contenido
+    alternativo (distribuidora Cinemex Alternativo, Fathom, The Met, Trafalgar o +QueCine, o género concierto u ópera).
+    La API las devuelve en cada función.
+  - **Entran en el costo** (decisión de David, 2026-09-29): se supone que el grupo tiene la cuenta, porque Loop y Club
+    Cinépolis son gratis; la interfaz lo dice en gris y explica el programa. Las promociones no se combinan: el grupo
+    usa una. Un combo reemplaza los boletos más caros (1 o 2, `people`) y la dulcería de esas personas, una vez. Un 2x1
+    reemplaza los pares de boletos del mismo tipo que más ahorran, hasta su tope (1 en Cinépolis, 3 en Loop). Se usa si baja el costo o si le da precio a una dulcería que no lo tenía: una pareja en Cinemex
+    con Loop pasa a "completa". Entonces `promo.applied` es verdadero y boletos, dulcería y `total` ya la incluyen, así
+    que el presupuesto y el orden por precio la ven. El Combo Lunes de Cinépolis cuenta con su precio alto ($270 o
+    $330). Con un combo del menú elegido solo aplica el 2x1. No hay puntaje: el mejor plan es el de menor costo, y
+    el orden sigue siendo el que pide el usuario.
+
+**Promociones de Cinépolis (verificado 2026-09-29).** El Combo Lunes y el Martes 2x1 salen de los términos de Club
+Cinépolis (`cinepolis.com/club-cinepolis-id/terminos-condiciones-club-cinepolis`, puntos 1 y 9). El Combo Lunes subió
+de $230/$255 y $290/$315 a $245/$270 y $305/$330 el 2026-02-02. No se vende por adelantado: se compra el mismo lunes.
+Los términos no traen una lista por cine; dicen "depende del precio vigente aplicable en el cine". La API tampoco la
+muestra sin una sesión de Club: `query Tickets` con `includeAllTickets: true` (el parámetro que usa `seats-mf`) solo
+trajo General, Niños y 3ª Edad en 8 funciones 2D del lunes 2026-10-05. El combo llega como boleto de paquete
+(`isPackageTicket`, `loyaltyRecognitionId`) a quien inició sesión. El Miércoles 2x1 sale de
+`static.cinepolis.com/pdf/tyc-miercoles-2x1-canales-digitales-mx.pdf` (PDF del 2023-10-30, aún publicado, "por tiempo
+limitado"). No hay combos de martes a domingo; el "Combo Cita" de los jueves ya no está en los términos.
 - **Estados** (`STATUSES`): `complete` (su total cabe en el presupuesto), `snacks_unpriced` (los boletos caben, la
   dulcería no tiene precio) y `unpriced` (sin precio de boletos: toda la Cineteca, hasta capturar su precio).
 - **Ubicación:** la dirección se geocodifica con Nominatim (OpenStreetMap) en `scraper/geocode.py` (stdlib,
@@ -976,12 +1048,15 @@ dulcería en sala, va aparte sin cifra inventada.
   lleva el punto y todos los filtros, así que dos visitantes casi nunca coinciden, y el navegador ya guarda sus
   respuestas (`marketing/lib/api.ts`, 60 s). `opciones` y `salud`, iguales para todos, sí la tienen. Antes descargaba un JSON con el catálogo
   entero (precios de todos los cines); se quitó porque regalaba el dato del cliente y nadie lo regeneraba en
-  producción. El navegador elige la plaza más cercana al punto de partida. Cada función enlaza a la compra en el sitio de su cadena (`config.BUY_URL`, verificado 2026-09-27):
-  Cinépolis `cinepolis.com/mx/horarios?cinema={cinema_id}&movie={movie_id}` abre el paso "Horario" con cine y
-  película elegidos; Cinemex `cinemex.com/cine/{cinema_id}/{slug}/fecha-{AAAAMMDD}/pelicula-{movie_id}` abre el cine
-  con la película y el día filtrados (sin fecha no muestra funciones; el slug no cuenta). No se puede
-  enlazar una función: Cinépolis elige la hora dentro de su app y `cinemex.com/checkout/{show_id}` abierto directo da
-  "Ups!". Los enlaces salen de ids que ya guarda `current_showtime`; no se guarda nada nuevo.
+  producción. El navegador elige la plaza más cercana al punto de partida. Cada función enlaza a la compra en el sitio de su cadena (`config.BUY_URL`, verificado 2026-09-30 en el navegador
+  y en las apps):
+  - Cinépolis `cinepolis.com/mx/horarios?cinema={cinema_id}&movie={movie_id}` abre el paso "Horario" con cine y
+    película elegidos, también en su app.
+  - Cinemex `cinemex.com/checkout/{show_id}` abre la compra de la función en el sitio y en su app. La app reclama todo
+    `cinemex.com` (`/.well-known/assetlinks.json` en Android; `apple-app-site-association` en iOS reclama `/cine/*` y
+    `/checkout/*`). Con la página del cine (`/cine/{id}/{slug}/fecha-…/pelicula-…`, el enlace hasta el 2026-09-30) la
+    app decía "El cine seleccionado no se encuentra disponible". El 2026-09-27 el checkout abierto directo en el
+    navegador daba "Ups!"; el 2026-09-30 ya abría. Los enlaces salen de ids que ya guarda `current_showtime`; no se guarda nada nuevo.
   Neutral entre cadenas por decisión de David: sin destacar a Cinemex. Sin paquete de dulcería, la columna muestra la
   referencia de palomitas y refresco de Cinépolis (también en el dashboard). Pendiente: hosting del sitio y de la API
   (`api.matinee.com`). Direcciones: la versión pública sugiere mientras se

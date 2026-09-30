@@ -48,6 +48,26 @@ def cinema_cell(r):
     return f"{r.cinema_name} · {CHAIN_LABEL[r.chain]}", "cmx" if r.chain == "cinemex" else ""
 
 
+def promo_cell(c):
+    program = T["promo_program"].format(program=c["program"]) if c["program"] else ""
+    if c["applied"]:
+        return T["promo_in_total"].format(name=c["name"], program=program)
+    price = T["promo_range"].format(low=money(c["price"]), high=money(c["price_max"])) if c["price_max"] else money(c["price"])
+    return T["promo_cell"].format(name=c["name"], program=program, price=price, people=c["people"])
+
+
+def promo_table(headers, cells, frame, num_cols):
+    """`table` con la columna de la promoción del día si alguna función la tiene, y qué incluye cada una."""
+    promos = [c if isinstance(c, dict) else None for c in frame.get("promo", [])]
+    if not any(promos):
+        return table(headers, cells, num_cols=num_cols)
+    table([*headers, T["col_promo"]], [[*row, promo_cell(c) if c else "—"] for row, c in zip(cells, promos)],
+          num_cols=(*num_cols, len(headers)))
+    lines = dict.fromkeys([*(T["promo_line"].format(**c) for c in promos if c),
+                           *(c["program_about"] for c in promos if c and c["program_about"])])
+    st.caption(" ".join([*lines, T["promo_note"]]))
+
+
 md(f'<div class="enc"><h1>{T["title"]}</h1></div>')
 
 # --- tu plan: desde dónde, quiénes, cuánto y cuándo ------------------------------------------------------------------
@@ -166,13 +186,13 @@ with seccion("rec-resultados"):
         if summary["saving"]:
             text += T["summary_saving"].format(saving=money(summary["saving"]))
         pregunta(T["results"], text, T["per_cinema_note"].format(n=_PER_CINEMA))
-        table([T["col_cinema"], T["col_title"], T["col_time"], T["col_format"], T["col_language"], T["col_tickets"],
-               T["col_snacks"], T["col_total"], T["col_distance"]],
-              [[cinema_cell(r), r.title, when_text(r), FORMAT_LABEL.get(r.format_bucket, r.format_bucket),
-                LANGUAGE_LABEL.get(r.language, r.language), money(r.tickets_total),
-                snack_cell(r, snacks), money(r.total), T["km"].format(km=r.distance_km)]
-               for r in results.itertuples()],
-              num_cols=(5, 6, 7, 8))
+        promo_table([T["col_cinema"], T["col_title"], T["col_time"], T["col_format"], T["col_language"], T["col_tickets"],
+                    T["col_snacks"], T["col_total"], T["col_distance"]],
+                   [[cinema_cell(r), r.title, when_text(r), FORMAT_LABEL.get(r.format_bucket, r.format_bucket),
+                     LANGUAGE_LABEL.get(r.language, r.language), money(r.tickets_total),
+                     snack_cell(r, snacks), money(r.total), T["km"].format(km=r.distance_km)]
+                    for r in results.itertuples()],
+                   results, num_cols=(5, 6, 7, 8))
     leerla("recomendador", T["leer"])
 
 if snacks != "none" and summary["snacks_unpriced"]:
@@ -180,10 +200,10 @@ if snacks != "none" and summary["snacks_unpriced"]:
                    limit=_LIMIT, **filters)
     with seccion("rec-sin-dulceria"):
         pregunta(T["snacks_unpriced"], T["snacks_unpriced_desc"])
-        table([T["col_cinema"], T["col_title"], T["col_time"], T["col_format"], T["col_tickets"], T["col_distance"]],
-              [[cinema_cell(r), r.title, when_text(r), FORMAT_LABEL.get(r.format_bucket, r.format_bucket),
-                money(r.tickets_total), T["km"].format(km=r.distance_km)] for r in partial.itertuples()],
-              num_cols=(4, 5))
+        promo_table([T["col_cinema"], T["col_title"], T["col_time"], T["col_format"], T["col_tickets"], T["col_distance"]],
+                   [[cinema_cell(r), r.title, when_text(r), FORMAT_LABEL.get(r.format_bucket, r.format_bucket),
+                     money(r.tickets_total), T["km"].format(km=r.distance_km)] for r in partial.itertuples()],
+                   partial, num_cols=(4, 5))
 
 unpriced = load("recommend", lat=location[0], lng=location[1], status="unpriced", sort="distance", limit=_LIMIT, **filters)
 with apendice("rec-sin-precio", T["unpriced"], T["unpriced_summary"].format(n=n(summary["unpriced"]))):

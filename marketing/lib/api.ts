@@ -60,6 +60,7 @@ export function searchParams(q: Query) {
     ninos: q.children,
     mayores: q.seniors,
     dulceria: q.snacks,
+    combo: q.combo,
     presupuesto: q.budget,
     radio: q.radiusKm,
     desde: q.hours[0],
