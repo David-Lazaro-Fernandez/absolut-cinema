@@ -401,10 +401,54 @@ función con poca venta salía todo en `Status:0`): se asume `OriginalStatus != 
 `Status != 0` en una vendible = ocupada. Se guarda el histograma completo de ambos campos en `auditorium.areas_json`,
 así el reparto exacto se recalcula sin volver a pedir si la suposición resulta errónea.
 
-**Precio** — uniforme, un solo boleto `GENERAL` a $70.00 (visto en `visSelectTickets.aspx`, 2026-09-26). **Pendiente**:
-esa página necesita el handshake de cookie de ASP.NET (302 en bucle sin `cookiejar`) que el cliente stdlib no hace, y el
-endpoint de boletos de Connect API está sin verificar; el muestreo de precio de la Cineteca queda para la fase de
-presentación.
+**Precio** — tarifa pública, igual en las tres sedes (`cinetecanacional.net/ubicacion.php`, verificado 2026-09-30):
+$70 general; $50 menores de 25, estudiantes y adultos mayores; martes y miércoles, $50 cualquier boleto, salvo en la
+Muestra, el Foro y Talento emergente. El Foro al aire libre cuesta $90 por dos personas en películas seleccionadas y no se
+distingue en la cartelera. La tarifa vive en `analytics/recommender.py` (`_CINETECA_PRICES`), no se muestrea: por
+función, `visSelectTickets.aspx` pide el handshake de cookie de ASP.NET y muchas funciones se venden solo en taquilla
+("NoTickets", 2026-09-30). Para la excepción del martes y el miércoles, la captura guarda el ciclo de cada función
+(`event_name` → `current_showtime.program`; NULL en Cinemex y Cinépolis).
+
+`cartelera.heliouz.com/data/schedule.json` (revisado 2026-09-30) es un espejo de terceros en GitHub Pages de esta
+misma cartelera, sin precio. No se usa: agrega un intermediario y no aporta nada que la fuente no dé.
+
+## Cineteca FICG y Cineforo (Guadalajara, `chain="cineteca_gdl"`, verificado 2026-09-30)
+
+Dos salas independientes de la FICG y la UdeG, capturadas como una cadena con dos sedes (`cinema_id` = `ficg`,
+`cineforo`; plaza `gdl`, Jalisco `14`). Módulo `scraper/cineteca_gdl.py`, en el mismo trabajo `snapshot`.
+
+- **Fuente:** las dos venden en Veezi, cada una con su `siteToken` (`config.VEEZI_SITE_TOKENS`). La página pública de
+  horarios `ticketing.useast.veezi.com/sessions/?siteToken=…` trae en HTML toda la cartelera vigente de la sede
+  (≈120 funciones FICG, ≈35 Cineforo; hasta diciembre en preventa). Una llamada por sede; cada sede es una unidad.
+  El sitio `cinetecaficg.com` pinta lo mismo en HTML propio, con el ciclo pero sin el id de Veezi: no se usa.
+- **Formato:** por película, código de Veezi (en la URL del póster; vacío si no hay póster), título, clasificación
+  (a veces vacía) y funciones con fecha sin año ("Wednesday 30, September"), hora en 12 h y id de función
+  (`/purchase/{id}`). Fechas y horas se traducen según `Accept-Language`: se piden en inglés. El año sale del día de la
+  semana. Idioma en el título ("- SUBTITULADA", "- DOBLADA"); sin marca, `other`. Sin sala, duración ni género.
+- **Precio** (`cinetecaficg.com/faq`): FICG $60 general y $40 estudiantes, docentes y adultos mayores; Cineforo $50 y
+  $35; el descuento solo en taquilla con credencial. La página de compra de Veezi (`/purchase/{id}`) vende en línea solo
+  "General" a esos mismos precios y da la sala ("Sala 4"); una función gratuita dice "There are no tickets available".
+  El recomendador usa la tarifa fija (`_PUBLIC_FARES`); las funciones gratuitas (Cinema Libre) no se distinguen.
+- **Compra:** `BUY_URL` abre la página de compra de Veezi de la función.
+
+## Cineteca Nuevo León (Monterrey, `chain="cineteca_mty"`, verificado 2026-09-30)
+
+La Cineteca "Alejandra Rangel Hinojosa" de CONARTE, en el Centro de las Artes del Parque Fundidora: una sede
+(`cinema_id = "centro-artes"`; plaza `mty`, Nuevo León `19`). Módulo `scraper/cineteca_mty.py`, en el trabajo `snapshot`.
+
+- **Fuente:** la página de WordPress `conarte.org.mx/cineteca/?fecha=AAAAMMDD` lista las funciones de ese día (hora,
+  título y enlace a la ficha). Una llamada por día, `CINETECA_DAYS_AHEAD` días; toda la cineteca es una unidad. La
+  página repite la fecha pedida en un campo oculto (`id="fecha"`), que la captura exige. Un día sin funciones dice "No
+  hay películas en esta fecha". La API de WordPress (`wp-json/wp/v2/cineteca`, ~4,200 entradas) no trae funciones
+  (`acf` vacío). La ficha de cada película (`/cineteca/{slug}/`) sí trae año, país, director, género, duración,
+  clasificación y las funciones en formato de máquina (`atc_date_start`); no se pide.
+- **Identidad:** no hay id de función. `show_id` = `{slug}:{fecha}T{hora}` y `movie_id` = el slug; una función que
+  cambia de hora se ve como una que sale y otra que entra. Sin sala, idioma ni clasificación (≈2–8 funciones al día).
+- **Precio:** $80 general; $50 estudiantes, maestros e INAPAM (confirmado por el cliente el 2026-09-30, en
+  `_PUBLIC_FARES`). CONARTE no lo publica en su sitio y `tiendaconarte.org.mx` (`/api/v1/evento`) vende talleres, no
+  boletos de la cineteca; un artículo de Telediario (2024-08-27) con $40 y $25 ya no está vigente.
+- **Compra:** solo en taquilla (`config.BOX_OFFICE_ONLY`): sus funciones llevan `box_office_only` y ningún `buy_url`, y la
+  demo dice "Solo en taquilla" con un globo que lo explica.
 
 ## Asientos y precios (verificado 2026-09-08)
 
@@ -1029,7 +1073,7 @@ trajo General, Niños y 3ª Edad en 8 funciones 2D del lunes 2026-10-05. El comb
 `static.cinepolis.com/pdf/tyc-miercoles-2x1-canales-digitales-mx.pdf` (PDF del 2023-10-30, aún publicado, "por tiempo
 limitado"). No hay combos de martes a domingo; el "Combo Cita" de los jueves ya no está en los términos.
 - **Estados** (`STATUSES`): `complete` (su total cabe en el presupuesto), `snacks_unpriced` (los boletos caben, la
-  dulcería no tiene precio) y `unpriced` (sin precio de boletos: toda la Cineteca, hasta capturar su precio).
+  dulcería no tiene precio) y `unpriced` (sin precio de boletos). La Cineteca usa su tarifa pública.
 - **Ubicación:** la dirección se geocodifica con Nominatim (OpenStreetMap) en `scraper/geocode.py` (stdlib,
   `config.GEOCODER_*`), en caché una semana (`load_geocode`); la página muestra la dirección que entendió, porque a
   veces se equivoca de calle. La ubicación del navegador (`streamlit-js-eval`) solo funciona con HTTPS o en localhost:

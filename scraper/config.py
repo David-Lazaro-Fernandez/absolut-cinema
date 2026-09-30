@@ -90,6 +90,15 @@ CINETECA_VISTA_BASE_URL = os.environ.get("CINETECA_VISTA_BASE_URL", "https://rbv
 CINETECA_CONNECT_TOKEN = os.environ.get("CINETECA_CONNECT_TOKEN", "00Hce1yZxXdQtA9ZgvQR69ElXrBgLT")
 CINETECA_DAYS_AHEAD = 14           # días hacia adelante a pedir (cubre la semana de cine siguiente, como Cinemex)
 
+# --- Cineteca FICG y Cineforo (Guadalajara, chain="cineteca_gdl", ver project.md) ---
+# Las dos venden en Veezi; la página pública de horarios de cada sede se pide con su siteToken (verificado 2026-09-30).
+VEEZI_SESSIONS_URL = os.environ.get("VEEZI_SESSIONS_URL", "https://ticketing.useast.veezi.com/sessions/")
+VEEZI_SITE_TOKENS = {"ficg": "rj5c6tj546eqfqz3qz8raafy3w", "cineforo": "9snypp1nnax0n9ep5gdsh9gc2w"}
+
+# --- Cineteca Nuevo León (Monterrey, chain="cineteca_mty", ver project.md) ---
+# Cartelera por día en la página de WordPress de CONARTE (`?fecha=AAAAMMDD`); los días a pedir son CINETECA_DAYS_AHEAD.
+CINETECA_MTY_URL = os.environ.get("CINETECA_MTY_URL", "https://conarte.org.mx/cineteca/")
+
 # Una función que desaparece del snapshot solo cuenta como "eliminada" si aún faltaban
 # más de estos minutos para que empezara; si no, simplemente expiró.
 REMOVED_GRACE_MINUTES = 30
@@ -121,8 +130,16 @@ PRESALE_LANDING_SLUG = "preventas"
 # Página de compra (verificado 2026-09-30, en el navegador y en las apps). Cinemex abre el checkout de la función, en el
 # sitio y en su app: la app reclama `cinemex.com` y con `/cine/…` dice "El cine seleccionado no se encuentra disponible".
 # Cinépolis abre el paso "Horario" con el cine y la película elegidos, y no filtra por fecha.
+# La Cineteca Nacional abre la selección de boletos de Vista (si la función se vende solo en taquilla, lo dice ahí) y
+# las salas de la FICG la compra de Veezi. `session_id` es el id de la función en su sistema de venta y `site_token` el
+# de la sede en Veezi.
 BUY_URL = {"cinemex": "https://cinemex.com/checkout/{show_id}",
-           "cinepolis": "https://cinepolis.com/mx/horarios?cinema={cinema_id}&movie={movie_id}"}
+           "cinepolis": "https://cinepolis.com/mx/horarios?cinema={cinema_id}&movie={movie_id}",
+           "cineteca": "https://rbvfcn.cinetecanacional.net/Ticketing/visSelectTickets.aspx?cinemacode={cinema_id}"
+                       "&txtSessionId={session_id}&visLang=1",
+           "cineteca_gdl": "https://ticketing.useast.veezi.com/purchase/{session_id}?siteToken={site_token}"}
+# Cadenas que no venden boletos en línea, solo en su taquilla: la Cineteca NL (CONARTE, verificado 2026-09-30).
+BOX_OFFICE_ONLY = ("cineteca_mty",)
 
 # API pública (api/): los sitios que la pueden llamar desde el navegador (CORS) y las peticiones por minuto de cada IP.
 API_ORIGINS = _csv("AC_API_ORIGINS") or ("http://localhost:3000",)

@@ -4,7 +4,8 @@ tercera edad), con boletos y dulcería.
 Boletos: la lectura de precio más reciente del cine para el mismo formato y tipo de día, sin eventos ni matinés. Es
 precio de lista, no el de esa función. El adulto paga el boleto general. Niños y tercera edad se buscan por nombre del
 boleto ("MENOR", "Niños", "3ra Edad"); si la función no los tiene, pagan el general. Una función sin lectura no se
-estima: queda sin precio y fuera del presupuesto.
+estima: queda sin precio y fuera del presupuesto. Las cinetecas no tienen lectura: usan la tarifa pública de cada sede
+(`_PUBLIC_FARES`), y `price_sampled_at` es la fecha en que se verificó.
 
 Dulcería: el paquete (`SNACK_PACKAGES`) o el combo elegido con el menú en sala de cada cine, a los precios de ese cine
 y solo con lo que ese cine vende. Cuántas personas cubre cada combo lo dice `snack_combos.csv` (versionado, revisado a
@@ -124,6 +125,23 @@ _WEDNESDAY_2X1 = ("", "SP")
 # ponytail: solo los festivos de fecha fija de la Ley Federal del Trabajo. Los móviles caen en lunes y no tocan el
 # miércoles; falta el 1 de octubre de cada sexenio (2030).
 _HOLIDAYS = ("01-01", "05-01", "09-16", "12-25")
+# Tarifas públicas de las cinetecas, (adulto, niño, tercera edad) por (cadena, sede), verificadas 2026-09-30:
+#   - Cineteca Nacional (cinetecanacional.net/ubicacion.php): adulto $70; menores de 25, estudiantes y adultos mayores
+#     $50. Martes y miércoles, $50 cualquier boleto, salvo en la Muestra, el Foro y Talento emergente (el ciclo de la
+#     función, `program`).
+#   - Cineteca FICG y Cineforo (cinetecaficg.com/faq): general $60 y $50; estudiantes, docentes y adultos mayores $40 y
+#     $35, solo en taquilla. Los niños pagan el general. Veezi vende en línea solo el general, con los mismos precios.
+#   - Cineteca Nuevo León (tarifa confirmada por el cliente; CONARTE no la publica en su sitio): general $80;
+#     estudiantes, maestros e INAPAM $50. Los niños pagan el general.
+# ponytail: una función gratuita (Cinema Libre de la FICG) y el Foro al aire libre de la Cineteca Nacional ($90 por dos
+# personas) pagan la tarifa de sala; la cartelera no los distingue.
+_PUBLIC_FARES = {**{("cineteca", code): (70.0, 50.0, 50.0) for code in ("001", "002", "003")},
+                 ("cineteca_gdl", "ficg"): (60.0, 60.0, 40.0), ("cineteca_gdl", "cineforo"): (50.0, 50.0, 35.0),
+                 ("cineteca_mty", "centro-artes"): (80.0, 80.0, 50.0)}
+_FARES_VERIFIED = "2026-09-30"
+_CINETECA_DISCOUNT = 50.0
+_CINETECA_DISCOUNT_DAYS = (1, 2)
+_CINETECA_NO_DISCOUNT = ("muestra", "foro", "talento emergente")
 _CHILD_WORDS = ("menor", "nino")
 _SENIOR_WORDS = ("mayor", "tercera", "3 era", "3ra", "3a edad")
 _EARTH_KM = 6371.0
@@ -152,6 +170,15 @@ def _ticket_prices(tickets_json, general_cents):
         regular = [c for c in found if c <= general]
         return max(regular or found) if found else general
     return general, pick(_CHILD_WORDS), pick(_SENIOR_WORDS)
+
+
+def _public_fare(r):
+    """(adulto, niño, tercera edad) en pesos de la tarifa pública de la sede de la función, o None si no tiene."""
+    fare = _PUBLIC_FARES.get((r["chain"], r["cinema_id"]))
+    if fare and r["chain"] == "cineteca" and datetime.date.fromisoformat(r["date"]).weekday() in _CINETECA_DISCOUNT_DAYS \
+            and not any(word in _plain(r["program"]) for word in _CINETECA_NO_DISCOUNT):
+        return (_CINETECA_DISCOUNT,) * 3
+    return fare
 
 
 def _menus(conn, cinema_ids):
@@ -310,10 +337,11 @@ def _apply_promo(r, promos, adults, children, seniors, snacks, combo, rest_snack
 def _buy_url(r):
     """La página de compra en su cadena (`config.BUY_URL`), o None si la cadena no tiene plantilla."""
     template = config.BUY_URL.get(r["chain"])
-    if not template or not r["movie_id"]:
+    if not template or ("{movie_id}" in template and not r["movie_id"]):
         return None
     return template.format(cinema_id=quote(str(r["cinema_id"])), movie_id=quote(str(r["movie_id"])),
-                           show_id=quote(str(r["show_id"])))
+                           show_id=quote(str(r["show_id"])), session_id=quote(r["show_id"].rsplit(":", 1)[-1]),
+                           site_token=config.VEEZI_SITE_TOKENS.get(r["cinema_id"], ""))
 
 
 def _candidates(conn, lat, lng, *, d0, d1, from_now, hours, radius_km, adults, children, seniors, snacks, combo=None):
@@ -324,7 +352,7 @@ def _candidates(conn, lat, lng, *, d0, d1, from_now, hours, radius_km, adults, c
     dlng = radius_km / (_KM_PER_DEGREE * max(math.cos(math.radians(lat)), 0.01))
     data = rows(conn, f"""
         WITH f AS (SELECT chain, show_id, cinema_id, movie_id, movie_title, title_key(title_norm) title_norm, date, genre, distributor,
-                          experience, format, premium_tier, datetime_local, language, {_FORMAT_CASE} format_bucket, {_DAY_TYPE_CASE} day_type
+                          experience, format, premium_tier, datetime_local, language, program, {_FORMAT_CASE} format_bucket, {_DAY_TYPE_CASE} day_type
                    FROM current_showtime WHERE {where}),
              p AS (SELECT chain, cinema_id, format_bucket, day_type, general_cents, tickets_json, sampled_at,
                           ROW_NUMBER() OVER (PARTITION BY chain, cinema_id, format_bucket, day_type
@@ -334,7 +362,7 @@ def _candidates(conn, lat, lng, *, d0, d1, from_now, hours, radius_km, adults, c
                    GROUP BY chain, cinema_id, format_bucket)
         SELECT f.chain, f.show_id, f.cinema_id, c.name cinema_name, c.lat, c.lng, f.movie_id, f.movie_title title, f.title_norm,
                f.date, f.datetime_local, f.language, f.format_bucket, f.day_type, f.genre, f.distributor,
-               f.experience, f.format, f.premium_tier, w.week_max_cents, p.general_cents, p.tickets_json, p.sampled_at price_sampled_at
+               f.experience, f.format, f.premium_tier, f.program, w.week_max_cents, p.general_cents, p.tickets_json, p.sampled_at price_sampled_at
         FROM f JOIN cinema c ON c.chain = f.chain AND c.cinema_id = f.cinema_id
         LEFT JOIN p ON p.rk = 1 AND p.chain = f.chain AND p.cinema_id = f.cinema_id
                    AND p.format_bucket = f.format_bucket AND p.day_type = f.day_type
@@ -356,11 +384,16 @@ def _candidates(conn, lat, lng, *, d0, d1, from_now, hours, radius_km, adults, c
         r["distance_km"] = round(_distance_km(lat, lng, r["lat"], r["lng"]), 2)
         if r["distance_km"] > radius_km:
             continue
-        r["buy_url"] = _buy_url(r)
+        r["box_office_only"] = r["chain"] in config.BOX_OFFICE_ONLY
+        r["buy_url"] = None if r["box_office_only"] else _buy_url(r)
         r["cinema_name"] = display_name(r["cinema_id"], r["cinema_name"])
         general, tickets = r.pop("general_cents"), r.pop("tickets_json")
-        if general:
-            r["adult_price"], r["child_price"], r["senior_price"] = _ticket_prices(tickets, general)
+        fare = _public_fare(r)
+        if fare:
+            r["price_sampled_at"] = _FARES_VERIFIED
+        prices = fare or (_ticket_prices(tickets, general) if general else None)
+        if prices:
+            r["adult_price"], r["child_price"], r["senior_price"] = prices
             r["tickets_total"] = round(adults * r["adult_price"] + children * r["child_price"] + seniors * r["senior_price"], 2)
         else:
             r["adult_price"] = r["child_price"] = r["senior_price"] = r["tickets_total"] = None
@@ -376,7 +409,7 @@ def _candidates(conn, lat, lng, *, d0, d1, from_now, hours, radius_km, adults, c
             if r["tickets_total"] is not None else (promos[0] if promos else None)
         for promo in promos:
             del promo["_uses"], promo["_pays_one"]
-        for key in ("genre", "distributor", "experience", "format", "premium_tier", "week_max_cents"):
+        for key in ("genre", "distributor", "experience", "format", "premium_tier", "program", "week_max_cents"):
             del r[key]
         r["status"] = "unpriced" if r["tickets_total"] is None else "complete" if r["total"] is not None else "snacks_unpriced"
         out.append(r)
@@ -472,7 +505,7 @@ def recommend(conn, lat, lng, d0=None, d1=None, from_now=True, hours=None, adult
     `senior_price`, `tickets_total`, `snacks_total` (0 sin paquete, None sin precio), `snacks_items` (el desglose,
     [{`name`, `units`, `price`}]; None sin precio), `snack_reference` (palomitas y
     refresco de una persona; None sin menú), `total` (None sin precio de dulcería), `status`, `distance_km`, `movie_id`,
-    `buy_url` (la página de compra en la cadena; None si no hay) y `promo` (la promoción del día que más le conviene al grupo,
+    `buy_url` (la página de compra en la cadena; None si no hay), `box_office_only` (la cadena vende solo en taquilla) y `promo` (la promoción del día que más le conviene al grupo,
     {`name`, `kind` ("combo" o "2x1"), `includes`, `program` ("Loop", "Club Cinépolis" o None), `program_about`,
     `condition`, `price`, `price_max`, `people`, `applied`}; `price_max` solo si la cadena publica dos precios sin decir cuál
     tiene el cine; `applied` si ya va en boletos, dulcería y `total`; None si no aplica).

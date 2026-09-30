@@ -6,7 +6,8 @@ Uso:
 
 Graba en `tests/fixtures/capture/` un alcance chico pero variado de cada cadena (`SCOPES`): Cinemex el estado 18 de su
 API (3 cines, Platinum, 3D, experiencias) y Cinépolis la ciudad `hermosillo` (4 cines, VIP, 4DX/Sala Junior, UTC−7 sin
-horario de verano). Por cadena quedan dos archivos:
+horario de verano). Las cinetecas, completas: la Nacional un día, las salas de la FICG en Guadalajara (HTML de Veezi) y la Cineteca NL
+en Monterrey tres días (HTML de CONARTE). Por cadena quedan dos archivos:
   - `{chain}.responses.json.gz`: cada petición (método, URL, cuerpo) con su respuesta tal cual, sin encabezados (ahí
     van las claves), y la hora de la grabación, que la reproducción congela para pedir los mismos días;
   - `{chain}.expected.json.gz`: lo que la captura produjo con ese crudo: filas normalizadas, cines y unidades.
@@ -26,15 +27,19 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from scraper import cinemex, cinepolis, cineteca, normalize  # noqa: E402
+from scraper import cinemex, cinepolis, cineteca, cineteca_gdl, cineteca_mty, normalize  # noqa: E402
 
 FIXTURE_DIR = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "capture"
 SCOPES = {
     "cinemex": {"state_ids": [18]},
     "cinepolis": {"city_ids": ["hermosillo"]},
     "cineteca": {"dates": ["2026-09-27"]},
+    "cineteca_gdl": {},
+    "cineteca_mty": {"dates": ["2026-09-30", "2026-10-01", "2026-10-08"]},
 }
-_MODULES = {"cinemex": cinemex, "cinepolis": cinepolis, "cineteca": cineteca}
+_MODULES = {"cinemex": cinemex, "cinepolis": cinepolis, "cineteca": cineteca, "cineteca_gdl": cineteca_gdl, "cineteca_mty": cineteca_mty}
+# Cómo pide cada módulo: JSON de una API o HTML de una página (Veezi).
+_REQUESTS = ("request_json", "request_text")
 
 # Columnas que la captura llena siempre en toda cadena (comprobado sobre la cartelera vigente el 2026-09-25). Las que
 # pueden venir vacías de la API: `genre`, `duration_min`, `distributor`, `experience`, y `state_id` fuera de Cinemex.
@@ -45,7 +50,10 @@ REQUIRED = ("chain", "show_id", "cinema_id", "cinema_name", "lat", "lng", "city_
 # crudo y versión. La Cineteca no trae sala en la cartelera (llega en el plano) ni etiqueta de versión.
 REQUIRED_BY_CHAIN = {"cinemex": ("state_id", "screen", "language_raw", "version_raw"),
                      "cinepolis": ("screen", "language_raw", "version_raw"),
-                     "cineteca": ()}
+                     "cineteca": (), "cineteca_gdl": (), "cineteca_mty": ()}
+# Columnas de `REQUIRED` que una cadena no siempre da: Veezi no trae código de una película sin póster ni clasificación
+# de todas, y la cartelera de la Cineteca NL no trae clasificación.
+OPTIONAL_BY_CHAIN = {"cineteca_gdl": ("movie_id", "rating"), "cineteca_mty": ("rating",)}
 # Los campos de tiempo de una unidad cambian en cada corrida; no son parte del dato.
 _UNIT_VOLATILE = ("duration_s",)
 
@@ -55,23 +63,35 @@ def _key(method, url, body):
 
 
 @contextmanager
+def _patched(module, wrap):
+    """Cambia cada función de `_REQUESTS` que usa `module` por `wrap(la real)` mientras dura el bloque."""
+    real = {name: getattr(module, name) for name in _REQUESTS if hasattr(module, name)}
+    for name, fn in real.items():
+        setattr(module, name, wrap(fn))
+    try:
+        yield
+    finally:
+        for name, fn in real.items():
+            setattr(module, name, fn)
+
+
+@contextmanager
 def recording(chain):
     """Deja pasar las peticiones de `chain` a la API y las anota; entrega la lista de llamadas."""
-    module, calls, lock = _MODULES[chain], [], threading.Lock()
-    real = module.request_json
+    calls, lock = [], threading.Lock()
 
-    def record(url, *, method="GET", headers=None, body=None, retries=None):
-        response = real(url, method=method, headers=headers, body=body, retries=retries)
-        # Copia: la captura adelgaza lo que recibe (`_slim`) y se grabaría el payload ya recortado, no el de la API.
-        with lock:
-            calls.append({"method": method, "url": url, "body": body, "response": json.loads(json.dumps(response))})
-        return response
+    def wrap(real):
+        def record(url, **kw):
+            response = real(url, **kw)
+            # Copia: la captura adelgaza lo que recibe (`_slim`) y se grabaría el payload ya recortado, no el de la API.
+            with lock:
+                calls.append({"method": kw.get("method", "GET"), "url": url, "body": kw.get("body"),
+                              "response": json.loads(json.dumps(response))})
+            return response
+        return record
 
-    module.request_json = record
-    try:
+    with _patched(_MODULES[chain], wrap):
         yield calls
-    finally:
-        module.request_json = real
 
 
 def _frozen_datetime(at):
@@ -88,21 +108,22 @@ def replaying(chain, recorded):
     no se grabó levanta `LookupError`: la captura pide algo distinto de lo que pedía."""
     module = _MODULES[chain]
     answers = {_key(c["method"], c["url"], c["body"]): c["response"] for c in recorded["calls"]}
-    real_request, real_datetime = module.request_json, module.datetime
+    real_datetime = module.datetime
 
-    def replay(url, *, method="GET", headers=None, body=None, retries=None):
+    def replay(url, **kw):
+        method, body = kw.get("method", "GET"), kw.get("body")
         try:
             # Copia: la captura modifica lo que recibe (`_slim`, `setdefault`) y una respuesta puede pedirse dos veces.
             return json.loads(json.dumps(answers[_key(method, url, body)]))
         except KeyError:
             raise LookupError(f"petición no grabada: {method} {url} {json.dumps(body, ensure_ascii=False)[:300]}")
 
-    module.request_json = replay
     module.datetime = _frozen_datetime(datetime.fromisoformat(recorded["recorded_at"]))
     try:
-        yield
+        with _patched(module, lambda _: replay):
+            yield
     finally:
-        module.request_json, module.datetime = real_request, real_datetime
+        module.datetime = real_datetime
 
 
 def capture(chain):
@@ -126,7 +147,7 @@ def problems(chain, got):
         out.append("sin funciones")
     failed = [u for u in got["units"] if not u.get("ok")]
     out += [f"unidad {u['unit']} falló: {u.get('error')}" for u in failed]
-    required = REQUIRED + REQUIRED_BY_CHAIN[chain]
+    required = [c for c in REQUIRED + REQUIRED_BY_CHAIN[chain] if c not in OPTIONAL_BY_CHAIN.get(chain, ())]
     missing = {}
     for r in rows:
         if set(r) != set(normalize.COLUMNS):

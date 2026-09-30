@@ -7,13 +7,13 @@ import unicodedata
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
-from . import config, states
+from . import cineteca_gdl, cineteca_mty, config, states
 
 COLUMNS = [
     "chain", "show_id", "cinema_id", "cinema_name", "lat", "lng", "city_id", "state_id", "state_code",
     "movie_id", "movie_title", "title_norm", "genre", "rating", "duration_min", "distributor",
     "date", "datetime_local", "datetime_utc", "screen", "language", "language_raw",
-    "format", "experience", "premium_tier", "version_raw", "availability",
+    "format", "experience", "premium_tier", "version_raw", "availability", "program",
 ]
 # Columnas de la dimensión de cines (tabla `cinema`): la llave geográfica más fina de cada API (`city_id`: Cinépolis
 # slug de ciudad, Cinemex id de área), el estado de Cinemex (su agrupación de API), el estado de INEGI de ambas
@@ -138,6 +138,7 @@ def cinepolis_rows(raw):
                             "premium_tier": tier,
                             "version_raw": " ".join(x for x in (fmt, exp) if x) or None,
                             "availability": st.get("availability") or None,
+                            "program": None,
                         }
 
 
@@ -226,6 +227,7 @@ def cinemex_rows(raw):
                             "premium_tier": tier,
                             "version_raw": v.get("label"),
                             "availability": s.get("availability") or None,
+                            "program": None,
                         }
 
 
@@ -290,11 +292,111 @@ def cineteca_rows(raw):
                         "premium_tier": "traditional",
                         "version_raw": None,
                         "availability": None,
+                        # El ciclo de la función ("Estrenos", "Muestra"…): la tarifa del martes y el miércoles no aplica
+                        # en algunos (analytics/recommender.py).
+                        "program": film.get("event_name"),
                     }
 
 
-_ROWS = {"cinepolis": cinepolis_rows, "cinemex": cinemex_rows, "cineteca": cineteca_rows}
-_CINEMAS = {"cinepolis": cinepolis_cinemas, "cinemex": cinemex_cinemas, "cineteca": cineteca_cinemas}
+def cineteca_gdl_cinemas(raw):
+    """Dimensión de cines desde el crudo de las salas de la FICG: las dos sedes fijas de Guadalajara,
+    `cinema_id = city_id` = la sede."""
+    for code, s in sorted((raw.get("sedes") or {}).items()):
+        yield {"chain": "cineteca_gdl", "cinema_id": code, "name": s.get("name"), "lat": s.get("lat"), "lng": s.get("lng"),
+               "city_id": code, "state_id": None, "state_code": states.state_code("cineteca_gdl", code, code),
+               "timezone": config.PILOT_TIMEZONE, "vista_id": None}
+
+
+def cineteca_gdl_rows(raw):
+    place_by_id = {c["cinema_id"]: c for c in cineteca_gdl_cinemas(raw)}
+    today = datetime.fromisoformat(raw["taken_at"]).astimezone(ZoneInfo(config.PILOT_TIMEZONE)).date()
+    for code, html in sorted((raw.get("pages") or {}).items()):
+        place = place_by_id.get(code, {})
+        for s in cineteca_gdl.parse_sessions(html):
+            date, hour = cineteca_gdl.show_date(s["date_text"], today), cineteca_gdl.show_time(s["time_text"])
+            local = f"{date}T{hour}:00" if date and hour else None
+            title = s.get("title")
+            yield {
+                "chain": "cineteca_gdl",
+                "show_id": f"{code}:{s['session_id']}",
+                "cinema_id": code,
+                "cinema_name": place.get("name"),
+                "lat": place.get("lat"), "lng": place.get("lng"),
+                "city_id": code, "state_id": None, "state_code": place.get("state_code"),
+                "movie_id": s.get("film_code"),
+                "movie_title": title,
+                "title_norm": norm_title(title),
+                "genre": None,
+                "rating": s.get("rating"),
+                "duration_min": None,
+                "distributor": None,
+                "date": date,
+                "datetime_local": local,
+                "datetime_utc": _utc(local, config.PILOT_TIMEZONE),
+                # La sala solo viene en la página de compra de cada función.
+                "screen": None,
+                "language": cineteca_language(title),
+                "language_raw": None,
+                "format": "2D",
+                "experience": None,
+                "premium_tier": "traditional",
+                "version_raw": None,
+                "availability": None,
+                "program": None,
+            }
+
+
+def cineteca_mty_cinemas(raw):
+    """Dimensión de cines desde el crudo de la Cineteca NL: una sede fija en Monterrey, `cinema_id = city_id`."""
+    for code, s in sorted((raw.get("sedes") or {}).items()):
+        yield {"chain": "cineteca_mty", "cinema_id": code, "name": s.get("name"), "lat": s.get("lat"), "lng": s.get("lng"),
+               "city_id": code, "state_id": None, "state_code": states.state_code("cineteca_mty", code, code),
+               "timezone": config.PILOT_TIMEZONE, "vista_id": None}
+
+
+def cineteca_mty_rows(raw):
+    place = next(iter(cineteca_mty_cinemas(raw)), {})
+    for day in raw.get("days") or []:
+        date = day.get("date")
+        for film in cineteca_mty.parse_day(day.get("html") or ""):
+            for hour in film["times"]:
+                local = f"{date}T{hour}:00"
+                title = film["title"]
+                yield {
+                    "chain": "cineteca_mty",
+                    # La página no da id de función: la identidad es la película, el día y la hora. Una función que
+                    # cambia de hora se ve como una que sale y otra que entra.
+                    "show_id": f"{film['slug']}:{date}T{hour}",
+                    "cinema_id": place.get("cinema_id"),
+                    "cinema_name": place.get("name"),
+                    "lat": place.get("lat"), "lng": place.get("lng"),
+                    "city_id": place.get("city_id"), "state_id": None, "state_code": place.get("state_code"),
+                    "movie_id": film["slug"],
+                    "movie_title": title,
+                    "title_norm": norm_title(title),
+                    "genre": None,
+                    "rating": None,
+                    "duration_min": None,
+                    "distributor": None,
+                    "date": date,
+                    "datetime_local": local,
+                    "datetime_utc": _utc(local, config.PILOT_TIMEZONE),
+                    "screen": None,
+                    "language": cineteca_language(title),
+                    "language_raw": None,
+                    "format": "2D",
+                    "experience": None,
+                    "premium_tier": "traditional",
+                    "version_raw": None,
+                    "availability": None,
+                    "program": None,
+                }
+
+
+_ROWS = {"cinepolis": cinepolis_rows, "cinemex": cinemex_rows, "cineteca": cineteca_rows, "cineteca_gdl": cineteca_gdl_rows,
+         "cineteca_mty": cineteca_mty_rows}
+_CINEMAS = {"cinepolis": cinepolis_cinemas, "cinemex": cinemex_cinemas, "cineteca": cineteca_cinemas,
+            "cineteca_gdl": cineteca_gdl_cinemas, "cineteca_mty": cineteca_mty_cinemas}
 
 
 def rows(chain, raw):

@@ -17,12 +17,14 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
-from . import cinemex, cinepolis, cineteca, config, diff, normalize, store
+from . import cinemex, cinepolis, cineteca, cineteca_gdl, cineteca_mty, config, diff, normalize, store
 from .http import AuthError, Blocked
 
-SNAPSHOTTERS = {"cinepolis": cinepolis.snapshot, "cinemex": cinemex.snapshot, "cineteca": cineteca.snapshot}
+SNAPSHOTTERS = {"cinepolis": cinepolis.snapshot, "cinemex": cinemex.snapshot, "cineteca": cineteca.snapshot,
+                "cineteca_gdl": cineteca_gdl.snapshot, "cineteca_mty": cineteca_mty.snapshot}
 # Cómo se llama la unidad de captura de cada cadena, solo para el log.
-UNIT_NAME = {"cinepolis": "cities", "cinemex": "states", "cineteca": "days"}
+UNIT_NAME = {"cinepolis": "cities", "cinemex": "states", "cineteca": "days", "cineteca_gdl": "sedes",
+             "cineteca_mty": "days"}
 
 
 def log(msg):
@@ -45,8 +47,10 @@ def fetch(chain):
 def _units(chain, raw):
     if chain == "cinepolis":
         return len(raw.get("city_ids") or [])
-    if chain == "cineteca":
+    if chain in ("cineteca", "cineteca_mty"):
         return len(raw.get("dates") or [])
+    if chain == "cineteca_gdl":
+        return len(raw.get("units") or [])
     return len(raw.get("state_ids") or [])
 
 

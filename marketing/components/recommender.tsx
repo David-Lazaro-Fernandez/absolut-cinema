@@ -171,7 +171,16 @@ function Counter({ label, value, max, onChange }: { label: string; value: number
   );
 }
 
+// Un cine que no vende en línea lo dice en el lugar del enlace de compra, con el porqué en el globo.
+const BOX_OFFICE_ABOUT = 'Este cine no vende boletos en línea. Se compran en su taquilla.';
+
 function BuyLink({ row, chain }: { row: Row; chain: string }) {
+  if (row.box_office_only)
+    return (
+      <span className="rec__buy rec__buy--box-office">
+        <Tip label="Solo en taquilla" about={BOX_OFFICE_ABOUT} />
+      </span>
+    );
   if (!row.buy_url) return null;
   return (
     <a className="rec__buy" href={row.buy_url} target="_blank" rel="noopener noreferrer" aria-label={`Comprar en ${chain} (abre su sitio)`}>
@@ -204,10 +213,11 @@ const itemsText = (items: SnackItem[], max = Infinity) =>
 // La promoción del día: si ya va en el total, "incluye Combo Lunes"; si no, la alternativa para 2 con su precio.
 const promoPrice = (p: Promo) => (p.price_max ? `${money(p.price)} o ${money(p.price_max)}` : money(p.price));
 
-// El globo que explica el programa (Loop, Club Cinépolis). Va en `position: fixed` porque la tabla recorta lo que
-// sobresale (`overflow-x: auto`). Abre con el cursor y con el foco, así que en celular abre al tocarlo.
+// El globo que explica un término (el programa Loop o Club Cinépolis, la venta solo en taquilla). Va en
+// `position: fixed` porque la tabla recorta lo que sobresale (`overflow-x: auto`). Abre con el cursor y con el foco,
+// así que en celular abre al tocarlo.
 const TIP_HALF = 130;
-function ProgramTip({ name, about }: { name: string; about: string }) {
+function Tip({ label, about }: { label: string; about: string }) {
   const [at, setAt] = useState<{ x: number; y: number } | null>(null);
   const open = (e: { currentTarget: HTMLElement }) => {
     const box = e.currentTarget.getBoundingClientRect();
@@ -216,9 +226,9 @@ function ProgramTip({ name, about }: { name: string; about: string }) {
   };
   const close = () => setAt(null);
   return (
-    <span className="rec__tip" tabIndex={0} aria-label={`${name}: ${about}`}
+    <span className="rec__tip" tabIndex={0} aria-label={`${label}: ${about}`}
       onMouseEnter={open} onFocus={open} onMouseLeave={close} onBlur={close}>
-      {name}
+      {label}
       {at && <span role="tooltip" className="rec__bubble" style={{ left: at.x, top: at.y }}>{about}</span>}
     </span>
   );
@@ -232,7 +242,7 @@ function PromoCell({ promo }: { promo: Promo }) {
       <span className="rec__items">
         {promo.applied ? 'en el total' : `${promoPrice(promo)} para ${promo.people}`}
         {promo.program && promo.program_about && (
-          <> · con <ProgramTip name={promo.program} about={promo.program_about} /></>
+          <> · con <Tip label={promo.program} about={promo.program_about} /></>
         )}
       </span>
     </>

@@ -37,6 +37,7 @@ export type Row = {
   format_bucket: string;
   distance_km: number;
   buy_url: string | null;
+  box_office_only: boolean;
   tickets_total: number | null;
   snacks_total: number | null;
   snacks_items: SnackItem[] | null;
