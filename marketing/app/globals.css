@@ -2468,6 +2468,45 @@ button {
   color: var(--gray);
 }
 
+/* El título de la película, en dos líneas como máximo, para dejarle espacio a la columna Promoción. El título completo
+   va en el atributo `title`. */
+.rec__movie {
+  display: -webkit-box;
+  max-width: 190px;
+  margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.rec__c-promo {
+  min-width: 130px;
+}
+
+/* El nombre del programa (Loop, Club Cinépolis) y su globo. */
+.rec__tip {
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  cursor: help;
+}
+
+.rec__bubble {
+  position: fixed;
+  z-index: 50;
+  width: max-content;
+  max-width: 260px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  text-align: left;
+  transform: translate(-50%, calc(-100% - 6px));
+  pointer-events: none;
+}
+
 .rec__plain {
   margin: 0;
   padding-left: 18px;
@@ -2617,6 +2656,7 @@ button {
       'title title'
       'time dist'
       'format format'
+      'promo promo'
       'tickets snacks';
     gap: 6px 16px;
     padding: 22px 0;
@@ -2642,6 +2682,10 @@ button {
   .rec__c-dist { grid-area: dist; text-align: right !important; color: var(--gray); }
   .rec__c-format { grid-area: format; font-size: 0.9rem; color: var(--gray); }
   .rec__c-format .rec__chain { display: inline; margin-left: 6px; }
+  .rec__movie { display: block; max-width: none; }
+  .rec__c-promo { grid-area: promo; min-width: 0; font-size: 0.9rem; }
+  .rec__c-promo .rec__items { display: inline; margin-left: 6px; }
+  .rec__c-promo--none { display: none; }
   .rec__c-tickets,
   .rec__c-snacks { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); font-size: 0.85rem; color: var(--gray); }
   .rec__c-tickets { grid-area: tickets; }

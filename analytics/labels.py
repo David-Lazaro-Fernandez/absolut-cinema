@@ -471,11 +471,39 @@ COLUMN_LABEL.update({
 
 # --- Recomendador (analytics/recommender.py, views/recomendador.py) ---
 RECOMMEND_SORT = {"distance": "Más cerca", "price": "Más barato", "time": "Más pronto"}
-# Paquetes de dulcería (`analytics/recommender.py`). "combo_N": un combo para N personas cada N, el más barato de su cine.
+# Paquetes de dulcería de `analytics/recommender.py`.
 SNACK_LABEL = {"none": "Sin dulcería", "best": "Lo más barato para el grupo", "popcorn": "Palomitas y refresco por persona",
                "combo_1": "Un combo por persona", "combo_2": "Un combo cada dos", "combo_3": "Un combo cada tres",
                "combo_4": "Un combo cada cuatro"}
 SNACK_SINGLE = "Palomitas y refresco"      # el relleno de una persona en el desglose
+_TWO_FOR_ONE = "2 boletos al precio de adulto más alto de la semana"
+_LOOP_PAIR = "2 boletos 2D, palomitas grandes y 2 refrescos grandes"
+_LOOP_SOLO = "1 boleto 2D, palomitas medianas, refresco mediano y nachos con queso"
+_ONE_PER_ACCOUNT = "Uno por cuenta."
+PROMO = {    # llave → (nombre, "combo" o "2x1", qué incluye, programa o None, qué más pide), de los términos de cada cadena
+    "cmx_lunes": ("Combo Lunes", "combo", _LOOP_PAIR, "loop", _ONE_PER_ACCOUNT),
+    "cmx_individual_lunes": ("Combo Individual Lunes", "combo", _LOOP_SOLO, "loop", _ONE_PER_ACCOUNT),
+    "cmx_martes_2x1": ("Martes 2x1", "2x1", "Un boleto gratis por cada boleto igual que compras", "loop",
+                       "Hasta 3 por cuenta. Sin 3D, IMAX, 4D ni Atmos."),
+    "cmx_martes_pareja": ("Combo Martes Pareja", "combo",
+                          "2 boletos 2D, palomitas grandes, 2 refrescos medianos y un Snickers", "loop", _ONE_PER_ACCOUNT),
+    "cmx_martes_individual": ("Combo Martes Individual", "combo",
+                              "1 boleto 2D, palomitas medianas, refresco mediano y un hot dog", "loop", _ONE_PER_ACCOUNT),
+    "cmx_miercoles": ("Combo Miércoles", "combo", _LOOP_PAIR, "loop", _ONE_PER_ACCOUNT),
+    "cmx_individual_miercoles": ("Combo Individual Miércoles", "combo", _LOOP_SOLO, "loop", _ONE_PER_ACCOUNT),
+    "cmx_jueves": ("Combo Jueves de Estreno", "combo", _LOOP_PAIR, "loop", _ONE_PER_ACCOUNT),
+    "cmx_viernes": ("Combo Viernes", "combo", "2 boletos 2D, palomitas jumbo, 2 refrescos grandes y un Snickers", "loop",
+                    _ONE_PER_ACCOUNT),
+    "cp_lunes": ("Combo Lunes", "combo", "2 boletos, palomitas jumbo y 2 refrescos jumbo", "club",
+                 "Uno por cuenta al día; se compra el mismo lunes."),
+    "cp_martes_2x1": ("Martes 2x1", "2x1", _TWO_FOR_ONE, "club", "Se compra el mismo martes."),
+    "cp_miercoles_2x1": ("Miércoles 2x1", "2x1", _TWO_FOR_ONE, None, "Solo en la app o la web de Cinépolis, el mismo miércoles."),
+}
+PROMO_PROGRAM = {    # programa → (nombre corto, qué es), de los términos de cada programa
+    "loop": ("Loop", "Cinemex Loop es el programa de lealtad de Cinemex. El nivel One es gratis y tiene los mismos "
+                     "combos y precios que los de pago."),
+    "club": ("Club Cinépolis", "Club Cinépolis es el programa de lealtad de Cinépolis. Registrarse es gratis."),
+}
 GROUP_LABEL = {    # tipo de boleto → (singular, plural)
     "adults": ("adulto", "adultos"), "children": ("niño", "niños"), "seniors": ("adulto mayor", "adultos mayores"),
 }
@@ -537,6 +565,10 @@ RECOMMEND_TEXT = {
     "snack_reference": "ref. {price}",
     "snack_no_menu": "sin precio en sala",
     "col_tickets": "Boletos", "col_snacks": "Dulcería", "col_total": "Total", "col_distance": "Distancia",
+    "col_promo": "Promoción", "promo_cell": "{name}{program}: {price} para {people}", "promo_in_total": "{name}{program}, en el total",
+    "promo_program": " con {program}", "promo_range": "{low} o {high}", "promo_line": "{name}: {includes}. {condition}",
+    "promo_note": "Si una promoción baja el costo del grupo, ya va en el total y en el presupuesto: supone que tienen "
+                  "la cuenta, que es gratis.",
     "km": "{km:.1f} km",
     "unpriced": "Funciones cercanas sin precio de boletos",
     "unpriced_summary": "{n} funciones",

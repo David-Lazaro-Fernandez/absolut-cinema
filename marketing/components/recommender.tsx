@@ -13,6 +13,7 @@ import { Calendar, Close, Locate, People, Pin, Popcorn, Send, Sliders, Wallet } 
 import {
   type Combo,
   type Options,
+  type Promo,
   type Query,
   type Row,
   type Search,
@@ -195,8 +196,48 @@ function Pick({ label, value, row, chain, today }: { label: string; value: strin
   );
 }
 
-// "2 × Combo Clásico + 1 × Palomitas y refresco": qué lleva la dulcería de una función.
-const itemsText = (items: SnackItem[]) => items.map((i) => `${i.units} × ${i.name}`).join(' + ');
+// "2 × Combo Clásico + Palomitas y refresco": el desglose de la dulcería de una función.
+const ITEM_CHARS = 16;
+const itemsText = (items: SnackItem[], max = Infinity) =>
+  items.map((i) => `${i.units > 1 ? `${i.units} × ` : ''}${clip(i.name, max)}`).join(' + ');
+
+// La promoción del día: si ya va en el total, "incluye Combo Lunes"; si no, la alternativa para 2 con su precio.
+const promoPrice = (p: Promo) => (p.price_max ? `${money(p.price)} o ${money(p.price_max)}` : money(p.price));
+
+// El globo que explica el programa (Loop, Club Cinépolis). Va en `position: fixed` porque la tabla recorta lo que
+// sobresale (`overflow-x: auto`). Abre con el cursor y con el foco, así que en celular abre al tocarlo.
+const TIP_HALF = 130;
+function ProgramTip({ name, about }: { name: string; about: string }) {
+  const [at, setAt] = useState<{ x: number; y: number } | null>(null);
+  const open = (e: { currentTarget: HTMLElement }) => {
+    const box = e.currentTarget.getBoundingClientRect();
+    const x = Math.min(Math.max(box.left + box.width / 2, TIP_HALF), window.innerWidth - TIP_HALF);
+    setAt({ x, y: box.top });
+  };
+  const close = () => setAt(null);
+  return (
+    <span className="rec__tip" tabIndex={0} aria-label={`${name}: ${about}`}
+      onMouseEnter={open} onFocus={open} onMouseLeave={close} onBlur={close}>
+      {name}
+      {at && <span role="tooltip" className="rec__bubble" style={{ left: at.x, top: at.y }}>{about}</span>}
+    </span>
+  );
+}
+
+// La columna Promoción: el nombre y, en gris, si ya va en el total o cuánto cuesta para 2, y qué programa pide.
+function PromoCell({ promo }: { promo: Promo }) {
+  return (
+    <>
+      <span title={`${promo.includes}. ${promo.condition}`}>{promo.name}</span>
+      <span className="rec__items">
+        {promo.applied ? 'en el total' : `${promoPrice(promo)} para ${promo.people}`}
+        {promo.program && promo.program_about && (
+          <> · con <ProgramTip name={promo.program} about={promo.program_about} /></>
+        )}
+      </span>
+    </>
+  );
+}
 
 // "2 a 3 personas", "1 niño", "2 adultos": a quién cubre un combo.
 function comboPeople(c: Combo) {
@@ -228,6 +269,7 @@ function ShowsTable({
             <th>Función</th>
             <th>Formato</th>
             <th className="num">Boletos</th>
+            <th>Promoción</th>
             {!partial && <th className="num">Dulcería</th>}
             {!partial && <th className="num">Total</th>}
             <th className="num">Distancia</th>
@@ -240,7 +282,9 @@ function ShowsTable({
                 <strong>{r.cinema_name}</strong>
                 <span className="rec__chain">{chains[r.chain]}</span>
               </td>
-              <td className="rec__c-title">{r.title}</td>
+              <td className="rec__c-title">
+                <p className="rec__movie" title={r.title}>{r.title}</p>
+              </td>
               <td className="num rec__c-time">
                 {r.date === today ? time12(startMinutes(r)) : `${dayLabel(r.date, today)}, ${time12(startMinutes(r))}`}
                 <BuyLink row={r} chain={chains[r.chain]} />
@@ -249,13 +293,18 @@ function ShowsTable({
                 {FORMAT_LABEL[r.format_bucket] ?? r.format_bucket}
                 <span className="rec__chain">{LANGUAGE_LABEL[r.language] ?? r.language}</span>
               </td>
-              <td className="num rec__c-tickets" data-label="Boletos">{r.tickets_total !== null ? money(r.tickets_total) : '—'}</td>
+              <td className="num rec__c-tickets" data-label="Boletos">
+                {r.tickets_total !== null ? money(r.tickets_total) : '—'}
+              </td>
+              <td className={`rec__c-promo${r.promo ? '' : ' rec__c-promo--none'}`} data-label="Promoción">
+                {r.promo ? <PromoCell promo={r.promo} /> : '—'}
+              </td>
               {!partial && (
                 <td className="num rec__c-snacks" data-label="Dulcería">
                   {withSnacks ? (
                     <>
                       {money(r.snacks_total!)}
-                      {r.snacks_items && r.snacks_items.length > 0 && <span className="rec__items">{itemsText(r.snacks_items)}</span>}
+                      {r.snacks_items && r.snacks_items.length > 0 && <span className="rec__items" title={itemsText(r.snacks_items)}>{itemsText(r.snacks_items, ITEM_CHARS)}</span>}
                     </>
                   ) : r.snack_reference !== null
                       ? <span className="rec__ref" title="Palomitas y refresco para una persona, como referencia">ref. {money(r.snack_reference)}</span>
@@ -398,12 +447,9 @@ export function Recommender() {
     setShown(PAGE);
   }, [view, tab]);
 
-  // En celular el teclado tapa el pie de la pantalla. El mapa conserva su alto y la barra sube sobre el teclado.
-  // El teclado se mide contra el alto visible más grande visto con el mismo ancho: iOS también achica innerHeight.
-  // iOS desplaza la vista para mostrar el campo. La barra no lo pelea: se coloca en el borde inferior de lo que se ve,
-  // en coordenadas del documento (pageTop + height), así queda sobre el teclado durante y después de ese
-  // desplazamiento. Con zoom, el alto visible no es teclado. Con menos de la mitad del alto visible, el plan del
-  // contexto se oculta.
+  // En celular la barra queda sobre el teclado y el mapa conserva su alto. iOS también achica innerHeight con el
+  // teclado: por eso se compara con el alto visible más grande. iOS desplaza la vista al enfocar el campo: por eso la
+  // barra va al borde inferior de lo visible en coordenadas del documento. Con zoom, el alto visible no es teclado.
   const stage = useRef<HTMLElement>(null);
   const [keyboard, setKeyboard] = useState(0);
   const [keyboardOpen, setKeyboardOpen] = useState(false);

@@ -118,10 +118,10 @@ POST_START_TOLERANCE_MIN = 30
 CINEMEX_SITE_URL = os.environ.get("CINEMEX_SITE_URL", "https://cinemex.com/landing/preventas/peliculas/")
 PRESALE_LANDING_SLUG = "preventas"
 
-# Página de compra de una película en un cine (verificado 2026-09-27). No hay enlace a una función:
-# `cinemex.com/checkout/{show_id}` abierto directo da error. En Cinemex, `{date}` es AAAAMMDD y es obligatorio; el slug
-# no cuenta. Cinépolis no filtra por fecha.
-BUY_URL = {"cinemex": "https://cinemex.com/cine/{cinema_id}/{cinema_slug}/fecha-{date}/pelicula-{movie_id}",
+# Página de compra (verificado 2026-09-30, en el navegador y en las apps). Cinemex abre el checkout de la función, en el
+# sitio y en su app: la app reclama `cinemex.com` y con `/cine/…` dice "El cine seleccionado no se encuentra disponible".
+# Cinépolis abre el paso "Horario" con el cine y la película elegidos, y no filtra por fecha.
+BUY_URL = {"cinemex": "https://cinemex.com/checkout/{show_id}",
            "cinepolis": "https://cinepolis.com/mx/horarios?cinema={cinema_id}&movie={movie_id}"}
 
 # API pública (api/): los sitios que la pueden llamar desde el navegador (CORS) y las peticiones por minuto de cada IP.

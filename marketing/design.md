@@ -199,6 +199,21 @@ día; ve las funciones que le quedan cerca y caben.
   ("Lo más barato para el grupo", "Un combo cada dos"…) y, debajo, "O elige un combo": la lista completa de
   `opciones.combos` con a quién cubre cada uno. Un combo elegido manda sobre la ficha. Bajo el total de dulcería de
   cada función va su desglose en gris (`.rec__items`, "2 × Combo Clásico"). El cálculo es de `../analytics/recommender.py`.
+- **Promoción del día** (2026-09-29). Columna "Promoción" después de Boletos (`PromoCell`, `.rec__c-promo`): el
+  nombre ("Combo Lunes") y debajo, en gris (`.rec__items`), el estado y el programa:
+  - Si ya va en el total (`promo.applied`): "en el total · con Loop".
+  - Si no: "$230 para 2 · con Loop", o "$245 o $270 para 2" cuando la cadena publica dos precios sin decir cuál tiene
+    el cine.
+  - Sin promoción, "—". En la tarjeta de celular es su propia fila y no aparece si no hay promoción.
+  - Para dejarle espacio, el título de la película va en dos líneas como máximo (`<p class="rec__movie">`, 190 px, con el título
+    completo en `title`). En celular va completo.
+  - El nombre del programa va subrayado con puntos (`.rec__tip`) y abre un globo en tinta (`.rec__bubble`, sin sombra,
+    radio 6 px) con `promo.program_about`: qué es el programa y que es gratis.
+  - El globo va en `position: fixed`, porque la tabla recorta lo que sobresale. Abre con el cursor y con el foco, así
+    que en celular abre al tocarlo.
+  - El título de la línea dice qué incluye y qué pide.
+  - Entra en el total y en el orden porque cambia lo que paga el grupo, con la regla de cada cadena y para las dos
+    cadenas por igual. La neutralidad no cambia.
 - **Neutral entre cadenas** (decisión 2026-09-27): a diferencia del dashboard, aquí no se destaca a Cinemex. Los
   cines van todos en tinta, sin color por cadena, y un empate se resuelve por distancia y hora. El único rojo es la
   acción: el botón Buscar, los rótulos de los pasos y el punto de partida.
@@ -232,14 +247,15 @@ día; ve las funciones que le quedan cerca y caben.
 - **Compartir.** `?lat=…&lng=…` en la URL abre la página con ese punto de partida.
 - **Comprar** (2026-09-27). Cada función lleva "Comprar ↗" (`.rec__buy`, rojo porque es la acción) bajo la hora, en la
   tabla y en la ficha del cine. Abre en otra pestaña el sitio de la cadena con las plantillas de
-  `../scraper/config.py` (`BUY_URL`): Cinemex en la página del cine con la película y el día filtrados; Cinépolis en
-  el paso "Horario" con el cine y la película elegidos. No hay enlace a la función exacta. La Cineteca no lleva
+  `../scraper/config.py` (`BUY_URL`): Cinemex en la compra de la función; Cinépolis en el paso "Horario" con el cine
+  y la película elegidos. Con la app de la cadena instalada, el teléfono los abre en la app. La Cineteca no lleva
   enlace.
 - **Celular.** Debajo de 700 px cada función es una tarjeta con el cine y el total arriba (`.rec__c-*`).
 - **Sin pie en la búsqueda** (2026-09-28). La pantalla del mapa no lleva `FooterSection`: sin nada debajo, la página no
-  tiene a dónde desplazarse cuando iOS abre el teclado. El pie va solo en la pantalla de resultados. La barra se coloca
-  en el borde inferior de lo visible (`visualViewport.offsetTop + height`), medido contra el alto más grande visto,
-  porque iOS también achica `innerHeight` con el teclado.
+  tiene a dónde desplazarse cuando iOS abre el teclado. El pie va solo en la pantalla de resultados. Con el teclado, la
+  barra va al borde inferior de lo visible (`visualViewport.pageTop + height`) y no se anima: iOS reporta el alto varias
+  veces mientras sube el teclado. El teclado se mide contra el alto visible más grande, porque iOS también achica
+  `innerHeight`.
 
 - **Estructura: una pantalla por cosa** (2026-09-27, a pedido de David; fondo papel y reglas de `../DESIGN.md`: sin
   sombras, radio 8 px en tarjetas, píldora solo en controles). Nada se lee haciendo scroll por toda la página:

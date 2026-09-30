@@ -42,6 +42,23 @@ export type Row = {
   snacks_items: SnackItem[] | null;
   snack_reference: number | null;
   total: number | null;
+  promo: Promo | null;
+};
+
+/** La promoción del día de la función, para `people` personas (1 o 2). `price_max` solo si la cadena publica dos precios sin decir
+ *  cuál tiene el cine. `applied`: ya va en boletos, dulcería y `total`. `program` y `program_about`: el programa que
+ *  pide (Loop, Club Cinépolis) y qué es; null si no pide cuenta. */
+export type Promo = {
+  name: string;
+  kind: 'combo' | '2x1';
+  includes: string;
+  program: string | null;
+  program_about: string | null;
+  condition: string;
+  price: number;
+  price_max: number | null;
+  people: number;
+  applied: boolean;
 };
 
 /** Un punto del mapa: un edificio con funciones que caben (el complejo y su sala Platino o VIP juntos). */

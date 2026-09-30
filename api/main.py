@@ -41,6 +41,19 @@ class SnackItem(TypedDict):
     price: float
 
 
+class Promo(TypedDict):
+    name: str
+    kind: str
+    includes: str
+    program: str | None
+    program_about: str | None
+    condition: str
+    price: float
+    price_max: float | None
+    people: int
+    applied: bool
+
+
 class Show(TypedDict):
     chain: str
     show_id: str
@@ -59,6 +72,7 @@ class Show(TypedDict):
     snacks_items: list[SnackItem] | None
     snack_reference: float | None
     total: float | None
+    promo: Promo | None
 
 
 class Summary(TypedDict):
