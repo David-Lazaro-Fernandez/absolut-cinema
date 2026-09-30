@@ -184,6 +184,9 @@ def test_datos_each_dataset(monkeypatch, conn, viewer, dataset):
 def test_datos_filters_apply(monkeypatch, conn, viewer):
     at = _run(monkeypatch, cookie=_cookie(conn, viewer), page="datos")
     at.sidebar.selectbox(key="dataset").set_value("week_showtimes").run()
+    # `recorded_db` mueve la cartelera a mañana, que el miércoles ya es de la semana siguiente.
+    today = date.fromisoformat(analytics.today())
+    at.sidebar.date_input(key="dates").set_value((today, today + timedelta(days=1))).run()
     total = len(at.dataframe[0].value)
     at.sidebar.radio(key="chain").set_value("cinemex").run()
     _clean(at)
