@@ -2371,6 +2371,12 @@ button {
   text-decoration: underline;
 }
 
+/* Solo en taquilla: no es una acción, así que va en gris y no en rojo. */
+.rec__buy--box-office {
+  color: var(--gray);
+  font-weight: 400;
+}
+
 .rec__hint,
 .rec__source {
   font-size: 0.85rem;

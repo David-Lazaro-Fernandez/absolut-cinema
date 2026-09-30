@@ -155,6 +155,17 @@ def test_each_show_links_to_its_buy_page(conn):
                                     f"&movie={cinepolis['movie_id']}")
 
 
+def test_the_cinetecas_link_to_their_sale_or_say_box_office(capture_db):
+    conn = capture_db("cineteca_gdl", "cineteca_mty")
+    wide = dict(d0="2026-09-30", d1="2026-10-08", from_now=False, radius_km=1.0, limit=1)
+    ficg, = analytics.recommend(conn, 20.7366, -103.3811, **wide)
+    assert not ficg["box_office_only"]
+    assert ficg["buy_url"] == ("https://ticketing.useast.veezi.com/purchase/" + ficg["show_id"].split(":")[1]
+                               + "?siteToken=rj5c6tj546eqfqz3qz8raafy3w")
+    conarte, = analytics.recommend(conn, 25.6778, -100.2845, **wide)
+    assert conarte["box_office_only"] and conarte["buy_url"] is None and conarte["tickets_total"] == 160.0
+
+
 def test_a_building_is_one_site_with_every_show(conn):
     near = dict(d0=D0, d1=D1, from_now=False, radius_km=0.5)
     by_cinema = {}
@@ -241,6 +252,18 @@ def test_no_promo_in_presale_or_special_events():
     assert rec._promos(_MONDAY, {("cinemex", "1"): "2026-10-01"}) == []                          # antes del estreno
     assert _names({**_MONDAY, "distributor": "Fathom"}) == _names({**_MONDAY, "genre": "Documental|Concierto"}) == []
     assert _names({**_CINEPOLIS, "distributor": "+QueCine"}) == []
+
+
+def test_the_cinetecas_pay_their_public_fare():
+    tuesday = {"chain": "cineteca", "cinema_id": "003", "date": "2026-09-29", "program": "Estrenos"}
+    assert rec._public_fare({**tuesday, "date": "2026-10-01"}) == (70.0, 50.0, 50.0)
+    assert rec._public_fare(tuesday) == (50.0, 50.0, 50.0)
+    assert rec._public_fare({**tuesday, "program": "74 Muestra Internacional de Cine"}) == (70.0, 50.0, 50.0)
+    assert rec._public_fare({**tuesday, "program": None}) == (50.0, 50.0, 50.0)
+    assert rec._public_fare({**tuesday, "chain": "cineteca_gdl", "cinema_id": "ficg"}) == (60.0, 60.0, 40.0)
+    assert rec._public_fare({**tuesday, "chain": "cineteca_gdl", "cinema_id": "cineforo"}) == (50.0, 50.0, 35.0)
+    assert rec._public_fare({**tuesday, "chain": "cineteca_mty", "cinema_id": "centro-artes"}) == (80.0, 80.0, 50.0)
+    assert rec._public_fare({**tuesday, "chain": "cinemex", "cinema_id": "003"}) is None
 
 
 def test_cinemex_promos_follow_the_day_and_the_room():

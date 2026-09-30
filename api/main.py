@@ -67,6 +67,7 @@ class Show(TypedDict):
     format_bucket: str
     distance_km: float
     buy_url: str | None
+    box_office_only: bool
     tickets_total: float | None
     snacks_total: float | None
     snacks_items: list[SnackItem] | None

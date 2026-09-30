@@ -780,3 +780,6 @@ cinepolis,vip-city-center-leon,11,leon,polygon,0.0,City Center León
 cineteca,001,09,001,manual,,Cineteca Chapultepec
 cineteca,002,09,002,manual,,Cineteca de las Artes
 cineteca,003,09,003,manual,,Cineteca México
+cineteca_gdl,cineforo,14,cineforo,manual,,Cineforo UdeG
+cineteca_gdl,ficg,14,ficg,manual,,Cineteca FICG
+cineteca_mty,centro-artes,19,centro-artes,manual,,Cineteca Nuevo León

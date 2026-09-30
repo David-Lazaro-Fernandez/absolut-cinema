@@ -248,8 +248,10 @@ día; ve las funciones que le quedan cerca y caben.
 - **Comprar** (2026-09-27). Cada función lleva "Comprar ↗" (`.rec__buy`, rojo porque es la acción) bajo la hora, en la
   tabla y en la ficha del cine. Abre en otra pestaña el sitio de la cadena con las plantillas de
   `../scraper/config.py` (`BUY_URL`): Cinemex en la compra de la función; Cinépolis en el paso "Horario" con el cine
-  y la película elegidos. Con la app de la cadena instalada, el teléfono los abre en la app. La Cineteca no lleva
-  enlace.
+  y la película elegidos; la Cineteca Nacional en la selección de boletos de Vista; las salas de la FICG en la compra de
+  Veezi. Con la app de la cadena instalada, el teléfono los abre en la app. Un cine que solo vende en taquilla
+  (`box_office_only`, hoy la Cineteca Nuevo León) lleva en su lugar "Solo en taquilla" en gris (`.rec__buy--box-office`,
+  no es una acción) con el globo de `.rec__tip` que lo explica, el mismo de Loop y Club Cinépolis.
 - **Celular.** Debajo de 700 px cada función es una tarjeta con el cine y el total arriba (`.rec__c-*`).
 - **Sin pie en la búsqueda** (2026-09-28). La pantalla del mapa no lleva `FooterSection`: sin nada debajo, la página no
   tiene a dónde desplazarse cuando iOS abre el teclado. El pie va solo en la pantalla de resultados. Con el teclado, la

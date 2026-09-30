@@ -4,7 +4,9 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from scraper import normalize, states  # noqa: E402
+from datetime import date  # noqa: E402
+
+from scraper import cineteca_gdl, cineteca_mty, normalize, states  # noqa: E402
 
 
 def _cinepolis_raw(cinemas, city_id=None):
@@ -92,3 +94,22 @@ def test_cineteca_cinemas_are_the_three_cdmx_sedes():
     cinemas = normalize.cinemas("cineteca", _cineteca_raw())
     assert [c["cinema_id"] for c in cinemas] == ["001", "002", "003"]
     assert all(c["state_code"] == "09" and c["vista_id"] == c["cinema_id"] and c["timezone"] == "America/Mexico_City" for c in cinemas)
+
+
+def test_veezi_dates_take_the_year_of_their_weekday():
+    today = date(2026, 9, 30)
+    assert cineteca_gdl.show_date("Wednesday 30, September", today) == "2026-09-30"
+    assert cineteca_gdl.show_date("Wednesday 23, December", today) == "2026-12-23"
+    assert cineteca_gdl.show_date("Friday 1, January", today) == "2027-01-01"
+    assert cineteca_gdl.show_date("miércoles 30, septiembre", today) is None
+    assert cineteca_gdl.show_time("3:00 PM") == "15:00" and cineteca_gdl.show_time("12:15 AM") == "00:15"
+    assert cineteca_gdl.show_time("03:00 p. m.") is None
+
+
+def test_a_conarte_day_lists_each_film_with_its_times():
+    html = ('<input id="fecha" value="20261001"><ul><li><a class="max_wrap" href="https://conarte.org.mx/cineteca/smaragda/">'
+            '<div class="schedule"><p class="schedule_hours">15:45 h. 9:30 h.</p></div>'
+            '<div class="title"><h2><strong>FESTIVAL DE CINE EUROPEO: Smaragda</strong></h2></div></a></li></ul>')
+    assert cineteca_mty.parse_day(html) == [
+        {"slug": "smaragda", "title": "FESTIVAL DE CINE EUROPEO: Smaragda", "times": ["15:45", "09:30"]}]
+    assert cineteca_mty.parse_day('<div class="no-events"><h2>No hay películas en esta fecha.</h2></div>') == []
