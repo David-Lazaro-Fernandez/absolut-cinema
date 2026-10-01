@@ -151,13 +151,24 @@ class Options(TypedDict):
 async def _lifespan(app):
     # Cada búsqueda en curso ocupa ~13 MB; con 2 núcleos, más hilos solo suman memoria (docs/ec2-sizing.md).
     anyio.to_thread.current_default_thread_limiter().total_tokens = config.API_THREADS
+    global _commit
+    _commit = _started_commit()
     yield
+
+
+def _started_commit():
+    """Commit corto que anotó el ExecStartPre. None sin archivo (p. ej. con `make api`)."""
+    try:
+        return (config.DATA_DIR / "run" / "api.commit").read_text().strip()[:7] or None
+    except OSError:
+        return None
 
 
 app = FastAPI(title="Matiné API", version="1", docs_url="/docs", redoc_url=None, lifespan=_lifespan)
 _cache = OrderedDict()
 _cache_lock = threading.Lock()
 _hits = {}
+_commit = None
 
 
 @app.middleware("http")
@@ -214,11 +225,12 @@ def _days():
 
 @app.get("/salud")
 def health():
-    """200 con la hora de la última captura de cada cadena."""
-    return _read(("salud", int(time.time() // 60)), lambda conn: {
+    """200 con la hora de la última captura de cada cadena y el commit que corre la API (None si no se sabe)."""
+    return {**_read(("salud", int(time.time() // 60)), lambda conn: {
         "ok": True,
         "last_capture": {r["chain"]: r["taken_at"] for r in conn.execute(
-            "SELECT chain, MAX(taken_at) taken_at FROM snapshot WHERE ok = 1 GROUP BY chain ORDER BY chain")}})
+            "SELECT chain, MAX(taken_at) taken_at FROM snapshot WHERE ok = 1 GROUP BY chain ORDER BY chain")}}),
+        "commit": _commit}
 
 
 @app.get("/v1/a-donde-ir/opciones")
