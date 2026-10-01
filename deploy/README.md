@@ -90,7 +90,11 @@ Son dos piezas desacopladas:
    `stable` a ese commit; si algo falla, `stable` no se mueve y el commit queda en rojo en GitHub. La rama `stable` la
    mueve solo el workflow: no se toca a mano. Así el "último commit seguro" siempre es `origin/stable`.
 2. **El servidor decide cuándo** (`deploy/update.sh`, `make deploy`, `absolut-cinema-deploy.timer` a :02, :17, :32 y
-   :47). Hace `git fetch`; si `origin/stable` no se movió, sale en silencio. Si se movió, `git reset --hard` a ese commit
+   :47). Hace `git fetch`; si `origin/stable` no se movió, revisa que cada servicio corra el commit del disco: el
+   dashboard y la API anotan al arrancar su `git rev-parse HEAD` en `data/run/dashboard.commit` y `data/run/api.commit`
+   (`ExecStartPre`), y el que no coincide (o no tiene archivo) se reinicia solo, con una línea en `deploy.log`. Así un
+   `git pull` a mano en el servidor entra en menos de 15 min. Si todo coincide, sale en silencio. Si `origin/stable` se
+   movió, `git reset --hard` a ese commit
    como el usuario `absolut`, reinstala el venv si cambió algún `requirements-*.txt`, `deploy/units.sh` si cambió una
    unidad en `deploy/`, reinicia el dashboard y espera a que `/_stcore/health` responda. Escribe una línea en
    `data/logs/deploy.log` solo cuando despliega o falla, y sale con 1 si el dashboard no levanta (queda visible en
@@ -118,7 +122,7 @@ dominio (bloque `api.example.com` de `deploy/Caddyfile`). En un servidor ya inst
 despliegue continuo la reinicia con el dashboard y comprueba `/salud`.
 
 ```sh
-curl -s http://127.0.0.1:8000/salud                # última captura de cada cadena
+curl -s http://127.0.0.1:8000/salud                # última captura de cada cadena y commit que corre la API
 journalctl -u absolut-cinema-api -f                 # errores de la API
 ```
 

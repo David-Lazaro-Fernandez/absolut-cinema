@@ -7,6 +7,8 @@ User=absolut
 WorkingDirectory=/opt/absolut-cinema
 EnvironmentFile=-/etc/absolut-cinema.env
 # Un proceso: el límite por IP y la caché viven en memoria. Uvicorn toma la IP de X-Forwarded-For solo de 127.0.0.1 (Caddy).
+# Anota el commit de arranque para deploy/update.sh. Con `-`, un fallo no detiene el servicio.
+ExecStartPre=-/bin/sh -c 'mkdir -p "data/run" && git rev-parse HEAD > "data/run/api.commit"'
 ExecStart=/opt/absolut-cinema/.venv/bin/uvicorn api.main:app --host 127.0.0.1 --port 8000 --no-access-log
 # Con AC_API_THREADS=4 el pico medido es ~140 MB; si se pasa, el kernel mata a la API y no a otro servicio.
 MemoryMax=300M

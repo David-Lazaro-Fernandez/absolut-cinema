@@ -85,3 +85,19 @@ export function Pin() {
     </svg>
   );
 }
+
+export function Filter() {
+  return (
+    <svg {...base}>
+      <path d="M4 7h16M7 12h10M10 17h4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function Sort() {
+  return (
+    <svg {...base}>
+      <path d="M8 4v16M4.5 16.5 8 20l3.5-3.5M16 20V4M12.5 7.5 16 4l3.5 3.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}

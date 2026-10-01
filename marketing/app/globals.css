@@ -2176,6 +2176,53 @@ button {
   align-self: center;
 }
 
+.rec-tools {
+  display: flex;
+  gap: 4px;
+}
+
+.rec-tools__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  color: var(--gray);
+}
+
+.rec-tools__btn:hover,
+.rec-tools__btn.is-on {
+  background: var(--red-soft);
+  color: var(--ink);
+}
+
+.rec-tools__btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.rec-tools__sheet {
+  padding: 8px 14px;
+}
+
+.rec-tools__count {
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Dos filtros por renglón en celular. Un campo de texto no lleva flecha. */
+.rec-screen__filters .rec__field {
+  flex-basis: 120px;
+  min-width: 0;
+}
+
+.rec-screen__filters .rec__field input {
+  background-image: none;
+  padding-right: 16px;
+}
+
 /* La función más barata y la más cercana, arriba de la lista. */
 .rec-picks {
   display: grid;
@@ -2383,6 +2430,11 @@ button {
   color: var(--gray);
 }
 
+.rec__clear {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
 .rec__notice {
   font-size: 0.95rem;
   color: var(--ink);
@@ -2509,6 +2561,8 @@ button {
   font-size: 0.75rem;
   line-height: 1.4;
   text-align: left;
+  /* El globo hereda `nowrap` del enlace de compra. Esta regla lo anula. */
+  white-space: normal;
   transform: translate(-50%, calc(-100% - 6px));
   pointer-events: none;
 }
