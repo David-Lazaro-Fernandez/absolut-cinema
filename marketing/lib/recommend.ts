@@ -162,3 +162,86 @@ export function nowIn(timeZone = 'America/Mexico_City') {
   );
   return { date: `${parts.year}-${parts.month}-${parts.day}`, minutes: Number(parts.hour) * 60 + Number(parts.minute) };
 }
+
+// Filtros y orden de la lista de resultados. Corren en el navegador sobre las filas cargadas. No cambian el mapa.
+
+/** Franjas de la hora de inicio, en horas. La hora final no entra. */
+export const SLOT_HOURS: Record<string, [number, number]> = {
+  morning: [0, 12],
+  afternoon: [12, 18],
+  night: [18, 24],
+};
+export const SLOT_LABEL: Record<string, string> = {
+  morning: 'Antes de las 12 P.M.',
+  afternoon: 'De 12 a 6 P.M.',
+  night: 'Después de las 6 P.M.',
+};
+
+export type RowFilter = {
+  chain: string | null;
+  title: string;
+  maxPrice: number | null;
+  slot: string | null;
+  promo: boolean;
+};
+export const NO_FILTER: RowFilter = { chain: null, title: '', maxPrice: null, slot: null, promo: false };
+
+export type RowSort = 'chain' | 'title' | 'price' | 'time' | 'distance';
+/** Opciones del orden de la lista. Un `-` al inicio ordena de mayor a menor. */
+export const ROW_SORT_LABEL: Record<string, string> = {
+  distance: 'Más cerca',
+  '-distance': 'Más lejos',
+  price: 'Más barato',
+  '-price': 'Más caro',
+  time: 'Más pronto',
+  '-time': 'Más tarde',
+  title: 'Película A–Z',
+  '-title': 'Película Z–A',
+  chain: 'Cadena A–Z',
+  '-chain': 'Cadena Z–A',
+};
+
+const fold = (text: string) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+
+/** El precio que muestra la tabla. */
+export const rowPrice = (r: Row) => r.total ?? r.tickets_total;
+
+/** Las filas que pasan todos los filtros, en el mismo orden. Con tope de precio, una fila sin precio no pasa. */
+export function filterRows(rows: Row[], f: RowFilter) {
+  const title = fold(f.title);
+  const slot = f.slot ? SLOT_HOURS[f.slot] : null;
+  return rows.filter((r) => {
+    const price = rowPrice(r);
+    const hour = startMinutes(r) / 60;
+    return (
+      (!f.chain || r.chain === f.chain) &&
+      (!title || fold(r.title).includes(title)) &&
+      (f.maxPrice === null || (price !== null && price <= f.maxPrice)) &&
+      (!slot || (hour >= slot[0] && hour < slot[1])) &&
+      (!f.promo || r.promo !== null)
+    );
+  });
+}
+
+const SORT_VALUE: Record<RowSort, (r: Row) => string | number | null> = {
+  chain: (r) => r.chain,
+  title: (r) => fold(r.title),
+  price: rowPrice,
+  time: (r) => r.datetime_local,
+  distance: (r) => r.distance_km,
+};
+
+/** Ordena una copia de las filas con una clave de ROW_SORT_LABEL. Sin clave, devuelve las mismas filas.
+ *  Las filas sin valor van al final. Un empate conserva el orden de entrada. */
+export function sortRows(rows: Row[], option: string | null) {
+  if (!option) return rows;
+  const desc = option.startsWith('-');
+  const value = SORT_VALUE[option.replace('-', '') as RowSort];
+  return [...rows].sort((a, b) => {
+    const va = value(a);
+    const vb = value(b);
+    if (va === null || vb === null) return va === vb ? 0 : va === null ? 1 : -1;
+    const order = typeof va === 'number' ? va - (vb as number) : String(va).localeCompare(String(vb), 'es');
+    return desc ? -order : order;
+  });
+}

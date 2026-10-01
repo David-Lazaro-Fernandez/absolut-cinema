@@ -289,6 +289,7 @@ npm install     # una vez
 npm run dev     # http://localhost:3000
 npm run build   # genera marketing/out; falla si hay errores de tipos o de export estático
 node --experimental-strip-types --test lib/demo.test.mjs   # reglas del formulario de /request-demo/
+node --experimental-strip-types --test lib/recommend.test.mjs   # filtros y orden de la lista de /a-donde-ir/
 
 # Capturas con el Chrome instalado, a un viewport exacto (el flag --screenshot de Chrome no
 # respeta anchos menores a ~500 px ni espera a las animaciones):
@@ -296,7 +297,7 @@ node scripts/screenshot.mjs http://localhost:3000/ 1440 900 /tmp/hero.png
 node scripts/screenshot.mjs http://localhost:3000/ 390 844 /tmp/movil.png full
 ```
 
-No hay pruebas automatizadas del sitio; el cálculo de precios de `/a-donde-ir/` se prueba del lado de Python
+Los filtros y el orden de la lista de resultados corren en el navegador (`lib/recommend.ts`) y tienen su prueba. El cálculo de precios de `/a-donde-ir/` se prueba del lado de Python
 (`../tests/test_recommend.py`, incluido el formato del JSON). Para `/a-donde-ir/`, captura con un punto de partida:
 `node scripts/screenshot.mjs "http://localhost:3000/a-donde-ir/?lat=19.35&lng=-99.162" 1440 900 /tmp/rec.png full`
 (el script activa WebGL por software para que se dibuje el mapa). Antes de dar por bueno un cambio de copy
