@@ -163,6 +163,20 @@ export function nowIn(timeZone = 'America/Mexico_City') {
   return { date: `${parts.year}-${parts.month}-${parts.day}`, minutes: Number(parts.hour) * 60 + Number(parts.minute) };
 }
 
+export const clip = (text: string, max: number) => (text.length > max ? `${text.slice(0, max).trimEnd()}…` : text);
+
+// Algunos nombres del menú de dulcería traen espacios dobles o al final.
+const itemName = (i: SnackItem) => `${i.units > 1 ? `${i.units} × ` : ''}${i.name.replace(/\s+/g, ' ').trim()}`;
+
+/** El desglose completo. Ejemplo: "2 × Combo Clásico + Palomitas y refresco". */
+export const snackItemsText = (items: SnackItem[]) => items.map(itemName).join(' + ');
+
+/** El primer producto, recortado a `max` letras, y cuántos más hay. Ejemplo: "2 × Combo Clásico y 1 más". */
+export function snackItemsSummary(items: SnackItem[], max: number) {
+  const first = clip(itemName(items[0]), max);
+  return items.length > 1 ? `${first} y ${items.length - 1} más` : first;
+}
+
 // Filtros y orden de la lista de resultados. Corren en el navegador sobre las filas cargadas. No cambian el mapa.
 
 /** Franjas de la hora de inicio, en horas. La hora final no entra. */

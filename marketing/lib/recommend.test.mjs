@@ -1,7 +1,7 @@
 // node --experimental-strip-types --test lib/recommend.test.mjs
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { NO_FILTER, ROW_SORT_LABEL, filterRows, rowPrice, sortRows } from './recommend.ts';
+import { NO_FILTER, ROW_SORT_LABEL, filterRows, rowPrice, snackItemsSummary, snackItemsText, sortRows } from './recommend.ts';
 
 const promo = { name: 'Combo Lunes', kind: 'combo', includes: '', program: null, program_about: null, condition: '', price: 99, price_max: null, people: 2, applied: false };
 const row = (show_id, chain, title, time, total, tickets, km, withPromo = false) => ({
@@ -96,4 +96,17 @@ test('filter and sort keep the same row objects and do not change the input', ()
   assert.ok(out.every((r) => ROWS.includes(r)));
   assert.deepEqual(ROWS, before);
   assert.deepEqual(Object.keys(out[0]), Object.keys(before[0]));
+});
+
+const item = (name, units = 1) => ({ name, units, price: 0 });
+
+test('snack items text removes extra spaces in the menu names', () => {
+  assert.equal(snackItemsText([item('Crepa  en Pareja + Palomitas '), item(' Frappé agua', 2)]), 'Crepa en Pareja + Palomitas + 2 × Frappé agua');
+});
+
+test('snack items summary shows the first item, clipped, and how many more', () => {
+  assert.equal(snackItemsSummary([item('Combo Clásico')], 18), 'Combo Clásico');
+  assert.equal(snackItemsSummary([item('Combo Crepa Duo Frappe Leche'), item('Crepa'), item('Frappé agua')], 18), 'Combo Crepa Duo Fr… y 2 más');
+  assert.equal(snackItemsSummary([item('Combo Clásico', 2), item('Crepa')], 18), '2 × Combo Clásico y 1 más');
+  assert.equal(snackItemsSummary([item('Combo Bagui  Individual   Promo')], 100), 'Combo Bagui Individual Promo');
 });

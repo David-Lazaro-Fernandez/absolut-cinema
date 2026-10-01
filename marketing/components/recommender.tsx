@@ -18,7 +18,6 @@ import {
   type Row,
   type RowFilter,
   type Search,
-  type SnackItem,
   type Snacks,
   type Sort,
   FORMAT_LABEL,
@@ -28,9 +27,12 @@ import {
   SLOT_LABEL,
   SNACK_LABEL,
   SORT_LABEL,
+  clip,
   filterRows,
   nearestPlaza,
   nowIn,
+  snackItemsSummary,
+  snackItemsText,
   sortRows,
   startMinutes,
 } from '@/lib/recommend';
@@ -211,10 +213,7 @@ function Pick({ label, value, row, chain, today }: { label: string; value: strin
   );
 }
 
-// "2 × Combo Clásico + Palomitas y refresco": el desglose de la dulcería de una función.
 const ITEM_CHARS = 16;
-const itemsText = (items: SnackItem[], max = Infinity) =>
-  items.map((i) => `${i.units > 1 ? `${i.units} × ` : ''}${clip(i.name, max)}`).join(' + ');
 
 // La promoción del día: si ya va en el total, "incluye Combo Lunes"; si no, la alternativa para 2 con su precio.
 const promoPrice = (p: Promo) => (p.price_max ? `${money(p.price)} o ${money(p.price_max)}` : money(p.price));
@@ -320,7 +319,11 @@ function ShowsTable({
                   {withSnacks ? (
                     <>
                       {money(r.snacks_total!)}
-                      {r.snacks_items && r.snacks_items.length > 0 && <span className="rec__items" title={itemsText(r.snacks_items)}>{itemsText(r.snacks_items, ITEM_CHARS)}</span>}
+                      {r.snacks_items && r.snacks_items.length > 0 && (
+                        <span className="rec__items">
+                          <Tip label={snackItemsSummary(r.snacks_items, ITEM_CHARS)} about={snackItemsText(r.snacks_items)} />
+                        </span>
+                      )}
                     </>
                   ) : r.snack_reference !== null
                       ? <span className="rec__ref" title="Palomitas y refresco para una persona, como referencia">ref. {money(r.snack_reference)}</span>
@@ -392,7 +395,6 @@ function usePhone() {
 
 // En celular la barra deja poco ancho al campo de dirección: su texto guía se corta en 26 caracteres.
 const PHONE_HINT_CHARS = 26;
-const clip = (text: string, max: number) => (text.length > max ? `${text.slice(0, max).trimEnd()}…` : text);
 
 export function Recommender() {
   const [start, setStart] = useState<Point | null>(null);
