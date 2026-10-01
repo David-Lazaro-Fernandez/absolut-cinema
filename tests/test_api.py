@@ -101,6 +101,16 @@ def test_the_api_computes_only_a_few_searches_at_a_time(monkeypatch):
         assert started.portal.call(lambda: anyio.to_thread.current_default_thread_limiter().total_tokens) == 3
 
 
+def test_health_shows_the_commit_the_api_started_with(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "DATA_DIR", tmp_path)
+    with TestClient(main.app) as started:
+        assert started.get("/salud").json()["commit"] is None
+    (tmp_path / "run").mkdir()
+    (tmp_path / "run" / "api.commit").write_text("35d4437a1b2c3d4e5f60718293a4b5c6d7e8f901\n")
+    with TestClient(main.app) as started:
+        assert started.get("/salud").json()["commit"] == "35d4437"
+
+
 def test_responses_are_compressed(client):
     res = client.get("/v1/a-donde-ir/opciones", headers={"Accept-Encoding": "gzip"})
     assert res.status_code == 200 and res.headers["content-encoding"] == "gzip"

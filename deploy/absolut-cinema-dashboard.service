@@ -7,6 +7,8 @@ User=absolut
 WorkingDirectory=/opt/absolut-cinema
 EnvironmentFile=-/etc/absolut-cinema.env
 Environment=STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+# Anota el commit de arranque para deploy/update.sh. Con `-`, un fallo no detiene el servicio.
+ExecStartPre=-/bin/sh -c 'mkdir -p "data/run" && git rev-parse HEAD > "data/run/dashboard.commit"'
 ExecStart=/opt/absolut-cinema/.venv/bin/streamlit run app.py \
   --server.address 127.0.0.1 --server.port 8501 --server.headless true \
   --server.enableCORS false --server.enableXsrfProtection true
