@@ -2561,7 +2561,7 @@ button {
   font-size: 0.75rem;
   line-height: 1.4;
   text-align: left;
-  /* El enlace de compra y las columnas numéricas no parten el texto. El globo sí. */
+  /* El globo hereda `nowrap` del enlace de compra. Esta regla lo anula. */
   white-space: normal;
   transform: translate(-50%, calc(-100% - 6px));
   pointer-events: none;
