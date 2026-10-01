@@ -203,10 +203,9 @@ export const ROW_SORT_LABEL: Record<string, string> = {
 
 const fold = (text: string) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 
-/** El precio que muestra la tabla. */
 export const rowPrice = (r: Row) => r.total ?? r.tickets_total;
 
-/** Las filas que pasan todos los filtros, en el mismo orden. Con tope de precio, una fila sin precio no pasa. */
+/** Con tope de precio, una fila sin precio no pasa. */
 export function filterRows(rows: Row[], f: RowFilter) {
   const title = fold(f.title);
   const slot = f.slot ? SLOT_HOURS[f.slot] : null;
