@@ -9,23 +9,29 @@ import { preconnect } from 'react-dom';
 import { API_URL, searchParams, useApi } from '@/lib/api';
 import { type PlacesFile, buildIndex, makePlace, plain, searchPlaces } from '@/lib/places';
 import { FooterSection } from '@/components/footer-section';
-import { Calendar, Close, Locate, People, Pin, Popcorn, Send, Sliders, Wallet } from '@/components/rec-icons';
+import { Calendar, Close, Filter, Locate, People, Pin, Popcorn, Send, Sliders, Sort as SortIcon, Wallet } from '@/components/rec-icons';
 import {
   type Combo,
   type Options,
   type Promo,
   type Query,
   type Row,
+  type RowFilter,
   type Search,
   type SnackItem,
   type Snacks,
   type Sort,
   FORMAT_LABEL,
   LANGUAGE_LABEL,
+  NO_FILTER,
+  ROW_SORT_LABEL,
+  SLOT_LABEL,
   SNACK_LABEL,
   SORT_LABEL,
+  filterRows,
   nearestPlaza,
   nowIn,
+  sortRows,
   startMinutes,
 } from '@/lib/recommend';
 
@@ -332,6 +338,8 @@ function ShowsTable({
 }
 
 type RowId = 'group' | 'snacks' | 'when' | 'budget' | 'more';
+type Tool = 'filter' | 'sort';
+const TOOL_LABEL: Record<Tool, string> = { filter: 'Filtrar', sort: 'Ordenar' };
 type Tab = 'complete' | 'snacks_unpriced' | 'unpriced';
 const PAGE = 20; // funciones por página en la pantalla de resultados
 
@@ -416,6 +424,10 @@ export function Recommender() {
   const [tab, setTab] = useState<Tab>('complete');
   const [shown, setShown] = useState(PAGE);
   const [plazaIndex, setPlazaIndex] = useState(0);
+  const [rowFilter, setRowFilter] = useState<RowFilter>(NO_FILTER);
+  const [sortOption, setSortOption] = useState<string | null>(null);
+  const [tool, setTool] = useState<Tool>('filter');
+  const [toolOpen, setToolOpen] = useState(false);
   const menuBox = useRef<HTMLDivElement>(null);
   const phone = usePhone();
   // Cada minuto: con la página abierta, una función que ya empezó sale de los resultados.
@@ -451,6 +463,13 @@ export function Recommender() {
       document.removeEventListener('keydown', escape);
     };
   }, [menu, phone]);
+
+  useEffect(() => {
+    if (!toolOpen) return;
+    const escape = (e: KeyboardEvent) => e.key === 'Escape' && setToolOpen(false);
+    document.addEventListener('keydown', escape);
+    return () => document.removeEventListener('keydown', escape);
+  }, [toolOpen]);
 
   useEffect(() => {
     window.scrollTo({ top: 0 });
@@ -700,7 +719,90 @@ export function Recommender() {
   const nearest = result?.summary.nearest;
 
   if (view === 'results' && ready && result) {
-    const rows = lists[tab];
+    const loaded = lists[tab];
+    const rows = sortRows(filterRows(loaded, rowFilter), sortOption);
+    const loadedChains = [...new Set(loaded.map((r) => r.chain))];
+    const filtered = rows.length < loaded.length;
+    const activeFilters = [rowFilter.chain, rowFilter.title.trim(), rowFilter.maxPrice !== null, rowFilter.slot, rowFilter.promo].filter(Boolean).length;
+    const toolPanel =
+      tool === 'filter' ? (
+        <div className="rec__row rec-screen__filters" role="group" aria-label="Filtrar la lista">
+          <label className="rec__field">
+            <span className="rec__label">Cadena</span>
+            <select value={rowFilter.chain ?? ''} onChange={(e) => refine({ chain: e.target.value || null })}>
+              <option value="">Todas</option>
+              {loadedChains.map((c) => (
+                <option key={c} value={c}>
+                  {chains[c] ?? c}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="rec__field">
+            <span className="rec__label">Película</span>
+            <input type="search" value={rowFilter.title} onChange={(e) => refine({ title: e.target.value })} placeholder="Nombre" />
+          </label>
+          <label className="rec__field">
+            <span className="rec__label">Precio máximo</span>
+            <input
+              inputMode="numeric"
+              value={rowFilter.maxPrice ?? ''}
+              onChange={(e) => {
+                const digits = e.target.value.replace(/[^\d]/g, '');
+                refine({ maxPrice: digits ? Number(digits) : null });
+              }}
+              placeholder="Sin tope"
+            />
+          </label>
+          <label className="rec__field">
+            <span className="rec__label">Hora</span>
+            <select value={rowFilter.slot ?? ''} onChange={(e) => refine({ slot: e.target.value || null })}>
+              <option value="">Todas</option>
+              {Object.entries(SLOT_LABEL).map(([k, label]) => (
+                <option key={k} value={k}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="rec__field">
+            <span className="rec__label">Promoción</span>
+            <select value={rowFilter.promo ? 'yes' : ''} onChange={(e) => refine({ promo: e.target.value === 'yes' })}>
+              <option value="">Todas</option>
+              <option value="yes">Con promoción</option>
+            </select>
+          </label>
+        </div>
+      ) : (
+        <div className="rec__chips" role="radiogroup" aria-label="Ordenar la lista">
+          {Object.entries(ROW_SORT_LABEL).map(([k, label]) => {
+            const on = (sortOption ?? sort) === k;
+            return (
+              <button
+                key={k}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                className={`rec__chip ${on ? 'is-on' : ''}`}
+                onClick={() => {
+                  setSortOption(k);
+                  setShown(PAGE);
+                }}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      );
+    const toggleTool = (t: Tool) => {
+      setToolOpen(!(toolOpen && tool === t));
+      setTool(t);
+    };
+    const refine = (patch: Partial<RowFilter>) => {
+      setRowFilter((f) => ({ ...f, ...patch }));
+      setShown(PAGE);
+    };
     return (
       <>
       <section className="rec-screen">
@@ -766,6 +868,41 @@ export function Recommender() {
           </p>
         )}
         {tab === 'unpriced' && <p className="rec__hint">No hay precio de lista de su cine para ese formato y día; por eso no entran al presupuesto.</p>}
+
+        {loaded.length > 0 && (
+          <div className="rec-tools">
+            <button type="button" className={`rec-tools__btn ${toolOpen && tool === 'filter' ? 'is-on' : ''}`} aria-expanded={toolOpen && tool === 'filter'} onClick={() => toggleTool('filter')}>
+              <Filter />
+              Filtrar
+              {activeFilters > 0 && <span className="rec-tools__count">{activeFilters}</span>}
+            </button>
+            <button type="button" className={`rec-tools__btn ${toolOpen && tool === 'sort' ? 'is-on' : ''}`} aria-expanded={toolOpen && tool === 'sort'} onClick={() => toggleTool('sort')}>
+              <SortIcon />
+              Ordenar
+            </button>
+          </div>
+        )}
+        {loaded.length > 0 &&
+          (phone ? (
+            <>
+              <div className={`rec-menu__scrim ${toolOpen ? 'is-open' : ''}`} aria-hidden="true" onClick={() => setToolOpen(false)} />
+              <div className={`rec-menu rec-menu--sheet ${toolOpen ? 'is-open' : ''}`} role="dialog" aria-modal aria-label={TOOL_LABEL[tool]} inert={!toolOpen}>
+                <span className="rec-menu__handle" aria-hidden="true" />
+                <p className="rec-menu__title" aria-hidden="true">{TOOL_LABEL[tool]}</p>
+                <div className="rec-menu__inner rec-tools__sheet">{toolPanel}</div>
+              </div>
+            </>
+          ) : (
+            toolOpen && toolPanel
+          ))}
+        {filtered && (
+          <p className="rec__hint">
+            {rows.length.toLocaleString('es-MX')} de {loaded.length.toLocaleString('es-MX')} funciones de la lista pasan los filtros.{' '}
+            <button type="button" className="rec__clear" onClick={() => refine(NO_FILTER)}>
+              Quitar filtros
+            </button>
+          </p>
+        )}
 
         {rows.length > 0 && (
           <ShowsTable rows={rows.slice(0, shown)} withSnacks={withSnacks} today={now.date} chains={chains} partial={tab !== 'complete'} />
