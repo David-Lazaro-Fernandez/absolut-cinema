@@ -2708,9 +2708,15 @@ button {
     display: none;
   }
 
+  /* Una tabla no baja de su ancho mínimo. En celular se sale de la pantalla. */
+  .rec__table,
+  .rec__table tbody {
+    display: block;
+  }
+
   .rec__table tr {
     display: grid;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
       'cinema total'
       'title title'
@@ -2724,9 +2730,11 @@ button {
   }
 
   .rec__table td {
+    min-width: 0;
     border: 0;
     padding: 0;
     text-align: left;
+    overflow-wrap: anywhere;
   }
 
   .rec__table .num {
@@ -2749,7 +2757,9 @@ button {
   .rec__c-tickets,
   .rec__c-snacks { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); font-size: 0.85rem; color: var(--gray); }
   .rec__c-tickets { grid-area: tickets; }
-  .rec__c-snacks { grid-area: snacks; text-align: right !important; }
+  /* Sin tope, el texto de la dulcería saca la tarjeta de la pantalla. */
+  .rec__c-snacks { grid-area: snacks; text-align: right !important; max-width: 50vw; }
+  .rec__c-snacks .rec__items { overflow: hidden; text-overflow: ellipsis; }
   .rec__c-snacks .rec__ref { display: inline; }
 
   .rec__c-tickets::before,
