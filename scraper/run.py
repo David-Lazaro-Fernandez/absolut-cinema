@@ -10,6 +10,7 @@ escriben en serie: la base tiene un solo escritor y la escritura de una captura 
 por unidades que fallan por separado (`scraper/units.py`); una unidad fallida conserva el estado anterior de sus cines.
 """
 import argparse
+import functools
 import sys
 import time
 import traceback
@@ -17,14 +18,34 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
-from . import cinemex, cinepolis, cineteca, cineteca_gdl, cineteca_mty, config, diff, normalize, store
+from . import (
+    cabanas,
+    cinemania,
+    cinemex,
+    cinepolis,
+    cineteca,
+    cineteca_gdl,
+    cineteca_mty,
+    config,
+    diff,
+    epic,
+    lumos,
+    normalize,
+    papalote_mty,
+    raly,
+    store,
+    tonala,
+)
 from .http import AuthError, Blocked
 
 SNAPSHOTTERS = {"cinepolis": cinepolis.snapshot, "cinemex": cinemex.snapshot, "cineteca": cineteca.snapshot,
-                "cineteca_gdl": cineteca_gdl.snapshot, "cineteca_mty": cineteca_mty.snapshot}
+                "cineteca_gdl": cineteca_gdl.snapshot, "cineteca_mty": cineteca_mty.snapshot,
+                "wtc": functools.partial(lumos.snapshot, "wtc"), "cinery": functools.partial(lumos.snapshot, "cinery"),
+                "epic": epic.snapshot, "raly": raly.snapshot, "cabanas": cabanas.snapshot,
+                "papalote_mty": papalote_mty.snapshot, "tonala": tonala.snapshot, "cinemania": cinemania.snapshot}
 # Cómo se llama la unidad de captura de cada cadena, solo para el log.
 UNIT_NAME = {"cinepolis": "cities", "cinemex": "states", "cineteca": "days", "cineteca_gdl": "sedes",
-             "cineteca_mty": "days"}
+             "cineteca_mty": "days", "wtc": "sedes", "cinery": "sedes", "epic": "sedes", "raly": "sedes", "cabanas": "sedes", "papalote_mty": "sedes", "tonala": "sedes", "cinemania": "sedes"}
 
 
 def log(msg):
@@ -49,7 +70,7 @@ def _units(chain, raw):
         return len(raw.get("city_ids") or [])
     if chain in ("cineteca", "cineteca_mty"):
         return len(raw.get("dates") or [])
-    if chain == "cineteca_gdl":
+    if chain in ("cineteca_gdl", "wtc", "cinery", "epic", "raly", "cabanas", "papalote_mty", "tonala", "cinemania"):
         return len(raw.get("units") or [])
     return len(raw.get("state_ids") or [])
 

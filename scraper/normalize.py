@@ -2,18 +2,19 @@
 de cines. Acepta las dos formas de crudo: la nacional (Cinemex por estado, Cinépolis con `cityId` por cine) y la del
 piloto CDMX (Cinemex por área, Cinépolis con `city_id` a nivel captura), porque el archivo se reconstruye desde
 los crudos viejos."""
+import json
 import re
 import unicodedata
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
-from . import cineteca_gdl, cineteca_mty, config, states
+from . import cabanas, cinemania, cineteca_gdl, cineteca_mty, config, epic, lumos, papalote_mty, raly, states
 
 COLUMNS = [
     "chain", "show_id", "cinema_id", "cinema_name", "lat", "lng", "city_id", "state_id", "state_code",
     "movie_id", "movie_title", "title_norm", "genre", "rating", "duration_min", "distributor",
     "date", "datetime_local", "datetime_utc", "screen", "language", "language_raw",
-    "format", "experience", "premium_tier", "version_raw", "availability", "program",
+    "format", "experience", "premium_tier", "version_raw", "availability", "program", "fare_json",
 ]
 # Columnas de la dimensión de cines (tabla `cinema`): la llave geográfica más fina de cada API (`city_id`: Cinépolis
 # slug de ciudad, Cinemex id de área), el estado de Cinemex (su agrupación de API), el estado de INEGI de ambas
@@ -393,16 +394,180 @@ def cineteca_mty_rows(raw):
                 }
 
 
+def _sede_cinemas(chain, raw):
+    """Los cines de un crudo con sedes fijas (`raw["sedes"]`). La sede es `cinema_id` y `city_id`."""
+    for code, s in sorted((raw.get("sedes") or {}).items()):
+        yield {"chain": chain, "cinema_id": code, "name": s.get("name"), "lat": s.get("lat"), "lng": s.get("lng"),
+               "city_id": code, "state_id": None, "state_code": states.state_code(chain, code, code),
+               "timezone": config.PILOT_TIMEZONE, "vista_id": None}
+
+
+def _indep_row(place, *, show_id, movie_id, title, date, hour, **fields):
+    """La fila de una función de un cine independiente. `fields` da lo que trae la fuente; el resto queda vacío."""
+    local = f"{date}T{hour}:00" if date and hour else None
+    return {"chain": place["chain"], "show_id": show_id, "cinema_id": place["cinema_id"], "cinema_name": place["name"],
+            "lat": place["lat"], "lng": place["lng"], "city_id": place["city_id"], "state_id": None,
+            "state_code": place["state_code"], "movie_id": movie_id, "movie_title": title, "title_norm": norm_title(title),
+            "genre": None, "rating": None, "duration_min": None, "distributor": None, "date": date,
+            "datetime_local": local, "datetime_utc": _utc(local, config.PILOT_TIMEZONE), "screen": None,
+            "language": cineteca_language(title), "language_raw": None, "format": "2D", "experience": None,
+            "premium_tier": "traditional", "version_raw": None, "availability": None, "program": None, **fields}
+
+
+def lumos_cinemas(raw):
+    return _sede_cinemas(raw["chain"], raw)
+
+
+def lumos_rows(raw):
+    place = next(iter(lumos_cinemas(raw)), None)
+    for day in raw.get("days") or []:
+        related = day.get("relatedData") or {}
+        films = {f["id"]: f for f in related.get("films") or []}
+        screens = {s["id"]: s["name"]["text"] for s in related.get("screens") or []}
+        attributes = {a["id"]: a["name"]["text"] for a in related.get("attributes") or []}
+        ratings = {r["id"]: r["classification"]["text"] for r in related.get("censorRatings") or []}
+        for show in day.get("showtimes") or []:
+            film, screen = films.get(show["filmId"], {}), screens.get(show["screenId"])
+            starts = show["schedule"]["startsAt"]
+            title, suffix_language = lumos.split_title((film.get("title") or {}).get("text"))
+            language = lumos.attribute_language([attributes.get(a, "") for a in show.get("attributeIds") or []])
+            yield _indep_row(
+                place, show_id=show["id"], movie_id=show["filmId"], title=title,
+                language=language or suffix_language or "other", date=starts[:10], hour=starts[11:16],
+                rating=ratings.get(film.get("censorRatingId")), duration_min=film.get("runtimeInMinutes"),
+                screen=screen, format="3D" if show.get("requires3dGlasses") else "2D",
+                premium_tier="vip" if lumos.is_vip(screen) else "traditional",
+                fare_json=lumos.fare((raw.get("prices") or {}).get(
+                    lumos.price_key(show["schedule"]["businessDate"], show, screen))))
+
+
+def epic_cinemas(raw):
+    return _sede_cinemas("epic", raw)
+
+
+def epic_rows(raw):
+    place = next(iter(epic_cinemas(raw)), None)
+    films = {f["ScheduledFilmId"]: f for f in raw.get("films") or []}
+    for s in raw.get("sessions") or []:
+        film = films.get(s["ScheduledFilmId"], {})
+        yield _indep_row(
+            place, show_id=f"{s['CinemaId']}:{s['SessionId']}", movie_id=s["ScheduledFilmId"],
+            title=epic.title(film.get("Title")), date=s["Showtime"][:10], hour=s["Showtime"][11:16],
+            rating=film.get("Rating"), duration_min=int(film["RunTime"]) if film.get("RunTime") else None,
+            screen=s.get("ScreenName"), fare_json=epic.fare((raw.get("prices") or {}).get(epic.price_key(s))))
+
+
+def raly_cinemas(raw):
+    return _sede_cinemas("raly", raw)
+
+
+def raly_rows(raw):
+    place = next(iter(raly_cinemas(raw)), None)
+    for film in raly.parse(raw.get("html") or ""):
+        title, label = " ".join(film["title"].split()), film["label"].upper()
+        slug = norm_title(title).replace(" ", "-")
+        language = "subtitled" if "SUBTITULADA" in label else "spanish" if "DOBLADA" in label else "other"
+        for date in raw.get("dates") or []:
+            for text, half in film["times"]:
+                hour = raly.hour(text, half)
+                # La página no da id de función. La identidad es película, día y hora.
+                yield _indep_row(place, show_id=f"{slug}:{date}T{hour}", movie_id=slug, title=title, date=date,
+                                 hour=hour, language=language)
+
+
+def cabanas_cinemas(raw):
+    return _sede_cinemas("cabanas", raw)
+
+
+def cabanas_rows(raw):
+    place = next(iter(cabanas_cinemas(raw)), None)
+    today = datetime.fromisoformat(raw["taken_at"]).astimezone(ZoneInfo(config.PILOT_TIMEZONE)).date()
+    for card in cabanas.parse(raw.get("html") or ""):
+        # "Tus dos muertos | Estreno": lo que sigue a la barra no es parte del título.
+        title, cents = card["title"].partition(" | ")[0], cabanas.price_cents(card["text"])
+        fare = json.dumps({"general_cents": cents, "tickets": []}) if cents is not None else None
+        for date, hour in cabanas.shows(card["text"], today):
+            # La página no da id de función. La identidad es la tarjeta, el día y la hora.
+            yield _indep_row(place, show_id=f"{card['slug']}:{date}T{hour}", movie_id=card["slug"], title=title,
+                             date=date, hour=hour, fare_json=fare)
+
+
+def papalote_mty_cinemas(raw):
+    return _sede_cinemas("papalote_mty", raw)
+
+
+def papalote_mty_rows(raw):
+    place = next(iter(papalote_mty_cinemas(raw)), None)
+    # Un plan de una película toma el título de su ficha. Un plan compartido lo toma de cada boleto.
+    film_title = {}
+    for film in raw.get("films") or []:
+        for plan in film["plans"]:
+            film_title[plan] = film["title"] if plan not in film_title else None
+    for plan, pages in sorted((raw.get("sessions") or {}).items()):
+        shows = {}
+        for t in papalote_mty.tickets(pages):
+            title = papalote_mty.label_title(t["label"]) or film_title.get(plan)
+            shows.setdefault((t["starts_at"], title), []).append(t)
+        for (starts, title), group in sorted(shows.items(), key=lambda kv: (kv[0][0], kv[0][1] or "")):
+            # Los documentales venden un boleto general y uno "Familiar". El general da la identidad y el precio. Su
+            # precio incluye la entrada al museo.
+            general = next((t for t in group if "familiar" not in t["label"].lower()), group[0])
+            others = [{"name": t["label"], "cents": round(t["price"] * 100)} for t in group if t is not general]
+            yield _indep_row(
+                place, show_id=f"{plan}:{general['id']}", movie_id=plan, title=title, date=starts[:10],
+                hour=starts[11:16], language=papalote_mty.label_language(general["label"]),
+                format="3D" if "3D" in (title or "") else "2D", experience="imax",
+                fare_json=json.dumps({"general_cents": round(general["price"] * 100), "tickets": others}))
+
+
+def tonala_cinemas(raw):
+    return _sede_cinemas("tonala", raw)
+
+
+def tonala_rows(raw):
+    place = next(iter(tonala_cinemas(raw)), None)
+    for url, ev in sorted((raw.get("events") or {}).items()):
+        for show in ev.get("entertainments") or []:
+            starts = show.get("celebrationDate") or ""
+            yield _indep_row(place, show_id=f"{url}:{show['id']}", movie_id=url, title=" ".join((ev.get("name") or "").split()),
+                             date=starts[:10] or None, hour=starts[11:16] or None)
+
+
+def cinemania_cinemas(raw):
+    return _sede_cinemas("cinemania", raw)
+
+
+def cinemania_rows(raw):
+    place = next(iter(cinemania_cinemas(raw)), None)
+    today = datetime.fromisoformat(raw["taken_at"]).astimezone(ZoneInfo(config.PILOT_TIMEZONE)).date()
+    for day in raw.get("days") or []:
+        page = cinemania.parse_day(day.get("html") or "")
+        date = cinemania.tab_date(page.dates.get(day["dia"]), today)
+        for film in page.films:
+            title = " ".join(film["title"].split())
+            rating, genre, minutes = cinemania.meta(" ".join(film["meta"].split()))
+            slug = film["slug"] or norm_title(title).replace(" ", "-")
+            for hour in film["times"]:
+                # La página no da id de función. La identidad es película, día y hora.
+                yield _indep_row(place, show_id=f"{slug}:{date}T{hour}", movie_id=film["slug"], title=title,
+                                 date=date, hour=hour, rating=rating, genre=genre, duration_min=minutes)
+
+
 _ROWS = {"cinepolis": cinepolis_rows, "cinemex": cinemex_rows, "cineteca": cineteca_rows, "cineteca_gdl": cineteca_gdl_rows,
-         "cineteca_mty": cineteca_mty_rows}
+         "cineteca_mty": cineteca_mty_rows, "wtc": lumos_rows, "cinery": lumos_rows, "epic": epic_rows, "raly": raly_rows, "cabanas": cabanas_rows,
+         "papalote_mty": papalote_mty_rows, "tonala": tonala_rows,
+         "cinemania": cinemania_rows}
 _CINEMAS = {"cinepolis": cinepolis_cinemas, "cinemex": cinemex_cinemas, "cineteca": cineteca_cinemas,
-            "cineteca_gdl": cineteca_gdl_cinemas, "cineteca_mty": cineteca_mty_cinemas}
+            "cineteca_gdl": cineteca_gdl_cinemas, "cineteca_mty": cineteca_mty_cinemas, "wtc": lumos_cinemas, "cinery": lumos_cinemas, "epic": epic_cinemas, "raly": raly_cinemas, "cabanas": cabanas_cinemas,
+            "papalote_mty": papalote_mty_cinemas, "tonala": tonala_cinemas,
+            "cinemania": cinemania_cinemas}
 
 
 def rows(chain, raw):
     seen = {}
     for r in _ROWS[chain](raw):
-        seen.setdefault(r["show_id"], r)   # una fila por función aunque aparezca dos veces
+        # Una fila por función. Solo unas cadenas traen `fare_json`.
+        seen.setdefault(r["show_id"], {"fare_json": None, **r})
     return list(seen.values())
 
 

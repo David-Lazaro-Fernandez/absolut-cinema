@@ -109,7 +109,7 @@ línea por corrida en `data/logs/jobs.jsonl` con la duración, el resultado y el
 <!-- jobs:begin -->
 | Llave (`make job KEY=…`) | Área | Qué hace | Cuándo (CDMX) | Tope | Dónde | Escribe |
 | --- | --- | --- | --- | --- | --- | --- |
-| `snapshot` | captura | Captura de cartelera: nacional de ambas cadenas más las cinetecas de CDMX, Guadalajara y Monterrey (descarga en paralelo, 15–30 min) | 07:30, 13:30, 20:30 | 45 min | servidor y Mac | `snapshot`, `snapshot_unit`, `cinema`, `current_showtime`, `event`, `data/raw` |
+| `snapshot` | captura | Captura de cartelera: nacional de ambas cadenas más las cinetecas de CDMX, Guadalajara y Monterrey y los cines independientes de la demo (descarga en paralelo, 15–30 min) | 07:30, 13:30, 20:30 | 45 min | servidor y Mac | `snapshot`, `snapshot_unit`, `cinema`, `current_showtime`, `event`, `data/raw` |
 | `seats` | captura | Planos de asientos de las tres cadenas 15–75 min tras el inicio (asistencia final), plazas de AC_SEATS_PLAZAS | cada hora a :50 | 30 min | servidor y Mac | `occupancy_sample` |
 | `prices` | captura | Precios de boleto por cine, formato y tipo de día, y menú de dulcería de Cinépolis | 06:07 | 60 min | servidor y Mac | `price_sample`, `concession_price` |
 | `delivery` | captura | Dulcería a domicilio de ambas cadenas en Rappi y DiDi Food (las tiendas abren a las 13:00) | 15:07 | 60 min | servidor y Mac | `delivery_price` |

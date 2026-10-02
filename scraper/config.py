@@ -99,6 +99,28 @@ VEEZI_SITE_TOKENS = {"ficg": "rj5c6tj546eqfqz3qz8raafy3w", "cineforo": "9snypp1n
 # Cartelera por día en la página de WordPress de CONARTE (`?fecha=AAAAMMDD`); los días a pedir son CINETECA_DAYS_AHEAD.
 CINETECA_MTY_URL = os.environ.get("CINETECA_MTY_URL", "https://conarte.org.mx/cineteca/")
 
+# --- Cines independientes de la demo ¿A dónde ir? (ver project.md; verificado 2026-10-02) ---
+# Cines con la web Lumos de Vista (Cinemas WTC y Cinery): la API OCAPI de cada uno y la página que trae el token.
+LUMOS = {"wtc": {"site_url": "https://www.cinemaswtc.com/sites/Cinemas-WTC/01",
+                 "api_url": "https://digital-api.cinemaswtc.com/ocapi/v1"},
+         "cinery": {"site_url": "https://web.cinery.com/", "api_url": "https://digital-api.cinery.com/ocapi/v1"}}
+# Papalote Monterrey: la cartelera enlaza los planes de Fever. Fever da las funciones y el precio del lugar
+# `FEVER_PLACE_ID` (el museo).
+PAPALOTE_MTY_URL = os.environ.get("PAPALOTE_MTY_URL", "https://papalotemty.org.mx/cartelera/")
+FEVER_API_URL = os.environ.get("FEVER_API_URL", "https://feverup.com/api/4.2")
+FEVER_PLACE_ID = 27749
+# Cine Tonalá: su taquilla en Red Access. La portada lista los eventos; cada evento trae sus funciones.
+TONALA_URL = os.environ.get("TONALA_URL", "https://cinetonalaromasur.ordenaboletos.com.mx")
+# Epic Cinemas: el Connect API de Vista. El token es el público de su web (`connectapitoken`).
+EPIC_VISTA_URL = os.environ.get("EPIC_VISTA_URL", "https://www.epiccinemas.mx/WSVistaWebClient")
+EPIC_CONNECT_TOKEN = os.environ.get("EPIC_CONNECT_TOKEN", "108b909dbd1844888fe66f209519033d")
+# Cinemas Raly: un solo horario semanal en WordPress.
+RALY_URL = os.environ.get("RALY_URL", "https://cinemasraly.com/horarios/")
+# Cine Cabañas: la página de cine del Museo Cabañas, con fechas escritas a mano.
+CABANAS_URL = os.environ.get("CABANAS_URL", "https://museocabanas.jalisco.gob.mx/cine/")
+# Cinemanía: una página por día de la semana de cine (`?dia=jueves`…).
+CINEMANIA_URL = os.environ.get("CINEMANIA_URL", "https://cinemanias.mx/cartelera-nueva-2/")
+
 # Una función que desaparece del snapshot solo cuenta como "eliminada" si aún faltaban
 # más de estos minutos para que empezara; si no, simplemente expiró.
 REMOVED_GRACE_MINUTES = 30
@@ -132,14 +154,24 @@ PRESALE_LANDING_SLUG = "preventas"
 # Cinépolis abre el paso "Horario" con el cine y la película elegidos, y no filtra por fecha.
 # La Cineteca Nacional abre la selección de boletos de Vista (si la función se vende solo en taquilla, lo dice ahí) y
 # las salas de la FICG la compra de Veezi. `session_id` es el id de la función en su sistema de venta y `site_token` el
-# de la sede en Veezi.
+# de la sede en Veezi. Epic abre los boletos de Vista, como la Cineteca. WTC y Cinery abren los asientos de la
+# función. Tonalá abre el evento: su página de asientos manda a la portada si no se llega desde ahí. Papalote abre el
+# plan de Fever y Cinemanía el evento de Passline (verificado 2026-10-02).
 BUY_URL = {"cinemex": "https://cinemex.com/checkout/{show_id}",
            "cinepolis": "https://cinepolis.com/mx/horarios?cinema={cinema_id}&movie={movie_id}",
            "cineteca": "https://rbvfcn.cinetecanacional.net/Ticketing/visSelectTickets.aspx?cinemacode={cinema_id}"
                        "&txtSessionId={session_id}&visLang=1",
-           "cineteca_gdl": "https://ticketing.useast.veezi.com/purchase/{session_id}?siteToken={site_token}"}
-# Cadenas que no venden boletos en línea, solo en su taquilla: la Cineteca NL (CONARTE, verificado 2026-09-30).
-BOX_OFFICE_ONLY = ("cineteca_mty",)
+           "cineteca_gdl": "https://ticketing.useast.veezi.com/purchase/{session_id}?siteToken={site_token}",
+           "wtc": "https://www.cinemaswtc.com/order/showtimes/{session_id}/seats",
+           "cinery": "https://web.cinery.com/order/showtimes/{session_id}/seats",
+           "epic": "https://www.epiccinemas.mx/Ticketing/visSelectTickets.aspx?cinemacode={cinema_id}"
+                   "&txtSessionId={session_id}&visLang=1",
+           "papalote_mty": "https://feverup.com/m/{movie_id}",
+           "tonala": "https://cinetonalaromasur.ordenaboletos.com.mx/{movie_id}",
+           "cinemania": "https://www.passline.com/sitio-evento/{movie_id}"}
+# Cadenas que no venden boletos en línea, solo en su taquilla: la Cineteca NL (CONARTE, verificado 2026-09-30) y el Cine
+# Cabañas (verificado 2026-10-02).
+BOX_OFFICE_ONLY = ("cineteca_mty", "cabanas")
 
 # API pública (api/): los sitios que la pueden llamar desde el navegador (CORS) y las peticiones por minuto de cada IP.
 API_ORIGINS = _csv("AC_API_ORIGINS") or ("http://localhost:3000",)

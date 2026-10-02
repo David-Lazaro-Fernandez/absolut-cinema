@@ -4,7 +4,8 @@ tercera edad), con boletos y dulcería.
 Boletos: la lectura de precio más reciente del cine para el mismo formato y tipo de día, sin eventos ni matinés. Es
 precio de lista, no el de esa función. El adulto paga el boleto general. Niños y tercera edad se buscan por nombre del
 boleto ("MENOR", "Niños", "3ra Edad"); si la función no los tiene, pagan el general. Una función sin lectura no se
-estima: queda sin precio y fuera del presupuesto. Las cinetecas no tienen lectura: usan la tarifa pública de cada sede
+estima: queda sin precio y fuera del presupuesto. El precio de la función (`fare_json`, WTC y Papalote) manda sobre la
+lectura; `price_sampled_at` es entonces la última captura de su cadena. Las cinetecas no tienen lectura: usan la tarifa pública de cada sede
 (`_PUBLIC_FARES`), y `price_sampled_at` es la fecha en que se verificó.
 
 Dulcería: el paquete (`SNACK_PACKAGES`) o el combo elegido con el menú en sala de cada cine, a los precios de ese cine
@@ -125,7 +126,8 @@ _WEDNESDAY_2X1 = ("", "SP")
 # ponytail: solo los festivos de fecha fija de la Ley Federal del Trabajo. Los móviles caen en lunes y no tocan el
 # miércoles; falta el 1 de octubre de cada sexenio (2030).
 _HOLIDAYS = ("01-01", "05-01", "09-16", "12-25")
-# Tarifas públicas de las cinetecas, (adulto, niño, tercera edad) por (cadena, sede), verificadas 2026-09-30:
+# Tarifas públicas de las cinetecas, Tonalá, Cinemanía y Raly: (adulto, niño, tercera edad) por (cadena, sede). La
+# fecha de verificación de cada cadena está en `_FARES_VERIFIED`.
 #   - Cineteca Nacional (cinetecanacional.net/ubicacion.php): adulto $70; menores de 25, estudiantes y adultos mayores
 #     $50. Martes y miércoles, $50 cualquier boleto, salvo en la Muestra, el Foro y Talento emergente (el ciclo de la
 #     función, `program`).
@@ -133,17 +135,24 @@ _HOLIDAYS = ("01-01", "05-01", "09-16", "12-25")
 #     $35, solo en taquilla. Los niños pagan el general. Veezi vende en línea solo el general, con los mismos precios.
 #   - Cineteca Nuevo León (tarifa confirmada por el cliente; CONARTE no la publica en su sitio): general $80;
 #     estudiantes, maestros e INAPAM $50. Los niños pagan el general.
+#   - Cine Tonalá (ficha de cada película en cinetonala.mx): general $80, descuentos $65. Los niños pagan el general.
+#   - Cinemanía (confirmada por el cliente; no la publica en su sitio): general $70 para todos.
+#   - Cinemas Raly (cinemasraly.com/precios): $45 para todos; miércoles $30.
 # ponytail: una función gratuita (Cinema Libre de la FICG) y el Foro al aire libre de la Cineteca Nacional ($90 por dos
 # personas) pagan la tarifa de sala; la cartelera no los distingue.
 _PUBLIC_FARES = {**{("cineteca", code): (70.0, 50.0, 50.0) for code in ("001", "002", "003")},
                  ("cineteca_gdl", "ficg"): (60.0, 60.0, 40.0), ("cineteca_gdl", "cineforo"): (50.0, 50.0, 35.0),
-                 ("cineteca_mty", "centro-artes"): (80.0, 80.0, 50.0)}
-_FARES_VERIFIED = "2026-09-30"
+                 ("cineteca_mty", "centro-artes"): (80.0, 80.0, 50.0), ("tonala", "roma-sur"): (80.0, 80.0, 65.0),
+                 ("cinemania", "loreto"): (70.0, 70.0, 70.0), ("raly", "madero"): (45.0, 45.0, 45.0)}
+_FARES_VERIFIED = {"cineteca": "2026-09-30", "cineteca_gdl": "2026-09-30", "cineteca_mty": "2026-09-30", "tonala": "2026-10-02",
+                   "cinemania": "2026-10-02", "raly": "2026-10-02"}
 _CINETECA_DISCOUNT = 50.0
 _CINETECA_DISCOUNT_DAYS = (1, 2)
 _CINETECA_NO_DISCOUNT = ("muestra", "foro", "talento emergente")
+# ponytail: el miércoles de Raly no aplica en preestrenos, y la cartelera no los distingue.
+_RALY_WEDNESDAY = 30.0
 _CHILD_WORDS = ("menor", "nino")
-_SENIOR_WORDS = ("mayor", "tercera", "3 era", "3ra", "3a edad")
+_SENIOR_WORDS = ("mayor", "tercera", "3 era", "3ra", "3a edad", "+60")
 _EARTH_KM = 6371.0
 _KM_PER_DEGREE = 111.32
 _AREA_MARGIN_DEG = 0.05                   # ~5 km más allá de los cines de la plaza
@@ -178,6 +187,8 @@ def _public_fare(r):
     if fare and r["chain"] == "cineteca" and datetime.date.fromisoformat(r["date"]).weekday() in _CINETECA_DISCOUNT_DAYS \
             and not any(word in _plain(r["program"]) for word in _CINETECA_NO_DISCOUNT):
         return (_CINETECA_DISCOUNT,) * 3
+    if fare and r["chain"] == "raly" and datetime.date.fromisoformat(r["date"]).weekday() == 2:
+        return (_RALY_WEDNESDAY,) * 3
     return fare
 
 
@@ -352,7 +363,8 @@ def _candidates(conn, lat, lng, *, d0, d1, from_now, hours, radius_km, adults, c
     dlng = radius_km / (_KM_PER_DEGREE * max(math.cos(math.radians(lat)), 0.01))
     data = rows(conn, f"""
         WITH f AS (SELECT chain, show_id, cinema_id, movie_id, movie_title, title_key(title_norm) title_norm, date, genre, distributor,
-                          experience, format, premium_tier, datetime_local, language, program, {_FORMAT_CASE} format_bucket, {_DAY_TYPE_CASE} day_type
+                          experience, format, premium_tier, datetime_local, language, program, fare_json,
+                          {_FORMAT_CASE} format_bucket, {_DAY_TYPE_CASE} day_type
                    FROM current_showtime WHERE {where}),
              p AS (SELECT chain, cinema_id, format_bucket, day_type, general_cents, tickets_json, sampled_at,
                           ROW_NUMBER() OVER (PARTITION BY chain, cinema_id, format_bucket, day_type
@@ -362,7 +374,11 @@ def _candidates(conn, lat, lng, *, d0, d1, from_now, hours, radius_km, adults, c
                    GROUP BY chain, cinema_id, format_bucket)
         SELECT f.chain, f.show_id, f.cinema_id, c.name cinema_name, c.lat, c.lng, f.movie_id, f.movie_title title, f.title_norm,
                f.date, f.datetime_local, f.language, f.format_bucket, f.day_type, f.genre, f.distributor,
-               f.experience, f.format, f.premium_tier, f.program, w.week_max_cents, p.general_cents, p.tickets_json, p.sampled_at price_sampled_at
+               f.experience, f.format, f.premium_tier, f.program, w.week_max_cents,
+               COALESCE(json_extract(f.fare_json, '$.general_cents'), p.general_cents) general_cents,
+               COALESCE(json_extract(f.fare_json, '$.tickets'), p.tickets_json) tickets_json,
+               CASE WHEN f.fare_json IS NULL THEN p.sampled_at
+                    ELSE (SELECT max(taken_at) FROM snapshot WHERE chain = f.chain AND ok = 1) END price_sampled_at
         FROM f JOIN cinema c ON c.chain = f.chain AND c.cinema_id = f.cinema_id
         LEFT JOIN p ON p.rk = 1 AND p.chain = f.chain AND p.cinema_id = f.cinema_id
                    AND p.format_bucket = f.format_bucket AND p.day_type = f.day_type
@@ -390,8 +406,9 @@ def _candidates(conn, lat, lng, *, d0, d1, from_now, hours, radius_km, adults, c
         general, tickets = r.pop("general_cents"), r.pop("tickets_json")
         fare = _public_fare(r)
         if fare:
-            r["price_sampled_at"] = _FARES_VERIFIED
-        prices = fare or (_ticket_prices(tickets, general) if general else None)
+            r["price_sampled_at"] = _FARES_VERIFIED[r["chain"]]
+        # Una función gratis vale 0. Solo falta el precio si no hay ninguno.
+        prices = fare or (_ticket_prices(tickets, general) if general is not None else None)
         if prices:
             r["adult_price"], r["child_price"], r["senior_price"] = prices
             r["tickets_total"] = round(adults * r["adult_price"] + children * r["child_price"] + seniors * r["senior_price"], 2)
