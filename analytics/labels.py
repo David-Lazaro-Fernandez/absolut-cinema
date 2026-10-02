@@ -6,7 +6,8 @@ THEM = "cinepolis"
 COMPARED = (US, THEM)      # las cadenas del head-to-head; la Cineteca se captura pero no entra a los shares
 
 CHAIN_LABEL = {"cinemex": "Cinemex", "cinepolis": "Cinépolis", "cineteca": "Cineteca Nacional", "cineteca_gdl": "Cineteca FICG",
-               "cineteca_mty": "Cineteca Nuevo León"}
+               "cineteca_mty": "Cineteca Nuevo León", "wtc": "Cinemas WTC", "tonala": "Cine Tonalá", "cinemania": "Cinemanía",
+               "papalote_mty": "Papalote IMAX"}
 
 # Paleta (ver DESIGN.md). El rojo significa Cinemex o acción; Cinépolis va en tinta (casi negro) para
 # no competir con él. Cinemex siempre primero en las escalas, nunca se ciclan.
@@ -20,7 +21,8 @@ GRAY_LIGHT = "#F6F6F4"     # fondo de página
 LINE = "#E4E5E9"           # bordes y divisores
 PAPER = "#FFFFFF"          # tarjetas
 INDEP = "#8C8E95"          # gris medio: serie de la Cineteca, cine independiente (el centro de DIVERGING)
-CHAIN_COLOR = {"cinemex": RED, "cinepolis": INK, "cineteca": INDEP, "cineteca_gdl": INDEP, "cineteca_mty": INDEP}
+CHAIN_COLOR = {"cinemex": RED, "cinepolis": INK, "cineteca": INDEP, "cineteca_gdl": INDEP, "cineteca_mty": INDEP,
+               "wtc": INDEP, "tonala": INDEP, "cinemania": INDEP, "papalote_mty": INDEP}
 NEUTRAL = "#C9CBD0"        # líneas de referencia (la barra del dumbbell)
 GRID = "#ECEDEF"           # rejilla de gráficas
 RED_RAMP = [RED_DARK, RED, "#F08497", "#F7CDD5"]                 # ordinal de un solo tono para cubetas ordenadas

@@ -17,14 +17,30 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
-from . import cinemex, cinepolis, cineteca, cineteca_gdl, cineteca_mty, config, diff, normalize, store
+from . import (
+    cinemania,
+    cinemex,
+    cinepolis,
+    cineteca,
+    cineteca_gdl,
+    cineteca_mty,
+    config,
+    diff,
+    normalize,
+    papalote_mty,
+    store,
+    tonala,
+    wtc,
+)
 from .http import AuthError, Blocked
 
 SNAPSHOTTERS = {"cinepolis": cinepolis.snapshot, "cinemex": cinemex.snapshot, "cineteca": cineteca.snapshot,
-                "cineteca_gdl": cineteca_gdl.snapshot, "cineteca_mty": cineteca_mty.snapshot}
+                "cineteca_gdl": cineteca_gdl.snapshot, "cineteca_mty": cineteca_mty.snapshot, "wtc": wtc.snapshot,
+                "papalote_mty": papalote_mty.snapshot, "tonala": tonala.snapshot,
+                "cinemania": cinemania.snapshot}
 # Cómo se llama la unidad de captura de cada cadena, solo para el log.
 UNIT_NAME = {"cinepolis": "cities", "cinemex": "states", "cineteca": "days", "cineteca_gdl": "sedes",
-             "cineteca_mty": "days"}
+             "cineteca_mty": "days", "wtc": "sedes", "papalote_mty": "sedes", "tonala": "sedes", "cinemania": "sedes"}
 
 
 def log(msg):
@@ -49,7 +65,7 @@ def _units(chain, raw):
         return len(raw.get("city_ids") or [])
     if chain in ("cineteca", "cineteca_mty"):
         return len(raw.get("dates") or [])
-    if chain == "cineteca_gdl":
+    if chain in ("cineteca_gdl", "wtc", "papalote_mty", "tonala", "cinemania"):
         return len(raw.get("units") or [])
     return len(raw.get("state_ids") or [])
 

@@ -166,6 +166,24 @@ def test_the_cinetecas_link_to_their_sale_or_say_box_office(capture_db):
     assert conarte["box_office_only"] and conarte["buy_url"] is None and conarte["tickets_total"] == 160.0
 
 
+def test_the_independents_pay_the_fare_of_their_show(capture_db):
+    conn = capture_db("wtc", "papalote_mty")
+    wide = dict(d0="2026-10-02", d1="2026-10-05", from_now=False, radius_km=1.0, limit=10_000, adults=1, children=1, seniors=1)
+    wtc = analytics.recommend(conn, 19.3941, -99.1739, **wide)
+    plex = next(r for r in wtc if r["format_bucket"] == "traditional")
+    # Adulto, Menor y +60 de una sala normal, y Adulto VIP.
+    assert (plex["adult_price"], plex["child_price"], plex["senior_price"]) == (95.0, 60.0, 80.0)
+    assert next(r for r in wtc if r["format_bucket"] == "premium")["adult_price"] == 200.0
+    assert plex["buy_url"] == f"https://www.cinemaswtc.com/order/showtimes/{plex['show_id']}/seats"
+    papalote = analytics.recommend(conn, 25.6768, -100.2845, **wide)
+    assert {r["adult_price"] for r in papalote} <= {170.0, 175.0, 320.0} and all(r["status"] == "complete" for r in papalote)
+    assert papalote[0]["buy_url"] == f"https://feverup.com/m/{papalote[0]['movie_id']}"
+    # El precio de la función manda sobre una lectura de precio del mismo cine.
+    _price(conn, plex, [("Adulto", 1000)])
+    again = next(r for r in analytics.recommend(conn, 19.3941, -99.1739, **wide) if r["show_id"] == plex["show_id"])
+    assert again["adult_price"] == 95.0
+
+
 def test_a_building_is_one_site_with_every_show(conn):
     near = dict(d0=D0, d1=D1, from_now=False, radius_km=0.5)
     by_cinema = {}
@@ -263,6 +281,8 @@ def test_the_cinetecas_pay_their_public_fare():
     assert rec._public_fare({**tuesday, "chain": "cineteca_gdl", "cinema_id": "ficg"}) == (60.0, 60.0, 40.0)
     assert rec._public_fare({**tuesday, "chain": "cineteca_gdl", "cinema_id": "cineforo"}) == (50.0, 50.0, 35.0)
     assert rec._public_fare({**tuesday, "chain": "cineteca_mty", "cinema_id": "centro-artes"}) == (80.0, 80.0, 50.0)
+    assert rec._public_fare({**tuesday, "chain": "tonala", "cinema_id": "roma-sur"}) == (80.0, 80.0, 65.0)
+    assert rec._public_fare({**tuesday, "chain": "cinemania", "cinema_id": "loreto"}) == (70.0, 70.0, 70.0)
     assert rec._public_fare({**tuesday, "chain": "cinemex", "cinema_id": "003"}) is None
 
 

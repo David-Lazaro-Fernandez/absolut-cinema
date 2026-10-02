@@ -99,6 +99,20 @@ VEEZI_SITE_TOKENS = {"ficg": "rj5c6tj546eqfqz3qz8raafy3w", "cineforo": "9snypp1n
 # Cartelera por día en la página de WordPress de CONARTE (`?fecha=AAAAMMDD`); los días a pedir son CINETECA_DAYS_AHEAD.
 CINETECA_MTY_URL = os.environ.get("CINETECA_MTY_URL", "https://conarte.org.mx/cineteca/")
 
+# --- Cines independientes de la demo ¿A dónde ir? (ver project.md; verificado 2026-10-02) ---
+# Cinemas WTC: API OCAPI de Vista. El token anónimo está en la página del cine.
+WTC_SITE_URL = os.environ.get("WTC_SITE_URL", "https://www.cinemaswtc.com/sites/Cinemas-WTC/01")
+WTC_API_URL = os.environ.get("WTC_API_URL", "https://digital-api.cinemaswtc.com/ocapi/v1")
+# Papalote Monterrey: la cartelera enlaza los planes de Fever. Fever da las funciones y el precio del lugar
+# `FEVER_PLACE_ID` (el museo).
+PAPALOTE_MTY_URL = os.environ.get("PAPALOTE_MTY_URL", "https://papalotemty.org.mx/cartelera/")
+FEVER_API_URL = os.environ.get("FEVER_API_URL", "https://feverup.com/api/4.2")
+FEVER_PLACE_ID = 27749
+# Cine Tonalá: su taquilla en Red Access. La portada lista los eventos; cada evento trae sus funciones.
+TONALA_URL = os.environ.get("TONALA_URL", "https://cinetonalaromasur.ordenaboletos.com.mx")
+# Cinemanía: una página por día de la semana de cine (`?dia=jueves`…).
+CINEMANIA_URL = os.environ.get("CINEMANIA_URL", "https://cinemanias.mx/cartelera-nueva-2/")
+
 # Una función que desaparece del snapshot solo cuenta como "eliminada" si aún faltaban
 # más de estos minutos para que empezara; si no, simplemente expiró.
 REMOVED_GRACE_MINUTES = 30
@@ -132,12 +146,17 @@ PRESALE_LANDING_SLUG = "preventas"
 # Cinépolis abre el paso "Horario" con el cine y la película elegidos, y no filtra por fecha.
 # La Cineteca Nacional abre la selección de boletos de Vista (si la función se vende solo en taquilla, lo dice ahí) y
 # las salas de la FICG la compra de Veezi. `session_id` es el id de la función en su sistema de venta y `site_token` el
-# de la sede en Veezi.
+# de la sede en Veezi. WTC y Tonalá abren los asientos de la función. Papalote abre el plan de Fever; Cinemanía, el
+# evento de Passline (verificado 2026-10-02).
 BUY_URL = {"cinemex": "https://cinemex.com/checkout/{show_id}",
            "cinepolis": "https://cinepolis.com/mx/horarios?cinema={cinema_id}&movie={movie_id}",
            "cineteca": "https://rbvfcn.cinetecanacional.net/Ticketing/visSelectTickets.aspx?cinemacode={cinema_id}"
                        "&txtSessionId={session_id}&visLang=1",
-           "cineteca_gdl": "https://ticketing.useast.veezi.com/purchase/{session_id}?siteToken={site_token}"}
+           "cineteca_gdl": "https://ticketing.useast.veezi.com/purchase/{session_id}?siteToken={site_token}",
+           "wtc": "https://www.cinemaswtc.com/order/showtimes/{session_id}/seats",
+           "papalote_mty": "https://feverup.com/m/{movie_id}",
+           "tonala": "https://cinetonalaromasur.ordenaboletos.com.mx/{movie_id}/seats-selection/{session_id}",
+           "cinemania": "https://www.passline.com/sitio-evento/{movie_id}"}
 # Cadenas que no venden boletos en línea, solo en su taquilla: la Cineteca NL (CONARTE, verificado 2026-09-30).
 BOX_OFFICE_ONLY = ("cineteca_mty",)
 

@@ -1,12 +1,13 @@
 """Normalización de crudos: geografía por cine, hora UTC y las dos formas de crudo (piloto por área / ciudad única y
 nacional por estado / `cityId`), porque el archivo se reconstruye desde los crudos viejos."""
+import json
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from datetime import date  # noqa: E402
 
-from scraper import cineteca_gdl, cineteca_mty, normalize, states  # noqa: E402
+from scraper import cinemania, cineteca_gdl, cineteca_mty, normalize, papalote_mty, states, tonala, wtc  # noqa: E402
 
 
 def _cinepolis_raw(cinemas, city_id=None):
@@ -113,3 +114,42 @@ def test_a_conarte_day_lists_each_film_with_its_times():
     assert cineteca_mty.parse_day(html) == [
         {"slug": "smaragda", "title": "FESTIVAL DE CINE EUROPEO: Smaragda", "times": ["15:45", "09:30"]}]
     assert cineteca_mty.parse_day('<div class="no-events"><h2>No hay películas en esta fecha.</h2></div>') == []
+
+
+def test_wtc_marks_the_language_with_a_suffix():
+    assert wtc.split_title("Digger SUB") == ("Digger", "subtitled")
+    assert wtc.split_title("Mary Y Max ESP") == ("Mary Y Max", "spanish")
+    assert wtc.split_title("Verity") == ("Verity", "other")
+    assert wtc.is_vip("Sala VIP 3") and not wtc.is_vip("Sala 9")
+
+
+def test_a_fever_ticket_label_carries_title_and_language():
+    assert papalote_mty.label_title("T-Rex | SP Familiar") == "T-Rex"
+    assert papalote_mty.label_title("Acceso General Subtitulada") is None
+    assert papalote_mty.label_language("Acceso General Subtitulada") == "subtitled"
+    assert papalote_mty.label_language("La Gran Barrera de Coral 3D | SP") == "spanish"
+    assert papalote_mty.label_language("Acceso General") == "other"
+
+
+def test_a_tonala_event_page_lists_its_shows():
+    data = '0:{"eventDetail":{"name":"DIGGER","url":"cine/digger-2161"},"entertainments":[{"id":8052,"celebrationDate":"2026-10-02 13:30:00"}]}'
+    page = '<script>self.__next_f.push([1,' + json.dumps(data) + '])</script>'
+    assert tonala.event(page) == {"name": "DIGGER", "entertainments": [{"id": 8052, "celebrationDate": "2026-10-02 13:30:00"}]}
+    home = '<script>self.__next_f.push([1,' + json.dumps('{"url":"cine/digger-2161"},{"url":"artes-escenicas/x-1"}') + '])</script>'
+    assert tonala.event_urls(home) == ["cine/digger-2161"]
+
+
+def test_a_cinemania_day_page_dates_its_tab():
+    html = ('<a class="cinemania-dia activo" href="?dia=viernes"><span class="cinemania-dia-nombre">VIE.</span>'
+            '<span class="cinemania-dia-fecha">02 OCT.</span></a>'
+            '<div class="cinemania-horario-card"><h3> DIGGER</h3><div class="cinemania-meta">B15 •Comedia •129 min</div>'
+            '<span class="cinemania-hora">14:00</span><span class="cinemania-hora">19:30</span>'
+            '<a href="https://www.passline.com/sitio-evento/digger">Comprar</a></div>')
+    page = cinemania.parse_day(html)
+    assert page.active == "viernes" and page.dates == {"viernes": "02 OCT."}
+    film, = page.films
+    assert film["title"].strip() == "DIGGER" and film["times"] == ["14:00", "19:30"] and film["slug"] == "digger"
+    assert cinemania.meta(film["meta"].strip()) == ("B15", "Comedia", 129)
+    assert cinemania.tab_date("02 OCT.", date(2026, 10, 2)) == "2026-10-02"
+    assert cinemania.tab_date("01 ENE.", date(2026, 12, 30)) == "2027-01-01"
+    assert cinemania.tab_date("32 FOO", date(2026, 10, 2)) is None

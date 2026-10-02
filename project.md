@@ -450,6 +450,46 @@ La Cineteca "Alejandra Rangel Hinojosa" de CONARTE, en el Centro de las Artes de
 - **Compra:** solo en taquilla (`config.BOX_OFFICE_ONLY`): sus funciones llevan `box_office_only` y ningún `buy_url`, y la
   demo dice "Solo en taquilla" con un globo que lo explica.
 
+## Cines independientes de la demo ¿A dónde ir? (verificado 2026-10-02)
+
+Cuatro cines que entran solo a la demo (recomendador y API pública): una cadena por fuente, una sede cada una, una
+unidad de captura, en el trabajo `snapshot`. Están en `MAP_CHAINS` (y por eso también en el mapa), pero no en la
+página Independientes ni en ningún share. Papalote CDMX no entra: su cartelera solo tiene el Domo Digital (cortos de
+26–30 min con horario semanal fijo, sin venta por función). No hay Papalote en Guadalajara.
+
+**Precio por función.** `current_showtime.fare_json` (aditiva, NULL en las demás cadenas, fuera de `TRACKED_FIELDS`):
+`{"general_cents", "tickets": [{"name", "cents"}]}`, en el formato de `price_sample.tickets_json`. El recomendador la
+usa antes que una lectura de `price_sample`, y su `price_sampled_at` es la última captura de la cadena.
+
+- **Cinemas WTC** (`chain="wtc"`, `scraper/wtc.py`, sede `01`, plaza `cdmx`): 12 salas, 5 VIP. Vista OCAPI en
+  `digital-api.cinemaswtc.com/ocapi/v1` con el token anónimo `gasToken` del `__NEXT_DATA__` de la página del cine
+  (dura 12 h; sin él, `AuthError`). `film-screening-dates?siteIds=01` da los días y `showtimes/by-business-date/{día}`
+  las funciones, con película, sala, 3D y clasificación en `relatedData` (~40 llamadas, hasta ~80 días de preventa).
+  El idioma va en un sufijo del título ("SUB", "ESP"), que se quita. Precio: `showtimes/{id}/ticket-prices` de una
+  función por día y tipo de sala (Adulto $95, Menor $60, +60 $80; VIP $200 y $150), copiado a las demás.
+  `showtimes/{id}/availability` da butacas totales y disponibles por función; no se usa todavía. Compra:
+  `/order/showtimes/{id}/seats`.
+- **Papalote Monterrey** (`chain="papalote_mty"`, `scraper/papalote_mty.py`, sede `fundidora`, plaza `mty`):
+  Megapantalla IMAX. La cartelera de WordPress (`papalotemty.org.mx/cartelera/`) enlaza las fichas y cada ficha su plan
+  de Fever (`feverup.com/m/{plan}`); los horarios de la ficha se escriben a mano y no se leen. La API pública de Fever,
+  `api/4.2/plans/{plan}/place/27749/sessions/` (`Accept-Language: es-MX`), da cada función con hora, boleto y precio, y
+  pagina por días (`next`). Los documentales comparten un plan (341894) y el título va en la etiqueta del boleto
+  ("T-Rex | SP"); un estreno tiene su plan y toma el título de su ficha. Precio: Digger $170; documentales $320 general
+  y $300 "Familiar" (en `tickets`). El boleto de los documentales es un paquete: incluye la entrada al museo y a la
+  exhibición de dinosaurios (descripción del plan en Fever, verificado 2026-10-02). Es el precio real de ver la función,
+  así que entra tal cual. Compra: el plan de Fever.
+- **Cine Tonalá** (`chain="tonala"`, `scraper/tonala.py`, sede `roma-sur`, plaza `cdmx`): su taquilla en Red Access
+  (`cinetonalaromasur.ordenaboletos.com.mx`, Next.js) manda los datos en los fragmentos `self.__next_f.push`. La
+  portada lista los eventos (`url` = `cine/digger-2161`; los que no empiezan con `cine/` son stand-up y otros) y la
+  página de cada evento sus `entertainments` (id y hora local). Sin sala, idioma ni duración. El precio vive en un API
+  privado de Red Access; se usa la tarifa de la ficha de cada película en `cinetonala.mx`: $80 general, $65 descuentos
+  (`_PUBLIC_FARES`). Compra: `/{evento}/seats-selection/{función}`.
+- **Cinemanía** (`chain="cinemania"`, `scraper/cinemania.py`, sede `loreto`, plaza `cdmx`): WordPress,
+  `cinemanias.mx/cartelera-nueva-2/?dia=jueves` … `miercoles`, la semana de cine en curso; la pestaña pedida va
+  marcada `activo` y la captura lo exige. Título, clasificación, género, duración y horas. Sin id de función: `show_id`
+  = `{slug}:{fecha}T{hora}`. Passline (`passline.com/sitio-evento/{slug}`, la compra) pone una sala de espera queue-it
+  y no se lee. Precio: $70 general para todos, confirmado por el cliente el 2026-10-02 (`_PUBLIC_FARES`).
+
 ## Asientos y precios (verificado 2026-09-08)
 
 Qué expone cada API para pasar de funciones a **butacas** (aforo, ocupación) y a **precios**.

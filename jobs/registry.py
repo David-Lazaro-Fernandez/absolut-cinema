@@ -38,7 +38,7 @@ DEFAULTS = {
 
 REGISTRY = {
     keys.SNAPSHOT: {
-        "description": "Captura de cartelera: nacional de ambas cadenas más las cinetecas de CDMX, Guadalajara y Monterrey (descarga en paralelo, 15–30 min)",
+        "description": "Captura de cartelera: nacional de ambas cadenas más las cinetecas de CDMX, Guadalajara y Monterrey y los cines independientes de la demo (descarga en paralelo, 15–30 min)",
         "steps": (("python", "scraper.run"),),
         "schedule": ("07:30", "13:30", "20:30"),
         "timeout_min": 45,
