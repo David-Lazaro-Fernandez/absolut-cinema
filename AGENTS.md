@@ -130,7 +130,8 @@ Estos mandan sobre cualquier preferencia técnica.
   `limit=60`, `chain="cinepolis"`).
 - Comentarios: mayúscula inicial, gramática y puntuación correctas, en español. Un comentario
   describe **el comportamiento actual o el por qué**, nunca cómo era antes ni el historial.
-  Los porqués valiosos son los de las APIs ajenas (por qué hay una pausa, por qué un lote es de 30).
+  Los porqués valiosos son los de las APIs ajenas (por qué hay una pausa, por qué un lote es de 30). Frases cortas en
+  Español Técnico Simplificado y nunca al final de una línea de código; el detalle está en `.claude/rules/comments.md`.
 - Docstrings: para quien **usa** la función, no para quien la va a editar. Si le quieres hablar al
   siguiente que edite, usa un comentario. Todo módulo lleva docstring de nivel superior con qué
   hace y qué supuestos tiene.
@@ -142,7 +143,7 @@ Los mismos nombres en todo el repo. Esto es sagrado; renombrar rompe la lectura 
 
 | Nombre | Significado |
 | --- | --- |
-| `chain` | `"cinemex"` \| `"cinepolis"` \| `"cineteca"` (Cineteca Nacional, CDMX) \| `"cineteca_gdl"` (Cineteca FICG y Cineforo, Guadalajara) \| `"cineteca_mty"` (Cineteca Nuevo León, Monterrey); las cinetecas se capturan aparte y no entran al head-to-head |
+| `chain` | `"cinemex"` \| `"cinepolis"` \| `"cineteca"` (Cineteca Nacional, CDMX) \| `"cineteca_gdl"` (Cineteca FICG y Cineforo, Guadalajara) \| `"cineteca_mty"` (Cineteca Nuevo León, Monterrey) \| `"wtc"` (Cinemas WTC, CDMX) \| `"tonala"` (Cine Tonalá, CDMX) \| `"cinemania"` (Cinemanía, CDMX) \| `"papalote_mty"` (Megapantalla IMAX de Papalote, Monterrey); las cinetecas y los independientes se capturan aparte y no entran al head-to-head |
 | `conn` | conexión SQLite de solo lectura, siempre primer argumento en `analytics/` |
 | `d0`, `d1` | rango de fechas ISO inclusivo, en hora local de la plaza |
 | `from_now` | recorta el día en curso para comparar justo |
