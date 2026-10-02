@@ -143,7 +143,7 @@ Los mismos nombres en todo el repo. Esto es sagrado; renombrar rompe la lectura 
 
 | Nombre | Significado |
 | --- | --- |
-| `chain` | `"cinemex"` \| `"cinepolis"` \| `"cineteca"` (Cineteca Nacional, CDMX) \| `"cineteca_gdl"` (Cineteca FICG y Cineforo, Guadalajara) \| `"cineteca_mty"` (Cineteca Nuevo León, Monterrey) \| `"wtc"` (Cinemas WTC, CDMX) \| `"tonala"` (Cine Tonalá, CDMX) \| `"cinemania"` (Cinemanía, CDMX) \| `"papalote_mty"` (Megapantalla IMAX de Papalote, Monterrey); las cinetecas y los independientes se capturan aparte y no entran al head-to-head |
+| `chain` | `"cinemex"` \| `"cinepolis"` \| `"cineteca"` (Cineteca Nacional, CDMX) \| `"cineteca_gdl"` (Cineteca FICG y Cineforo, Guadalajara) \| `"cineteca_mty"` (Cineteca Nuevo León, Monterrey) \| `"wtc"` (Cinemas WTC, CDMX) \| `"tonala"` (Cine Tonalá, CDMX) \| `"cinemania"` (Cinemanía, CDMX) \| `"papalote_mty"` (Megapantalla IMAX de Papalote, Monterrey) \| `"epic"` (Epic Cinemas, Monterrey) \| `"raly"` (Cinemas Raly, Monterrey) \| `"cinery"` (Cinery, Guadalajara) \| `"cabanas"` (Cine Cabañas, Guadalajara); las cinetecas y los independientes se capturan aparte y no entran al head-to-head |
 | `conn` | conexión SQLite de solo lectura, siempre primer argumento en `analytics/` |
 | `d0`, `d1` | rango de fechas ISO inclusivo, en hora local de la plaza |
 | `from_now` | recorta el día en curso para comparar justo |
@@ -324,6 +324,8 @@ sqlite3 data/snapshots.db "SELECT * FROM snapshot ORDER BY id DESC LIMIT 4;"
 - Documenta con fecha lo que se verificó contra la API ajena (`verificado 2026-09-08`); estas APIs
   no tienen contrato y lo que hoy responde puede cambiar.
 - `data/` está fuera de git. No versiones la base, el crudo ni los logs.
+- La descripción de un PR sigue `.claude/rules/pull-requests.md`: Summary (Problem, Solution y pocos puntos) y Test Plan,
+  en ASD-STE100.
 - La rama principal es `main`. No hagas commit ni push salvo que se te pida. La rama `stable` la mueve GitHub Actions
   (`.github/workflows/tests.yml`) cuando las pruebas pasan en `main`, y es lo que el servidor despliega
   (`make deploy`, cada 15 min): no la muevas a mano. Si un commit rompe las pruebas, `stable` se queda atrás hasta que se
