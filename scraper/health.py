@@ -41,7 +41,7 @@ SLOT_TOLERANCE_MIN = 30      # una captura programada cuenta si hay snapshot bue
 COVERAGE_MIN_RATIO = 0.9     # cines en la última captura frente al máximo de 7 días: menos es un estado o ciudad que llegó vacío
 # Las cinetecas y los independientes van en el trabajo `snapshot`: se vigilan igual (frescura y cobertura). Las
 # revisiones de dulcería, preventa y semáforo son de otras cadenas y no les aplican.
-CHAINS = ("cinemex", "cinepolis", "cineteca", "cineteca_gdl", "cineteca_mty", "wtc", "papalote_mty", "tonala", "cinemania")
+CHAINS = ("cinemex", "cinepolis", "cineteca", "cineteca_gdl", "cineteca_mty", "wtc", "papalote_mty", "tonala", "cinemania", "cinery", "epic", "raly", "cabanas")
 # Logs que se pueden consultar desde el dashboard: nombre → archivo en config.LOG_DIR. Lista cerrada a propósito, para
 # que la página nunca reciba una ruta arbitraria.
 LOGS = {"run": "run.log", "sample": "sample.log", "delivery": "delivery.log", "health": "health.log",

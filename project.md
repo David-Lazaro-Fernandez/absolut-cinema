@@ -452,7 +452,7 @@ La Cineteca "Alejandra Rangel Hinojosa" de CONARTE, en el Centro de las Artes de
 
 ## Cines independientes de la demo ¿A dónde ir? (verificado 2026-10-02)
 
-Cuatro cines que entran solo a la demo (recomendador y API pública): una cadena por fuente, una sede cada una, una
+Ocho cines que entran solo a la demo (recomendador y API pública): una cadena por fuente, una sede cada una, una
 unidad de captura, en el trabajo `snapshot`. Están en `MAP_CHAINS` (y por eso también en el mapa), pero no en la
 página Independientes ni en ningún share. Papalote CDMX no entra: su cartelera solo tiene el Domo Digital (cortos de
 26–30 min con horario semanal fijo, sin venta por función). No hay Papalote en Guadalajara.
@@ -461,12 +461,12 @@ página Independientes ni en ningún share. Papalote CDMX no entra: su cartelera
 `{"general_cents", "tickets": [{"name", "cents"}]}`, en el formato de `price_sample.tickets_json`. El recomendador la
 usa antes que una lectura de `price_sample`, y su `price_sampled_at` es la última captura de la cadena.
 
-- **Cinemas WTC** (`chain="wtc"`, `scraper/wtc.py`, sede `01`, plaza `cdmx`): 12 salas, 5 VIP. Vista OCAPI en
+- **Cinemas WTC** (`chain="wtc"`, `scraper/lumos.py`, sede `01`, plaza `cdmx`): 12 salas, 5 VIP. Vista OCAPI en
   `digital-api.cinemaswtc.com/ocapi/v1` con el token anónimo `gasToken` del `__NEXT_DATA__` de la página del cine
-  (dura 12 h; sin él, `AuthError`). `film-screening-dates?siteIds=01` da los días y `showtimes/by-business-date/{día}`
+  (dura 12 h; sin él, `AuthError`). El mismo cliente sirve a todo cine con la web Lumos de Vista (`config.LUMOS`). `film-screening-dates?siteIds=01` da los días y `showtimes/by-business-date/{día}`
   las funciones, con película, sala, 3D y clasificación en `relatedData` (~40 llamadas, hasta ~80 días de preventa).
   El idioma va en un sufijo del título ("SUB", "ESP"), que se quita. Precio: `showtimes/{id}/ticket-prices` de una
-  función por día y tipo de sala (Adulto $95, Menor $60, +60 $80; VIP $200 y $150), copiado a las demás.
+  función por día, tipo de sala y 2D/3D (Adulto $95, Menor $60, +60 $80; VIP $200 y $150), copiado a las demás.
   `showtimes/{id}/availability` da butacas totales y disponibles por función; no se usa todavía. Compra:
   `/order/showtimes/{id}/seats`.
 - **Papalote Monterrey** (`chain="papalote_mty"`, `scraper/papalote_mty.py`, sede `fundidora`, plaza `mty`):
@@ -483,12 +483,35 @@ usa antes que una lectura de `price_sample`, y su `price_sampled_at` es la últi
   portada lista los eventos (`url` = `cine/digger-2161`; los que no empiezan con `cine/` son stand-up y otros) y la
   página de cada evento sus `entertainments` (id y hora local). Sin sala, idioma ni duración. El precio vive en un API
   privado de Red Access; se usa la tarifa de la ficha de cada película en `cinetonala.mx`: $80 general, $65 descuentos
-  (`_PUBLIC_FARES`). Compra: `/{evento}/seats-selection/{función}`.
+  (`_PUBLIC_FARES`). Compra: la página del evento (`/{evento}`). La de asientos de la función
+  (`/{evento}/seats-selection/{función}`) manda a la portada si no se llega desde el evento.
 - **Cinemanía** (`chain="cinemania"`, `scraper/cinemania.py`, sede `loreto`, plaza `cdmx`): WordPress,
   `cinemanias.mx/cartelera-nueva-2/?dia=jueves` … `miercoles`, la semana de cine en curso; la pestaña pedida va
   marcada `activo` y la captura lo exige. Título, clasificación, género, duración y horas. Sin id de función: `show_id`
   = `{slug}:{fecha}T{hora}`. Passline (`passline.com/sitio-evento/{slug}`, la compra) pone una sala de espera queue-it
   y no se lee. Precio: $70 general para todos, confirmado por el cliente el 2026-10-02 (`_PUBLIC_FARES`).
+- **Cinery** (`chain="cinery"`, `scraper/lumos.py`, sede `1`, plaza `gdl`, Plaza Punto São Paulo): la misma plataforma
+  que WTC. El token sale de `web.cinery.com` y la API es `digital-api.cinery.com/ocapi/v1`. El idioma va en atributos
+  de la función ("Doblada al español", "Subtitulada"). Precio por función: General 2D $140, Niño y Tercera edad $115
+  (cambia por día). Su sitio público (`cinery.com/api/showtimes`) es un proxy de la misma API, por película y día.
+- **Epic Cinemas** (`chain="epic"`, `scraper/epic.py`, sede `0000000001`, plaza `mty`, Metropolitan Center): Connect API
+  de Vista con el `connectapitoken` público de su web. `OData.svc/Sessions` (todas las funciones, con sala, butacas
+  libres y `PriceGroupCode`) y `OData.svc/ScheduledFilms` (título, clasificación, duración). Precio:
+  `RESTData.svc/cinemas/{cine}/sessions/{función}/tickets` de una función por día y grupo de precio (General $235;
+  martes 2x1). Los títulos bilingües ("Heart of the Beast / El corazón de la bestia") se quedan con la parte en español.
+  Compra: `visSelectTickets.aspx`, como la Cineteca.
+- **Cinemas Raly** (`chain="raly"`, `scraper/raly.py`, sede `madero`, plaza `mty`): WordPress, `cinemasraly.com/horarios/`.
+  Un solo horario "de lunes a domingo" que la captura repite de hoy al miércoles de la semana de cine. La página se edita
+  a mano: el título va dentro o fuera del `span` `h-hora`, así que las horas se reconocen por su forma y el idioma por
+  su palabra (DOBLADA, SUBTITULADA). Precio de `cinemasraly.com/precios`: $45 para todos; miércoles $30, salvo
+  preestrenos (no se distinguen). Sin enlace de compra.
+- **Cine Cabañas** (`chain="cabanas"`, `scraper/cabanas.py`, sede `museo`, plaza `gdl`): sala Guillermo del Toro del
+  Museo Cabañas. WordPress, `museocabanas.jalisco.gob.mx/cine/`: tarjetas con título y un texto escrito a mano con
+  fechas, hora y precio ("8, 9 Y 10 de octubre, 19 h. Entrada $65"; "Entrada gratuita"). Sin año: el de la captura, o
+  el siguiente si el mes quedó atrás más de seis meses. Precio por función en `fare_json` ($65 o $0; una función gratis
+  vale 0 en el recomendador, no "sin precio"). Solo taquilla (`BOX_OFFICE_ONLY`).
+- **Fuera:** de la guía de Reddit de Guadalajara quedan fuera los que solo publican en Instagram o Telegram (Cineka,
+  Cine Mayahuel, MUSA, Cinema Live, Bocado de perro, cineclubes) y los de proyección esporádica.
 
 ## Asientos y precios (verificado 2026-09-08)
 

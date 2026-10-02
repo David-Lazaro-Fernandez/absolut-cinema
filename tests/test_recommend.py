@@ -5,6 +5,7 @@ Puntos de partida: Forum Tepic (Cinemex, con su Platino en el mismo edificio y T
 Hermosillo (Cinépolis, con su VIP)."""
 import json
 from datetime import datetime, timezone
+from urllib.parse import unquote
 
 import pytest
 
@@ -184,6 +185,30 @@ def test_the_independents_pay_the_fare_of_their_show(capture_db):
     assert again["adult_price"] == 95.0
 
 
+def test_epic_and_cinery_pay_the_fare_of_their_show(capture_db):
+    conn = capture_db("epic", "cinery")
+    wide = dict(d0="2026-10-01", d1="2026-12-31", from_now=False, radius_km=1.0, limit=10_000, adults=1, children=1, seniors=1)
+    assert {r["adult_price"] for r in analytics.recommend(conn, 25.6505, -100.3331, **wide)} == {235.0}
+    cinery = analytics.recommend(conn, 20.7021, -103.3764, **wide)
+    assert cinery and all(r["status"] == "complete" and r["child_price"] < r["adult_price"] for r in cinery)
+    assert cinery[0]["buy_url"] == f"https://web.cinery.com/order/showtimes/{cinery[0]['show_id']}/seats"
+
+
+def test_tonala_links_to_the_event_page(capture_db):
+    show, = analytics.recommend(capture_db("tonala"), 19.4089, -99.1604, d0="2026-10-01", d1="2026-12-31",
+                                from_now=False, radius_km=1.0, limit=1)
+    # La ruta va codificada (`+` → `%2B`); el sitio abre el mismo evento con cualquiera de las dos.
+    assert unquote(show["buy_url"]) == f"https://cinetonalaromasur.ordenaboletos.com.mx/{show['movie_id']}"
+
+
+def test_cabanas_sells_at_the_box_office_and_free_shows_cost_nothing(capture_db):
+    conn = capture_db("cabanas")
+    shows = analytics.recommend(conn, 20.6769, -103.3377, d0="2026-09-01", d1="2026-10-31", from_now=False,
+                                radius_km=1.0, limit=10_000)
+    assert {r["adult_price"] for r in shows} == {0.0, 65.0}
+    assert all(r["box_office_only"] and r["buy_url"] is None and r["status"] == "complete" for r in shows)
+
+
 def test_a_building_is_one_site_with_every_show(conn):
     near = dict(d0=D0, d1=D1, from_now=False, radius_km=0.5)
     by_cinema = {}
@@ -283,6 +308,9 @@ def test_the_cinetecas_pay_their_public_fare():
     assert rec._public_fare({**tuesday, "chain": "cineteca_mty", "cinema_id": "centro-artes"}) == (80.0, 80.0, 50.0)
     assert rec._public_fare({**tuesday, "chain": "tonala", "cinema_id": "roma-sur"}) == (80.0, 80.0, 65.0)
     assert rec._public_fare({**tuesday, "chain": "cinemania", "cinema_id": "loreto"}) == (70.0, 70.0, 70.0)
+    raly = {**tuesday, "chain": "raly", "cinema_id": "madero"}
+    assert rec._public_fare(raly) == (45.0, 45.0, 45.0)
+    assert rec._public_fare({**raly, "date": "2026-09-30"}) == (30.0, 30.0, 30.0)
     assert rec._public_fare({**tuesday, "chain": "cinemex", "cinema_id": "003"}) is None
 
 

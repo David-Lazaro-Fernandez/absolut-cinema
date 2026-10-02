@@ -8,7 +8,7 @@ import unicodedata
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
-from . import cinemania, cineteca_gdl, cineteca_mty, config, papalote_mty, states, wtc
+from . import cabanas, cinemania, cineteca_gdl, cineteca_mty, config, epic, lumos, papalote_mty, raly, states
 
 COLUMNS = [
     "chain", "show_id", "cinema_id", "cinema_name", "lat", "lng", "city_id", "state_id", "state_code",
@@ -414,28 +414,82 @@ def _indep_row(place, *, show_id, movie_id, title, date, hour, **fields):
             "premium_tier": "traditional", "version_raw": None, "availability": None, "program": None, **fields}
 
 
-def wtc_cinemas(raw):
-    return _sede_cinemas("wtc", raw)
+def lumos_cinemas(raw):
+    return _sede_cinemas(raw["chain"], raw)
 
 
-def wtc_rows(raw):
-    place = next(iter(wtc_cinemas(raw)), None)
+def lumos_rows(raw):
+    place = next(iter(lumos_cinemas(raw)), None)
     for day in raw.get("days") or []:
         related = day.get("relatedData") or {}
         films = {f["id"]: f for f in related.get("films") or []}
         screens = {s["id"]: s["name"]["text"] for s in related.get("screens") or []}
+        attributes = {a["id"]: a["name"]["text"] for a in related.get("attributes") or []}
         ratings = {r["id"]: r["classification"]["text"] for r in related.get("censorRatings") or []}
         for show in day.get("showtimes") or []:
             film, screen = films.get(show["filmId"], {}), screens.get(show["screenId"])
             starts = show["schedule"]["startsAt"]
-            date, vip = starts[:10], wtc.is_vip(screen)
-            title, language = wtc.split_title((film.get("title") or {}).get("text"))
+            title, suffix_language = lumos.split_title((film.get("title") or {}).get("text"))
+            language = lumos.attribute_language([attributes.get(a, "") for a in show.get("attributeIds") or []])
             yield _indep_row(
-                place, show_id=show["id"], movie_id=show["filmId"], title=title, language=language,
-                date=date, hour=starts[11:16], rating=ratings.get(film.get("censorRatingId")),
-                duration_min=film.get("runtimeInMinutes"), screen=screen,
-                format="3D" if show.get("requires3dGlasses") else "2D", premium_tier="vip" if vip else "traditional",
-                fare_json=wtc.fare((raw.get("prices") or {}).get(f"{show['schedule']['businessDate']}:{'vip' if vip else 'plex'}")))
+                place, show_id=show["id"], movie_id=show["filmId"], title=title,
+                language=language or suffix_language or "other", date=starts[:10], hour=starts[11:16],
+                rating=ratings.get(film.get("censorRatingId")), duration_min=film.get("runtimeInMinutes"),
+                screen=screen, format="3D" if show.get("requires3dGlasses") else "2D",
+                premium_tier="vip" if lumos.is_vip(screen) else "traditional",
+                fare_json=lumos.fare((raw.get("prices") or {}).get(
+                    lumos.price_key(show["schedule"]["businessDate"], show, screen))))
+
+
+def epic_cinemas(raw):
+    return _sede_cinemas("epic", raw)
+
+
+def epic_rows(raw):
+    place = next(iter(epic_cinemas(raw)), None)
+    films = {f["ScheduledFilmId"]: f for f in raw.get("films") or []}
+    for s in raw.get("sessions") or []:
+        film = films.get(s["ScheduledFilmId"], {})
+        yield _indep_row(
+            place, show_id=f"{s['CinemaId']}:{s['SessionId']}", movie_id=s["ScheduledFilmId"],
+            title=epic.title(film.get("Title")), date=s["Showtime"][:10], hour=s["Showtime"][11:16],
+            rating=film.get("Rating"), duration_min=int(film["RunTime"]) if film.get("RunTime") else None,
+            screen=s.get("ScreenName"), fare_json=epic.fare((raw.get("prices") or {}).get(epic.price_key(s))))
+
+
+def raly_cinemas(raw):
+    return _sede_cinemas("raly", raw)
+
+
+def raly_rows(raw):
+    place = next(iter(raly_cinemas(raw)), None)
+    for film in raly.parse(raw.get("html") or ""):
+        title, label = " ".join(film["title"].split()), film["label"].upper()
+        slug = norm_title(title).replace(" ", "-")
+        language = "subtitled" if "SUBTITULADA" in label else "spanish" if "DOBLADA" in label else "other"
+        for date in raw.get("dates") or []:
+            for text, half in film["times"]:
+                hour = raly.hour(text, half)
+                # La página no da id de función. La identidad es película, día y hora.
+                yield _indep_row(place, show_id=f"{slug}:{date}T{hour}", movie_id=slug, title=title, date=date,
+                                 hour=hour, language=language)
+
+
+def cabanas_cinemas(raw):
+    return _sede_cinemas("cabanas", raw)
+
+
+def cabanas_rows(raw):
+    place = next(iter(cabanas_cinemas(raw)), None)
+    today = datetime.fromisoformat(raw["taken_at"]).astimezone(ZoneInfo(config.PILOT_TIMEZONE)).date()
+    for card in cabanas.parse(raw.get("html") or ""):
+        # "Tus dos muertos | Estreno": lo que sigue a la barra no es parte del título.
+        title, cents = card["title"].partition(" | ")[0], cabanas.price_cents(card["text"])
+        fare = json.dumps({"general_cents": cents, "tickets": []}) if cents is not None else None
+        for date, hour in cabanas.shows(card["text"], today):
+            # La página no da id de función. La identidad es la tarjeta, el día y la hora.
+            yield _indep_row(place, show_id=f"{card['slug']}:{date}T{hour}", movie_id=card["slug"], title=title,
+                             date=date, hour=hour, fare_json=fare)
 
 
 def papalote_mty_cinemas(raw):
@@ -500,11 +554,11 @@ def cinemania_rows(raw):
 
 
 _ROWS = {"cinepolis": cinepolis_rows, "cinemex": cinemex_rows, "cineteca": cineteca_rows, "cineteca_gdl": cineteca_gdl_rows,
-         "cineteca_mty": cineteca_mty_rows, "wtc": wtc_rows,
+         "cineteca_mty": cineteca_mty_rows, "wtc": lumos_rows, "cinery": lumos_rows, "epic": epic_rows, "raly": raly_rows, "cabanas": cabanas_rows,
          "papalote_mty": papalote_mty_rows, "tonala": tonala_rows,
          "cinemania": cinemania_rows}
 _CINEMAS = {"cinepolis": cinepolis_cinemas, "cinemex": cinemex_cinemas, "cineteca": cineteca_cinemas,
-            "cineteca_gdl": cineteca_gdl_cinemas, "cineteca_mty": cineteca_mty_cinemas, "wtc": wtc_cinemas,
+            "cineteca_gdl": cineteca_gdl_cinemas, "cineteca_mty": cineteca_mty_cinemas, "wtc": lumos_cinemas, "cinery": lumos_cinemas, "epic": epic_cinemas, "raly": raly_cinemas, "cabanas": cabanas_cinemas,
             "papalote_mty": papalote_mty_cinemas, "tonala": tonala_cinemas,
             "cinemania": cinemania_cinemas}
 

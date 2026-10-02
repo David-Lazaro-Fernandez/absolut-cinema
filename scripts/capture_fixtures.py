@@ -28,16 +28,19 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from scraper import (  # noqa: E402
+    cabanas,
     cinemania,
     cinemex,
     cinepolis,
     cineteca,
     cineteca_gdl,
     cineteca_mty,
+    epic,
+    lumos,
     normalize,
     papalote_mty,
+    raly,
     tonala,
-    wtc,
 )
 
 FIXTURE_DIR = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "capture"
@@ -47,13 +50,18 @@ SCOPES = {
     "cineteca": {"dates": ["2026-09-27"]},
     "cineteca_gdl": {},
     "cineteca_mty": {"dates": ["2026-09-30", "2026-10-01", "2026-10-08"]},
-    "wtc": {"days": 2},
+    "wtc": {"chain": "wtc", "days": 2},
+    "cinery": {"chain": "cinery", "days": 2},
+    "epic": {"limit": 20},
+    "raly": {},
+    "cabanas": {},
     "papalote_mty": {"days_ahead": 3},
     "tonala": {"limit": 3},
     "cinemania": {"dias": ["viernes", "sabado"]},
 }
 _MODULES = {"cinemex": cinemex, "cinepolis": cinepolis, "cineteca": cineteca, "cineteca_gdl": cineteca_gdl, "cineteca_mty": cineteca_mty,
-            "wtc": wtc, "papalote_mty": papalote_mty, "tonala": tonala, "cinemania": cinemania}
+            "wtc": lumos, "cinery": lumos, "epic": epic, "raly": raly,
+            "cabanas": cabanas, "papalote_mty": papalote_mty, "tonala": tonala, "cinemania": cinemania}
 # Cómo pide cada módulo: JSON de una API o HTML de una página (Veezi).
 _REQUESTS = ("request_json", "request_text")
 
@@ -66,12 +74,13 @@ REQUIRED = ("chain", "show_id", "cinema_id", "cinema_name", "lat", "lng", "city_
 # crudo y versión. La Cineteca no trae sala en la cartelera (llega en el plano) ni etiqueta de versión.
 REQUIRED_BY_CHAIN = {"cinemex": ("state_id", "screen", "language_raw", "version_raw"),
                      "cinepolis": ("screen", "language_raw", "version_raw"),
-                     "cineteca": (), "cineteca_gdl": (), "cineteca_mty": (), "wtc": ("screen",), "papalote_mty": (),
+                     "cineteca": (), "cineteca_gdl": (), "cineteca_mty": (), "wtc": ("screen",), "cinery": ("screen",), "epic": ("screen",),
+                     "raly": (), "cabanas": (), "papalote_mty": (),
                      "tonala": (), "cinemania": ()}
 # Columnas de `REQUIRED` que una cadena no siempre da: Veezi no trae código de una película sin póster ni clasificación
 # de todas, y la cartelera de la Cineteca NL no trae clasificación.
 OPTIONAL_BY_CHAIN = {"cineteca_gdl": ("movie_id", "rating"), "cineteca_mty": ("rating",), "papalote_mty": ("rating",),
-                     "tonala": ("rating",)}
+                     "tonala": ("rating",), "raly": ("rating",), "cabanas": ("rating",)}
 # Los campos de tiempo de una unidad cambian en cada corrida; no son parte del dato.
 _UNIT_VOLATILE = ("duration_s",)
 

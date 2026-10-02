@@ -7,7 +7,19 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from datetime import date  # noqa: E402
 
-from scraper import cinemania, cineteca_gdl, cineteca_mty, normalize, papalote_mty, states, tonala, wtc  # noqa: E402
+from scraper import (  # noqa: E402
+    cabanas,
+    cinemania,
+    cineteca_gdl,
+    cineteca_mty,
+    epic,
+    lumos,
+    normalize,
+    papalote_mty,
+    raly,
+    states,
+    tonala,
+)
 
 
 def _cinepolis_raw(cinemas, city_id=None):
@@ -116,11 +128,13 @@ def test_a_conarte_day_lists_each_film_with_its_times():
     assert cineteca_mty.parse_day('<div class="no-events"><h2>No hay películas en esta fecha.</h2></div>') == []
 
 
-def test_wtc_marks_the_language_with_a_suffix():
-    assert wtc.split_title("Digger SUB") == ("Digger", "subtitled")
-    assert wtc.split_title("Mary Y Max ESP") == ("Mary Y Max", "spanish")
-    assert wtc.split_title("Verity") == ("Verity", "other")
-    assert wtc.is_vip("Sala VIP 3") and not wtc.is_vip("Sala 9")
+def test_lumos_reads_the_language_from_the_title_or_the_attributes():
+    assert lumos.split_title("Digger SUB") == ("Digger", "subtitled")
+    assert lumos.split_title("Mary Y Max ESP") == ("Mary Y Max", "spanish")
+    assert lumos.split_title("Verity") == ("Verity", None)
+    assert lumos.attribute_language(["2D", "Doblada al español"]) == "spanish"
+    assert lumos.attribute_language(["2D"]) is None
+    assert lumos.is_vip("Sala VIP 3") and not lumos.is_vip("Sala 9")
 
 
 def test_a_fever_ticket_label_carries_title_and_language():
@@ -153,3 +167,34 @@ def test_a_cinemania_day_page_dates_its_tab():
     assert cinemania.tab_date("02 OCT.", date(2026, 10, 2)) == "2026-10-02"
     assert cinemania.tab_date("01 ENE.", date(2026, 12, 30)) == "2027-01-01"
     assert cinemania.tab_date("32 FOO", date(2026, 10, 2)) is None
+
+
+def test_raly_reads_its_hand_edited_schedule():
+    html = ('<blockquote><p><strong>DOBLADA<br /></strong><strong><span class="h-hora pm">DIGGER<br /></span>'
+            '<span class="h-hora pm">3:40 </span><span class="h-hora am">11:00</span></strong></p></blockquote>'
+            '<blockquote><p><strong>SUBTITULADA<br />VERITY<br /><span class="h-hora pm">10:20</span></strong></p></blockquote>')
+    assert raly.parse(html) == [{"label": "DOBLADA", "title": "DIGGER", "times": [("3:40", "pm"), ("11:00", "am")]},
+                                {"label": "SUBTITULADA", "title": "VERITY", "times": [("10:20", "pm")]}]
+    assert raly.hour("3:40", "pm") == "15:40" and raly.hour("12:15", "pm") == "12:15" and raly.hour("x", "pm") is None
+    # Del viernes al miércoles de la semana de cine; un jueves cubre la semana entera.
+    assert raly.dates(date(2026, 10, 2)) == ["2026-10-02", "2026-10-03", "2026-10-04", "2026-10-05", "2026-10-06", "2026-10-07"]
+    assert len(raly.dates(date(2026, 10, 8))) == 7 and raly.dates(date(2026, 10, 7)) == ["2026-10-07"]
+
+
+def test_cabanas_reads_dates_hour_and_price_from_its_text():
+    today = date(2026, 10, 2)
+    assert cabanas.shows("8, 9 Y 10 de octubre, 19 h. Entrada $65", today) == [
+        ("2026-10-08", "19:00"), ("2026-10-09", "19:00"), ("2026-10-10", "19:00")]
+    assert cabanas.shows("4 de septiembre, 16:30 h. y 2 de octubre, 17:30 h.", today) == [
+        ("2026-09-04", "16:30"), ("2026-10-02", "17:30")]
+    assert cabanas.shows("15 de enero, 19 h.", date(2026, 12, 20)) == [("2027-01-15", "19:00")]
+    assert cabanas.price_cents("Entrada $65") == 6500 and cabanas.price_cents("Entrada gratuita") == 0
+    assert cabanas.price_cents("Estreno") is None
+
+
+def test_epic_keeps_the_spanish_title_and_the_general_ticket():
+    assert epic.title("Heart of the Beast / El corazón de la bestia") == "El corazón de la bestia"
+    assert epic.title("Digger") == "Digger"
+    tickets = [{"Description": "MARTES 2X1", "PriceInCents": 11750}, {"Description": "GENERAL", "PriceInCents": 23500}]
+    assert json.loads(epic.fare(tickets))["general_cents"] == 23500
+    assert epic.fare([{"Description": "MARTES 2X1", "PriceInCents": 11750}]) is None
